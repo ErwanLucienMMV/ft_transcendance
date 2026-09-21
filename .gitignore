@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Angular build
+dist/
+.angular/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage
+coverage/
+
+# IDEs / editors
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Runtime data
+*.pid
+*.seed
+
+# Cache
+.npm/
+.eslintcache
+.stylelintcache
