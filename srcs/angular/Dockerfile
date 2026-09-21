@@ -40,6 +40,6 @@ COPY conf/nginx.conf /etc/nginx/nginx.conf
 
 COPY --from=builder /app/dist/42chess/browser /usr/share/nginx/html
 
-EXPOSE 443
+#EXPOSE 443
 
 CMD ["nginx", "-g", "daemon off;"]

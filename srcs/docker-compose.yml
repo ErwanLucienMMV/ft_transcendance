@@ -1,0 +1,15 @@
+services:
+
+    nginx:
+      container_name: nginx
+      build:
+        context: angular
+        dockerfile: Dockerfile
+      networks:
+      - transcendence
+      ports:
+      - "8080:443"
+      restart: on-failure
+
+networks:
+  transcendence:
