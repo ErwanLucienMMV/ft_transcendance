@@ -1,0 +1,41 @@
+services:
+
+    nginx:
+      container_name: nginx
+      build:
+        context: angular
+        dockerfile: Dockerfile
+      networks:
+      - transcendence
+      ports:
+      - "8080:443"
+      restart: on-failure
+    postgres:
+      container_name: postgres
+      build:
+        context: ./postgreSQL
+        dockerfile: Dockerfile
+      environment:
+        POSTGRES_DB: transcendence
+        POSTGRES_USER: transcendence
+        POSTGRES_PASSWORD: change_me
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+      ports:
+        - "5432:5432"
+      networks:
+        - transcendence
+    nestjs:
+      container_name: nestjs
+      build:
+        context: ./nestJS
+        dockerfile: Dockerfile
+      networks:
+        - transcendence
+      restart: on-failure
+
+volumes:
+  postgres_data:
+
+networks:
+  transcendence:
