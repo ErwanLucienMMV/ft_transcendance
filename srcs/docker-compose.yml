@@ -25,6 +25,14 @@ services:
         - "5432:5432"
       networks:
         - transcendence
+    nestjs:
+      container_name: nestjs
+      build:
+        context: ./nestJS
+        dockerfile: Dockerfile
+      networks:
+        - transcendence
+      restart: on-failure
 
 volumes:
   postgres_data:
