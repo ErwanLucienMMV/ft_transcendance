@@ -26,6 +26,11 @@ services:
         - "${DATABASE_PORT}:5432"
       networks:
         - transcendence
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U transcendence -d transcendence"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
 
     nestjs:
       container_name: nestjs
@@ -49,6 +54,14 @@ services:
       networks:
         - transcendence
       restart: on-failure
+      depends_on:
+        postgres:
+          condition: service_healthy
+      healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
 
 volumes:
   postgres_data:
