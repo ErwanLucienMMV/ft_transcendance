@@ -6,30 +6,46 @@ services:
         context: angular
         dockerfile: Dockerfile
       networks:
-      - transcendence
+        - transcendence
       ports:
-      - "8080:443"
+        - "${APPPORT}:443"
       restart: on-failure
+
     postgres:
       container_name: postgres
       build:
         context: ./postgreSQL
         dockerfile: Dockerfile
       environment:
-        POSTGRES_DB: transcendence
-        POSTGRES_USER: transcendence
-        POSTGRES_PASSWORD: change_me
+        POSTGRES_DB: ${DATABASE_NAME}
+        POSTGRES_USER: ${DATABASE_USER}
+        POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
       volumes:
         - postgres_data:/var/lib/postgresql/data
       ports:
-        - "5432:5432"
+        - "${DATABASE_PORT}:5432"
       networks:
         - transcendence
+
     nestjs:
       container_name: nestjs
       build:
         context: ./nestJS
         dockerfile: Dockerfile
+      environment:
+        APIPORT: ${APIPORT}
+        DATABASE_HOST: ${DATABASE_HOST}
+        DATABASE_PORT: ${DATABASE_PORT}
+        DATABASE_NAME: ${DATABASE_NAME}
+        DATABASE_USER: ${DATABASE_USER}
+        DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+        JWT_SECRET: ${JWT_SECRET}
+        GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+        GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+        GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
+        GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+        GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+        GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL}
       networks:
         - transcendence
       restart: on-failure
