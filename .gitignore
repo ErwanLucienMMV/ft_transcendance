@@ -37,6 +37,9 @@ Thumbs.db
 *.pid
 *.seed
 
+# Logs from docker compose
+compose.log
+
 # Cache
 .npm/
 .eslintcache

@@ -8,8 +8,14 @@ services:
       networks:
         - transcendence
       ports:
+        - "${HTTPPORT}:80"
         - "${APPPORT}:443"
       restart: on-failure
+      depends_on:
+        nestjs:
+          condition: service_healthy
+      environment:
+        APPPORT: ${APPPORT}
 
     postgres:
       container_name: postgres
