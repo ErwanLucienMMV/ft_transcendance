@@ -42,4 +42,13 @@ COPY --from=builder /app/dist/42chess/browser /usr/share/nginx/html
 
 #EXPOSE 443
 
-CMD ["nginx", "-g", "daemon off;"]
+#allow the redirection of http to https directly
+RUN apt install -y gettext-base && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY conf/start-nginx.sh /start-nginx.sh
+RUN chmod +x /start-nginx.sh
+
+#EXPOSE 443
+
+CMD ["/start-nginx.sh"]
