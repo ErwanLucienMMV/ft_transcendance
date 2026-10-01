@@ -8,6 +8,4 @@ RUN npm install
 
 COPY 42chess/ .
 
-EXPOSE 3000
-
 CMD ["npm", "run", "start:dev"]

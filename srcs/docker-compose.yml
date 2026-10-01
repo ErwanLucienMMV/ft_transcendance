@@ -38,6 +38,17 @@ services:
         timeout: 5s
         retries: 5
 
+    prometheus:
+      container_name: prometheus
+      build:
+        context: ./prometheus
+      ports:
+      - "9090:9090"
+      volumes:
+        - prometheus_data:/prometheus
+      networks:
+        - transcendence
+
     nestjs:
       container_name: nestjs
       build:
@@ -64,13 +75,14 @@ services:
         postgres:
           condition: service_healthy
       healthcheck:
-        test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+        test: ["CMD", "curl", "-f", "http://localhost:3000/v1/health"]
         interval: 5s
         timeout: 5s
         retries: 5
 
 volumes:
   postgres_data:
+  prometheus_data:
 
 networks:
   transcendence:

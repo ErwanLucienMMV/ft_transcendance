@@ -11,6 +11,8 @@ services:
       - angular_node_modules:/app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
+    networks:
+      - transcendence
     stdin_open: true
     tty: true
   nestjs:
@@ -25,7 +27,25 @@ services:
       - nestjs_node_modules:/app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
+    networks:
+      - transcendence
+  prometheus:
+    container_name: prometheus
+    build:
+      context: ./prometheus
+    ports:
+    - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+    networks:
+      - transcendence
 
 volumes:
   angular_node_modules:
   nestjs_node_modules:
+  prometheus_data:
+
+networks:
+
+  transcendence:
+    driver: bridge

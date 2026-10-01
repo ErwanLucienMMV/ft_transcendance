@@ -39,6 +39,7 @@ Thumbs.db
 
 # Logs from docker compose
 compose.log
+metrics.log
 
 # Cache
 .npm/
