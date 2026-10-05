@@ -1,8 +1,5 @@
 name: CI
 
--name: Creating ci environnement
-  run: cp srcs/.env.ci srcs/.env
-
 on:
   push:
     branches:
@@ -21,6 +18,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Creating ci environnement
+        run: cp srcs/.env.ci srcs/.env
 
       - name: Validate Docker Compose
         run: docker compose -f srcs/docker-compose.yml config
