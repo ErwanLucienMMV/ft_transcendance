@@ -5,11 +5,11 @@ on:
     branches:
       - main
       - dev_test
+      - workflow
   pull_request:
     branches:
       - main
-      - dev_ops
-      - workflow
+      - dev_test
 
 jobs:
   build:
