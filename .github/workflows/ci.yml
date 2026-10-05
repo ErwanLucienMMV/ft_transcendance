@@ -1,5 +1,8 @@
 name: CI
 
+-name: Creating ci environnement
+  run: cp srcs/.env.ci srcs/.env
+
 on:
   push:
     branches:
