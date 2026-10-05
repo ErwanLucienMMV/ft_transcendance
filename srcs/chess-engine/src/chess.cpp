@@ -149,3 +149,140 @@ bool BoardState::inCheck(ChessColor color) const {
         return attacked(Square(i % 8, i / 8), opposite(color));
     throw std::logic_error("Missing king");
 }
+std::vector<Move> BoardState::pseudoMoves() const {
+    std::vector<Move> moves;
+    auto add = [&](Square from, Square to, bool pawn) {
+        auto target = at(to);
+        if (target && (target->color == turn || target->type == PieceType::King)) return;
+        if (pawn && (to.rank() == 0 || to.rank() == 7)) {
+            for (auto p : {PieceType::Queen, PieceType::Rook, PieceType::Bishop, PieceType::Knight}) moves.push_back({from, to, p});
+        } else moves.push_back({from, to, std::nullopt});
+    };
+    for (int i = 0; i < 64; ++i) {
+        auto p = squares[i]; if (!p || p->color != turn) continue;
+        Square from(i % 8, i / 8); int f = from.file(), r = from.rank();
+        if (p->type == PieceType::Pawn) {
+            int d = turn == ChessColor::White ? 1 : -1;
+            if (inside(f, r + d) && !at(Square(f, r + d))) {
+                add(from, Square(f, r + d), true);
+                if (r == (turn == ChessColor::White ? 1 : 6) && !at(Square(f, r + 2 * d))) add(from, Square(f, r + 2 * d), true);
+            }
+            for (int df : {-1, 1}) if (inside(f + df, r + d)) {
+                Square to(f + df, r + d); auto target = at(to);
+                bool ep = false;
+                if (enPassant && to == *enPassant && !target) {
+                    auto victim = at(Square(f + df, r));
+                    ep = victim && victim->color != turn && victim->type == PieceType::Pawn;
+                }
+                if ((target && target->color != turn) || ep) add(from, to, true);
+            }
+        } else if (p->type == PieceType::Knight) {
+            for (int df : {-2, -1, 1, 2}) for (int dr : {-2, -1, 1, 2})
+                if (std::abs(df * dr) == 2 && inside(f + df, r + dr)) add(from, Square(f + df, r + dr), false);
+        } else {
+            for (int df = -1; df <= 1; ++df) for (int dr = -1; dr <= 1; ++dr) {
+                if (!df && !dr) continue;
+                if (p->type == PieceType::Bishop && (!df || !dr)) continue;
+                if (p->type == PieceType::Rook && df && dr) continue;
+                for (int n = 1; n <= (p->type == PieceType::King ? 1 : 7); ++n) {
+                    int tf = f + n * df, tr = r + n * dr; if (!inside(tf, tr)) break;
+                    Square to(tf, tr); add(from, to, false); if (at(to)) break;
+                }
+            }
+            int home = turn == ChessColor::White ? 0 : 7;
+            if (p->type == PieceType::King && f == 4 && r == home && !inCheck(turn)) {
+                for (bool kingSide : {true, false}) {
+                    unsigned bit = 1u << ((turn == ChessColor::White ? 0 : 2) + (kingSide ? 0 : 1));
+                    if (!(castling & bit)) continue;
+                    auto rook = at(Square(kingSide ? 7 : 0, home));
+                    if (!rook || rook->color != turn || rook->type != PieceType::Rook) continue;
+                    bool clear = true;
+                    for (int x = kingSide ? 5 : 1; x <= (kingSide ? 6 : 3); ++x) if (at(Square(x, home))) clear = false;
+                    // Remove king from e-file when checking the traversed square.
+                    BoardState transit = *this;
+                    transit.squares[from.index()].reset();
+                    int through = kingSide ? 5 : 3;
+                    if (clear && !transit.attacked(Square(through, home), opposite(turn))) add(from, Square(kingSide ? 6 : 2, home), false);
+                }
+            }
+        }
+    }
+    return moves;
+}
+BoardState BoardState::applyUnchecked(const Move& move) const {
+    BoardState b = *this;
+    Piece piece = *at(move.from);
+    bool capture = at(move.to).has_value();
+    b.squares[move.from.index()].reset();
+    if (piece.type == PieceType::Pawn && enPassant && move.to == *enPassant && !at(move.to) && move.from.file() != move.to.file()) {
+        b.squares[Square(move.to.file(), move.from.rank()).index()].reset(); capture = true;
+    }
+    b.squares[move.to.index()] = Piece{move.promotion.value_or(piece.type), piece.color};
+    if (piece.type == PieceType::King) {
+        b.castling &= turn == ChessColor::White ? ~3u : ~12u;
+        if (std::abs(move.to.file() - move.from.file()) == 2) {
+            bool ks = move.to.file() == 6;
+            Square rookFrom(ks ? 7 : 0, move.from.rank()), rookTo(ks ? 5 : 3, move.from.rank());
+            b.squares[rookTo.index()] = b.at(rookFrom); b.squares[rookFrom.index()].reset();
+        }
+    }
+    for (int i = 0; i < 4; ++i) {
+        Square corner(i % 2 == 0 ? 7 : 0, i < 2 ? 0 : 7);
+        if (move.from == corner || move.to == corner) b.castling &= ~(1u << i);
+    }
+    b.enPassant.reset();
+    if (piece.type == PieceType::Pawn && std::abs(move.to.rank() - move.from.rank()) == 2)
+        b.enPassant = Square(move.from.file(), (move.from.rank() + move.to.rank()) / 2);
+    // Saturate imported counters rather than overflowing on untrusted FEN input.
+    b.halfmoveClock = (piece.type == PieceType::Pawn || capture) ? 0 : halfmoveClock + (halfmoveClock < std::numeric_limits<std::uint64_t>::max());
+    if (turn == ChessColor::Black && b.fullmoveNumber < std::numeric_limits<std::uint64_t>::max()) ++b.fullmoveNumber;
+    b.turn = opposite(turn);
+    return b;
+}
+std::vector<Move> BoardState::legalMoves() const {
+    std::vector<Move> result;
+    for (const auto& m : pseudoMoves()) if (!applyUnchecked(m).inCheck(turn)) result.push_back(m);
+    return result;
+}
+bool BoardState::isLegal(const Move& move) const {
+    auto moves = legalMoves(); return std::find(moves.begin(), moves.end(), move) != moves.end();
+}
+BoardState BoardState::play(const Move& move) const {
+    if (!isLegal(move)) throw std::invalid_argument("Illegal move: " + move.uci());
+    return applyUnchecked(move);
+}
+bool BoardState::checkmate() const { return inCheck(turn) && legalMoves().empty(); }
+bool BoardState::stalemate() const { return !inCheck(turn) && legalMoves().empty(); }
+bool BoardState::insufficientMaterial() const {
+    int minors = 0, knights = 0, bishopColor = -1;
+    bool sameBishopColor = true;
+    for (int i = 0; i < 64; ++i) if (squares[i]) {
+        auto type = squares[i]->type;
+        if (type == PieceType::King) continue;
+        if (type == PieceType::Pawn || type == PieceType::Rook || type == PieceType::Queen) return false;
+        ++minors;
+        if (type == PieceType::Knight) ++knights;
+        else {
+            int color = (i % 8 + i / 8) % 2;
+            if (bishopColor != -1 && color != bishopColor) sameBishopColor = false;
+            bishopColor = color;
+        }
+    }
+    // K v K, K+one minor v K, or bishops exclusively on the same square color.
+    // Two knights are NOT dead material: cooperative mating positions exist.
+    return minors <= 1 || (knights == 0 && sameBishopColor);
+}
+std::string BoardState::repetitionKey() const {
+    BoardState normalized = *this;
+    if (enPassant) {
+        bool legalCapture = false;
+        for (const auto& m : legalMoves()) if (m.to == *enPassant && at(m.from)->type == PieceType::Pawn && m.from.file() != m.to.file()) legalCapture = true;
+        if (!legalCapture) normalized.enPassant.reset();
+    }
+    std::string value = normalized.fen();
+    return value.substr(0, value.rfind(' ', value.rfind(' ') - 1));
+}
+Game::Game(BoardState initial) : board_(std::move(initial)), history_{board_.repetitionKey()} {}
+void Game::play(const Move& move) { board_ = board_.play(move); history_.push_back(board_.repetitionKey()); }
+unsigned Game::repetitionCount() const { return static_cast<unsigned>(std::count(history_.begin(), history_.end(), history_.back())); }
+} // namespace chess
