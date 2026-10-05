@@ -1,5 +1,16 @@
 services:
 
+    chess-engine:
+      build:
+        context: ./chess-engine
+        dockerfile: Dockerfile
+      init: true
+      restart: unless-stopped
+      expose:
+        - "8081"
+      networks:
+        - transcendence
+
     nginx:
       container_name: nginx
       build:
@@ -55,6 +66,7 @@ services:
         context: ./nestJS
         dockerfile: Dockerfile
       environment:
+        CHESS_ENGINE_URL: ws://chess-engine:8081
         APIPORT: ${APIPORT}
         DATABASE_HOST: ${DATABASE_HOST}
         DATABASE_PORT: ${DATABASE_PORT}
