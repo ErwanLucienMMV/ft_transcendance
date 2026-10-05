@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - dev_ops
+      - workflows
 
 jobs:
   build:
@@ -49,6 +50,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Create CI environment
+        run: cp srcs/.env.ci srcs/.env
 
       - name: Start services
         run: docker compose -f srcs/docker-compose.yml up -d
