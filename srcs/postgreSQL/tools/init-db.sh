@@ -5,6 +5,10 @@ set -e
 PGDATA="/var/lib/postgresql/data"
 PG_BIN="/usr/lib/postgresql/15/bin"
 
+mkdir -p /var/run/postgresql
+chown postgres:postgres /var/run/postgresql
+chmod 775 /var/run/postgresql
+
 mkdir -p "$PGDATA"
 chown -R postgres:postgres "$PGDATA"
 
