@@ -86,6 +86,9 @@ services:
         dockerfile: Dockerfile
       container_name: grafana
       restart: unless-stopped
+      environment:
+        GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+        GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
       ports:
         - "3001:3000"
       volumes:
