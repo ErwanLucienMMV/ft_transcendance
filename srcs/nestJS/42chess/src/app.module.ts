@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { ChessEngineService } from './chess/chess-engine.service.js';
 import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 import { MetricsController } from './metrics/metrics.controller.js';
 
@@ -19,6 +20,6 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
 	PrometheusModule.register(),
   ],
   controllers: [AppController, MetricsController],
-  providers: [AppService],
+  providers: [AppService, ChessEngineService],
 })
 export class AppModule {}
