@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - dev_test
+      - dev_ops
   pull_request:
     branches:
       - main
@@ -18,9 +18,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Creating ci environnement
-        run: cp srcs/.env.ci srcs/.env
 
       - name: Validate Docker Compose
         run: docker compose -f srcs/docker-compose.yml config
