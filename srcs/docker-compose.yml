@@ -37,6 +37,8 @@ services:
         POSTGRES_DB: ${DATABASE_NAME}
         POSTGRES_USER: ${DATABASE_USER}
         POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+        POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER}
+        POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
       volumes:
         - postgres_data:/var/lib/postgresql/data
       ports:
@@ -115,3 +117,4 @@ volumes:
 
 networks:
   transcendence:
+    name: transcendence
