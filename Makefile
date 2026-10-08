@@ -18,6 +18,32 @@ dev:
 down:
 	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) down
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down
+	docker compose -f ./backup/docker-compose.yml down
+
+# rules for the backup, use AFTER the main stack is started
+backup:
+	@echo "Starting the backup"
+	@docker compose -f backup/docker-compose.yml up -d --build
+	@echo "The backup container is online, please see the crontab file for the period between two backup"
+
+backup-down:
+	@echo "Backup container will be down, if you crash the prod rn just know that anything that happened after that cannot be saved, it's between you and god now"
+	@docker compose -f backup/docker-compose.yml down
+	@echo "Backup container is now successfully down, may the force be with you"
+
+backup-logs:
+	@docker compose -f backup/docker-compose.yml logs -f
+
+full: all
+	@echo "Main stack is ready, starting the independent backup service"
+	@docker compose -f backup/docker-compose.yml up --build -d
+	@echo "All set, feel free to test it"
+
+stop-app:
+	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) stop chess-engine nginx prometheus nestjs grafana
+
+start-app:
+	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) start chess-engine nginx prometheus nestjs grafana
 
 re: clean
 	$(MAKE)
@@ -25,5 +51,6 @@ re: clean
 clean:
 	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) down -v
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down -v
+	docker compose -f ./backup/docker-compose.yml down -v
 
-.PHONY: all dev re clean
+.PHONY: all loud dev down backup backup-down backup-logs full re clean
