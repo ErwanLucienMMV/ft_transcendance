@@ -1,0 +1,19 @@
+<header class="navbar">
+  <a class="brand" routerLink="/" aria-label="42 Chess home">
+    <span class="brand-knight" aria-hidden="true">♞</span>
+    <span class="brand-name">42 CHESS</span>
+  </a>
+
+  <nav class="navbar-links" aria-label="Main navigation">
+    <a routerLink="/play" routerLinkActive="active">PLAY</a>
+    <a routerLink="/puzzles" routerLinkActive="active">PUZZLES</a>
+    <a routerLink="/leaderboard" routerLinkActive="active">
+      LEADERBOARD
+    </a>
+  </nav>
+
+  <a class="user-profile" routerLink="/profile" aria-label="User profile">
+    <span class="user-avatar">{{ avatarInitial }}</span>
+    <span class="user-name">{{ displayName }}</span>
+  </a>
+</header>

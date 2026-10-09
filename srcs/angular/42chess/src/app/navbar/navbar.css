@@ -1,0 +1,137 @@
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+.navbar {
+  box-sizing: border-box;
+  min-height: 78px;
+  padding: 0 32px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+
+  background-color: #0e1112;
+  border-bottom: 1px solid #303636;
+  color: #edf0e8;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.brand-knight {
+  color: #c4eb5c;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.brand-name {
+  color: #edf0e8;
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+}
+
+.navbar-links a {
+  color: #8c9694;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 150ms ease;
+}
+
+.navbar-links a:hover,
+.navbar-links a.active {
+  color: #c4eb5c;
+}
+
+.user-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+
+  background-color: #c4eb5c;
+  color: #0e1112;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.user-name {
+  color: #edf0e8;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .navbar {
+    min-height: 70px;
+    padding: 0 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    gap: 8px;
+  }
+
+  .brand-name {
+    font-size: 14px;
+  }
+
+  .brand-knight {
+    font-size: 27px;
+  }
+
+  .navbar-links {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 14px;
+  }
+
+  .navbar-links a {
+    font-size: 10px;
+  }
+
+  .user-profile {
+    gap: 7px;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+}
