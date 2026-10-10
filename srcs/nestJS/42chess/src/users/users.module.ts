@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './user.entity.js';
 
 /**
  * User profiles: current user (`/users/me`), public profiles and search.
@@ -8,5 +10,7 @@ import { Module } from '@nestjs/common';
  *
  * Routes: `/users/*` (see spec §4).
  */
-@Module({})
+@Module({
+  imports: [TypeOrmModule.forFeature([User])],
+})
 export class UsersModule {}
