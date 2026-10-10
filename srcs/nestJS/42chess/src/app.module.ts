@@ -17,11 +17,16 @@ import { ChatModule } from './chat/chat.module.js';
 import { RatingModule } from './rating/rating.module.js';
 import { PuzzlesModule } from './puzzles/puzzles.module.js';
 import { BotsModule } from './bots/bots.module.js';
+import { ConfigModule } from '@nestjs/config';
+import { configurationOptions } from './config/environment.js';
+import { DatabaseModule } from './database/database.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
   imports: [
+    ConfigModule.forRoot(configurationOptions),
+    DatabaseModule,
     ConfigModule.forRoot(configurationOptions),
     DatabaseModule,
     ObserveModule.forRoot({
