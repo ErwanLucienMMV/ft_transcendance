@@ -48,7 +48,10 @@ export class UsersService {
   }
 }
 
-// PostgreSQL reports the column in `detail`: "Key (email)=(...) already exists."
+// PostgreSQL names the indexed key in `detail`, either a column or an
+// expression: "Key (email)=(...)" or "Key (lower(username::text))=(...)".
+const DUPLICATE_KEY = /^Key \((.+?)\)=\(/;
+
 function duplicateField(error: unknown): UniqueUserField | null {
   if (!(error instanceof QueryFailedError)) {
     return null;
@@ -60,10 +63,11 @@ function duplicateField(error: unknown): UniqueUserField | null {
   if (code !== UNIQUE_VIOLATION || typeof detail !== 'string') {
     return null;
   }
-  if (detail.startsWith('Key (username)=')) {
+  const key = DUPLICATE_KEY.exec(detail)?.[1] ?? '';
+  if (/\busername\b/.test(key)) {
     return 'username';
   }
-  if (detail.startsWith('Key (email)=')) {
+  if (/\bemail\b/.test(key)) {
     return 'email';
   }
   return null;
