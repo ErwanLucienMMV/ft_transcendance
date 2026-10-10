@@ -1,0 +1,7 @@
+# Host build artifacts must never enter an image: they are platform-specific
+# and would overwrite the dependencies installed by `npm ci` in the Dockerfile.
+42chess/node_modules
+42chess/dist
+42chess/coverage
+42chess/*.tsbuildinfo
+42chess/.env

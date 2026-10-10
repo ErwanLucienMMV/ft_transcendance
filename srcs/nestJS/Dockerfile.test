@@ -1,0 +1,15 @@
+FROM node:22
+
+WORKDIR /app
+
+# Dependencies are installed inside the image, never copied from the host,
+# so native modules (argon2, ...) always match the container platform.
+COPY 42chess/package*.json ./
+
+RUN npm ci
+
+COPY 42chess/ ./
+
+# Unit, PostgreSQL and HTTP suites. Needs the postgres-test service from
+# 42chess/test/docker-compose.yml (run it with `make test` from the repo root).
+CMD ["npm", "run", "test:all"]

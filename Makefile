@@ -1,6 +1,7 @@
 COMPOSE_DIR	= srcs
 COMPOSE_FILE	= docker-compose.yml
 DEV_COMPOSE	= docker-compose.dev.yml
+TEST_COMPOSE	= $(COMPOSE_DIR)/nestJS/42chess/test/docker-compose.yml
 
 all:
 	@echo "Starting the building of images, be patient this can take a loooong time"
@@ -45,6 +46,14 @@ stop-app:
 start-app:
 	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) start chess-engine nginx prometheus nestjs grafana
 
+# Runs every backend test suite in Docker (Node 22 + PostgreSQL 15), so only
+# Docker is needed on the host. Always removes the test containers afterwards.
+test:
+	@docker compose -f $(TEST_COMPOSE) run --rm --build tests; \
+	status=$$?; \
+	docker compose -f $(TEST_COMPOSE) down; \
+	exit $$status
+
 re: clean
 	$(MAKE)
 
@@ -53,4 +62,4 @@ clean:
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down -v
 	docker compose -f ./backup/docker-compose.yml down -v
 
-.PHONY: all loud dev down backup backup-down backup-logs full re clean
+.PHONY: all loud dev down backup backup-down backup-logs full test re clean
