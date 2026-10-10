@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -18,6 +19,9 @@ export const INITIAL_ELO = 1200;
 // UsernameCaseInsensitiveUnique migration: TypeORM cannot describe an
 // expression index, so it must not try to synchronize it.
 @Index('UQ_users_username_lower', { synchronize: false })
+// Registration lowercases emails; this makes the database enforce it for
+// every other path too (OAuth, scripts), so uniqueness cannot be bypassed.
+@Check('CHK_users_email_lowercase', `"email" = LOWER("email")`)
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
