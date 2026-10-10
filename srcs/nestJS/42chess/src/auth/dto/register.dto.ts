@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import { IsEmail, IsString, Length, Matches, MaxLength } from 'class-validator';
 import { IsNotReservedUsername } from '../../users/username.rules.js';
+import { IsNotDisposableEmail } from '../../users/email.rules.js';
 
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 32;
@@ -26,8 +27,16 @@ export class RegisterDto {
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
-  @IsEmail()
+  // Options are spelled out on purpose: they are the accepted format.
+  // ASCII-only local part, because many mail servers reject accented ones.
+  @IsEmail({
+    allow_display_name: false,
+    allow_utf8_local_part: false,
+    allow_ip_domain: false,
+    require_tld: true,
+  })
   @MaxLength(EMAIL_MAX_LENGTH)
+  @IsNotDisposableEmail()
   email: string;
 
   @IsString()

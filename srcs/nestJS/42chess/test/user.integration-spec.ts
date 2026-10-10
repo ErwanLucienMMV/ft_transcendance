@@ -98,6 +98,15 @@ describe('User entity and CreateUsers migration', () => {
     ).resolves.toBeDefined();
   });
 
+  it('refuses to store an email that is not lowercase', async () => {
+    const error: unknown = await users
+      .save(users.create({ username: 'grace', email: 'Grace@test.dev' }))
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QueryFailedError);
+    expect((error as QueryFailedError & { code: string }).code).toBe('23514');
+  });
+
   it('never selects passwordHash unless explicitly requested', async () => {
     const { id } = await users.save(
       users.create({ username: 'dave', passwordHash: 'hash' }),

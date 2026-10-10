@@ -51,6 +51,12 @@ describe('RegisterDto', () => {
   it.each([
     ['not an email', 'alice'],
     ['too long', `${'a'.repeat(250)}@x.io`],
+    ['with a display name', 'Alice <alice@example.com>'],
+    ['without a top-level domain', 'alice@localhost'],
+    ['with an IP address as domain', 'alice@[127.0.0.1]'],
+    ['with a local part over 64 characters', `${'a'.repeat(65)}@example.com`],
+    ['with accents in the local part', 'élodie@example.com'],
+    ['from a disposable provider', 'alice@yopmail.com'],
   ])('rejects an email %s', async (_case, email) => {
     await expect(invalidFields({ ...VALID, email })).resolves.toEqual([
       'email',

@@ -92,6 +92,14 @@ describe('POST /v1/auth/register (e2e)', () => {
     expect(response.body.code).toBe('VALIDATION_ERROR');
   });
 
+  it('rejects a disposable email with 400', async () => {
+    const response = await register(
+      body({ username: `temp_${suffix}`, email: `temp_${suffix}@yopmail.com` }),
+    ).expect(400);
+
+    expect(response.body.code).toBe('VALIDATION_ERROR');
+  });
+
   it('rejects a taken email, whatever its case, with 409', async () => {
     const response = await register(
       body({
