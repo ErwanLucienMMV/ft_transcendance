@@ -1,6 +1,7 @@
 import { ValidateBy } from 'class-validator';
 import type { ValidationOptions } from 'class-validator';
 import { disposableEmailBlocklistSet } from 'disposable-email-domains-js';
+import { Transform } from 'class-transformer';
 
 // Built once: the library rebuilds its Set of ~5000 domains on every call.
 const DISPOSABLE_DOMAINS: ReadonlySet<string> = disposableEmailBlocklistSet();
@@ -35,5 +36,14 @@ export function IsNotDisposableEmail(
       },
     },
     options,
+  );
+}
+/**
+ * Trims and lowercases an email before validation, so "Alice@X.io" and
+ * "alice@x.io" are the same account (the database enforces lowercase too).
+ */
+export function NormalizeEmail(): PropertyDecorator {
+  return Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
   );
 }

@@ -57,6 +57,25 @@ export class User {
   @Column({ type: 'timestamptz', nullable: true })
   lastSeenAt: Date | null;
 
+  // Null until the owner clicks the link sent by email. Accounts created
+  // through OAuth are verified straight away.
+  @Column({ type: 'timestamptz', nullable: true })
+  emailVerifiedAt: Date | null;
+
+  // SHA-256 of the pending verification token, never the token itself.
+  @Column({
+    type: 'varchar',
+    length: 64,
+    unique: true,
+    nullable: true,
+    select: false,
+  })
+  emailVerificationTokenHash: string | null;
+
+  // An unverified account is deleted once this date has passed.
+  @Column({ type: 'timestamptz', nullable: true })
+  emailVerificationExpiresAt: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

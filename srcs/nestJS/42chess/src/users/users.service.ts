@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { IsNull, LessThan, QueryFailedError, Repository } from 'typeorm';
 import { User } from './user.entity.js';
 
 const UNIQUE_VIOLATION = '23505';
@@ -11,6 +11,9 @@ export interface CreateUserInput {
   username: string;
   email: string | null;
   passwordHash: string | null;
+  emailVerifiedAt?: Date | null;
+  emailVerificationTokenHash?: string | null;
+  emailVerificationExpiresAt?: Date | null;
 }
 
 /** Thrown when a username or email is already used by another account. */
@@ -45,6 +48,46 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  /** Accounts whose email was not verified in time give their names back. */
+  async deleteExpiredUnverified(now: Date = new Date()): Promise<void> {
+    await this.users.delete({
+      emailVerifiedAt: IsNull(),
+      emailVerificationExpiresAt: LessThan(now),
+    });
+  }
+
+  findByVerificationTokenHash(tokenHash: string): Promise<User | null> {
+    return this.users.findOneBy({ emailVerificationTokenHash: tokenHash });
+  }
+
+  findUnverifiedByEmail(email: string): Promise<User | null> {
+    return this.users.findOneBy({ email, emailVerifiedAt: IsNull() });
+  }
+
+  async setVerificationToken(
+    id: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.users.update(id, {
+      emailVerificationTokenHash: tokenHash,
+      emailVerificationExpiresAt: expiresAt,
+    });
+  }
+
+  /** Marks the email verified and burns the token (single use). */
+  async markEmailVerified(id: string, at: Date = new Date()): Promise<void> {
+    await this.users.update(id, {
+      emailVerifiedAt: at,
+      emailVerificationTokenHash: null,
+      emailVerificationExpiresAt: null,
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.users.delete(id);
   }
 }
 

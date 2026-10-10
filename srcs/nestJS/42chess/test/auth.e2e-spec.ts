@@ -6,11 +6,28 @@ import type { App } from 'supertest/types.js';
 import { DataSource } from 'typeorm';
 // Exercise the compiled application, including TypeScript decorator metadata.
 import { AppModule } from './../dist/app.module.js';
+import { MailClient } from './../dist/mail/mail.client.js';
+import { MailUnavailableError } from './../dist/mail/mail.client.js';
 
-describe('POST /v1/auth/register (e2e)', () => {
+/** Stands in for forgemail: keeps the last token sent to each address. */
+class FakeMailClient {
+  readonly tokens = new Map<string, string>();
+  failing = false;
+
+  sendEmailVerification(to: string, _username: string, token: string) {
+    if (this.failing) {
+      return Promise.reject(new MailUnavailableError());
+    }
+    this.tokens.set(to, token);
+    return Promise.resolve();
+  }
+}
+
+describe('/v1/auth (e2e)', () => {
   let app: INestApplication<App>;
   let database: DataSource;
   let appliedMigrations = 0;
+  const mail = new FakeMailClient();
   const suffix = randomUUID().slice(0, 8);
 
   function body(overrides: Record<string, unknown> = {}) {
@@ -26,10 +43,39 @@ describe('POST /v1/auth/register (e2e)', () => {
     return request(app.getHttpServer()).post('/v1/auth/register').send(payload);
   }
 
+  function verify(token: string) {
+    return request(app.getHttpServer())
+      .post('/v1/auth/verify-email')
+      .send({ token });
+  }
+
+  function resend(email: string) {
+    return request(app.getHttpServer())
+      .post('/v1/auth/resend-verification')
+      .send({ email });
+  }
+
+  async function verificationState(username: string) {
+    const [row] = await database.query(
+      `SELECT "emailVerifiedAt", "emailVerificationTokenHash"
+         FROM users WHERE username = $1`,
+      [username],
+    );
+    return row as
+      | {
+          emailVerifiedAt: Date | null;
+          emailVerificationTokenHash: string | null;
+        }
+      | undefined;
+  }
+
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(MailClient)
+      .useValue(mail)
+      .compile();
     app = moduleRef.createNestApplication();
     await app.init();
     database = app.get(DataSource);
@@ -122,5 +168,90 @@ describe('POST /v1/auth/register (e2e)', () => {
 
   it('refuses fields the client must not set, such as elo', async () => {
     await register(body({ username: `eve_${suffix}`, elo: 3000 })).expect(400);
+  });
+
+  describe('email verification', () => {
+    const name = `vera_${suffix}`;
+    const email = `vera_${suffix}@example.com`;
+
+    it('emails a token at registration and keeps the account unverified', async () => {
+      await register(body({ username: name, email })).expect(201);
+
+      expect(mail.tokens.get(email)).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect((await verificationState(name))?.emailVerifiedAt).toBeNull();
+    });
+
+    it('verifies the account with the emailed token, only once', async () => {
+      const token = mail.tokens.get(email) as string;
+
+      const response = await verify(token).expect(200);
+
+      expect(response.body.user.username).toBe(name);
+      const state = await verificationState(name);
+      expect(state?.emailVerifiedAt).toBeInstanceOf(Date);
+      expect(state?.emailVerificationTokenHash).toBeNull();
+      const reuse = await verify(token).expect(400);
+      expect(reuse.body.code).toBe('INVALID_VERIFICATION_TOKEN');
+    });
+
+    it('does not resend anything for a verified account, but still answers 202', async () => {
+      mail.tokens.delete(email);
+
+      await resend(email).expect(202);
+
+      expect(mail.tokens.has(email)).toBe(false);
+    });
+
+    it('deletes an account whose token expired and frees its name', async () => {
+      const late = `late_${suffix}`;
+      const lateEmail = `late_${suffix}@example.com`;
+      await register(body({ username: late, email: lateEmail })).expect(201);
+      await database.query(
+        `UPDATE users SET "emailVerificationExpiresAt" = now() - interval '1 minute'
+          WHERE username = $1`,
+        [late],
+      );
+
+      const response = await verify(mail.tokens.get(lateEmail) as string);
+
+      expect(response.status).toBe(400);
+      expect(await verificationState(late)).toBeUndefined();
+      await register(body({ username: late, email: lateEmail })).expect(201);
+    });
+
+    it('sends a new working token on resend', async () => {
+      const again = `again_${suffix}`;
+      const againEmail = `again_${suffix}@example.com`;
+      await register(body({ username: again, email: againEmail })).expect(201);
+      const first = mail.tokens.get(againEmail) as string;
+
+      await resend(againEmail.toUpperCase()).expect(202);
+
+      const second = mail.tokens.get(againEmail) as string;
+      expect(second).not.toBe(first);
+      await verify(first).expect(400);
+      await verify(second).expect(200);
+    });
+
+    it('creates no account when the email cannot be sent', async () => {
+      const lost = `lost_${suffix}`;
+      mail.failing = true;
+      try {
+        const response = await register(
+          body({ username: lost, email: `lost_${suffix}@example.com` }),
+        ).expect(503);
+
+        expect(response.body.code).toBe('EMAIL_SERVICE_UNAVAILABLE');
+        expect(await verificationState(lost)).toBeUndefined();
+      } finally {
+        mail.failing = false;
+      }
+    });
+
+    it('rejects a malformed token with 400', async () => {
+      const response = await verify('not-a-token').expect(400);
+
+      expect(response.body.code).toBe('VALIDATION_ERROR');
+    });
   });
 });
