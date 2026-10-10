@@ -69,6 +69,7 @@ services:
         dockerfile: Dockerfile
       environment:
         CHESS_ENGINE_URL: ws://chess-engine:8081
+        MAIL_SERVICE_URL: http://forgemail:3002
         APIPORT: ${APIPORT}
         DATABASE_HOST: ${DATABASE_HOST}
         DATABASE_PORT: ${DATABASE_PORT}
@@ -90,6 +91,28 @@ services:
           condition: service_healthy
       healthcheck:
         test: ["CMD", "curl", "-f", "http://localhost:3000/v1/health"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+    # Sends emails for the API. No published port: only reachable from the
+    # transcendence network. Without SMTP credentials it logs mails instead.
+    forgemail:
+      container_name: forgemail
+      build:
+        context: ./forgemail
+      environment:
+        PUBLIC_URL: ${PUBLIC_URL}
+        SMTP_HOST: ${SMTP_HOST}
+        SMTP_PORT: ${SMTP_PORT}
+        SMTP_USER: ${SMTP_USER}
+        SMTP_PASSWORD: ${SMTP_PASSWORD}
+        MAIL_FROM: ${MAIL_FROM}
+      networks:
+        - transcendence
+      restart: on-failure
+      healthcheck:
+        test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
         interval: 5s
         timeout: 5s
         retries: 5
