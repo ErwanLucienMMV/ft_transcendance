@@ -1,13 +1,22 @@
 #!/bin/bash
-
-set -e
+set -euo pipefail
+umask 077
 
 DATE=$(date +"%Y-%m-%d_%H-%M-%S")
 BACKUP="/backups/transcendence_${DATE}.sql.gz"
 
 echo "Starting PostgreSQL backup... Please do not down this container during this action"
 
-pg_dump | gzip > "$BACKUP"
+TEMP=$(mktemp "${BACKUP}.XXXXXX.partial")
+
+# Supprime le fichier incomplet si le script échoue.
+trap 'rm -f -- "$TEMP"' EXIT
+
+pg_dump --no-password | gzip > "$TEMP"
+gzip -t "$TEMP"
+
+# Le fichier devient une sauvegarde disponible après réussite.
+mv -- "$TEMP" "$BACKUP"
 
 echo "Backup created: $BACKUP"
 
