@@ -4,6 +4,15 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 import { MetricsController } from './metrics/metrics.controller.js';
+import { AuthModule } from './auth/auth.module.js';
+import { UsersModule } from './users/users.module.js';
+import { FriendsModule } from './friends/friends.module.js';
+import { GamesModule } from './games/games.module.js';
+import { MatchmakingModule } from './matchmaking/matchmaking.module.js';
+import { ChatModule } from './chat/chat.module.js';
+import { RatingModule } from './rating/rating.module.js';
+import { PuzzlesModule } from './puzzles/puzzles.module.js';
+import { BotsModule } from './bots/bots.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -16,7 +25,17 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       appSecret: 'YOUR_APP_SECRET',
       serviceId: '42chess',
     }),
-	PrometheusModule.register(),
+    PrometheusModule.register(),
+    // Domain modules (one per feature). Keep in sync with app.module.spec.ts.
+    AuthModule,
+    UsersModule,
+    FriendsModule,
+    GamesModule,
+    MatchmakingModule,
+    ChatModule,
+    RatingModule,
+    PuzzlesModule,
+    BotsModule,
   ],
   controllers: [AppController, MetricsController],
   providers: [AppService],
