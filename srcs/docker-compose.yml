@@ -37,6 +37,8 @@ services:
         POSTGRES_DB: ${DATABASE_NAME}
         POSTGRES_USER: ${DATABASE_USER}
         POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+        POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER}
+        POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
       volumes:
         - postgres_data:/var/lib/postgresql/data
       ports:
@@ -101,8 +103,10 @@ services:
       environment:
         GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
         GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
-      ports:
-        - "3001:3000"
+        GF_SERVER_ROOT_URL: https://localhost:${APPPORT}/grafana/
+        GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      expose:
+        - "3000"
       volumes:
         - grafana_data:/var/lib/grafana
       networks:
@@ -115,3 +119,4 @@ volumes:
 
 networks:
   transcendence:
+    name: transcendence

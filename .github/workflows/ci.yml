@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev_test
+      - workflow
+  pull_request:
+    branches:
+      - main
+      - dev_test
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Creating ci environnement
+        run: cp srcs/.env.ci srcs/.env
+
+      - name: Validate Docker Compose
+        run: docker compose -f srcs/docker-compose.yml config
+
+      - name: Build Docker images
+        run: docker compose -f srcs/docker-compose.yml build
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Backend unit, PostgreSQL and HTTP tests, run inside Docker.
+      - name: Backend tests
+        run: make test
+
+  docker:
+    name: Docker startup
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create CI environment
+        run: cp srcs/.env.ci srcs/.env
+
+      - name: Start services
+        run: docker compose -f srcs/docker-compose.yml up -d
+
+      - name: Show service status
+        run: docker compose -f srcs/docker-compose.yml ps
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose -f srcs/docker-compose.yml logs
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f srcs/docker-compose.yml down -v

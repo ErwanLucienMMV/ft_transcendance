@@ -1,0 +1,2 @@
+# Transcendence PostgreSQL backup
+0 * * * * /usr/local/bin/backup.sh >> /var/log/transcendence-backup.log 2>&1

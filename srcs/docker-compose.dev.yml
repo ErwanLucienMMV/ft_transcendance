@@ -32,13 +32,22 @@ services:
       context: ./nestJS
       dockerfile: Dockerfile.dev
     ports:
-      - "3000:3000"
+      - "${APIPORT:-3000}:${APIPORT:-3000}"
     volumes:
       - ./nestJS/42chess:/app
       - nestjs_node_modules:/app/node_modules
     environment:
+      - APIPORT=${APIPORT:-3000}
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=${DATABASE_NAME}
+      - DATABASE_USER=${DATABASE_USER}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
       - CHESS_ENGINE_URL=ws://chess-engine:8081
       - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - transcendence
   prometheus:
@@ -72,6 +81,13 @@ services:
       POSTGRES_DB: ${DATABASE_NAME}
       POSTGRES_USER: ${DATABASE_USER}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER}
+      POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:

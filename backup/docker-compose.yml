@@ -1,0 +1,27 @@
+services:
+  backup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: transcendence-backup
+    env_file:
+      - ../srcs/.env
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_BACKUP_USER}
+      PGPASSWORD: ${POSTGRES_BACKUP_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    volumes:
+      - backup_data:/backups
+    networks:
+      - transcendence
+    restart: unless-stopped
+
+volumes:
+  backup_data:
+    name: transcendence_backup_data
+
+networks:
+  transcendence:
+    external: true
