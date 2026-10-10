@@ -1,0 +1,15 @@
+{
+  "name": "forgemail",
+  "version": "0.0.1",
+  "description": "Internal mail service: the API asks, forgemail sends.",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "nodemailer": "^10.1.0"
+  }
+}

@@ -46,13 +46,14 @@ stop-app:
 start-app:
 	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) start chess-engine nginx prometheus nestjs grafana
 
-# Runs every backend test suite in Docker (Node 22 + PostgreSQL 15), so only
-# Docker is needed on the host. Always removes the test containers afterwards.
 test:
 	@docker compose -f $(TEST_COMPOSE) run --rm --build tests; \
 	status=$$?; \
 	docker compose -f $(TEST_COMPOSE) down; \
-	exit $$status
+	[ $$status -eq 0 ] || exit $$status
+	@echo "Running forgemail tests"
+	@docker run --rm -v "$(CURDIR)/srcs/forgemail:/src:ro" node:22-slim \
+		sh -c 'cp -r /src /app && cd /app && npm ci --silent && npm test'
 
 re: clean
 	$(MAKE)
