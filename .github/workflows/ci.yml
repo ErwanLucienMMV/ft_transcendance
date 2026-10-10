@@ -38,9 +38,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Add project tests here when they exist
-      - name: Tests
-        run: echo "No tests configured yet"
+      # Backend unit, PostgreSQL and HTTP tests, run inside Docker.
+      - name: Backend tests
+        run: make test
 
   docker:
     name: Docker startup

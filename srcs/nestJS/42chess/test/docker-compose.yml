@@ -16,3 +16,17 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  # Runs every test suite inside Node 22, independently of the host setup.
+  # Only started on demand: `make test` (repo root) or `npm run test:docker`.
+  tests:
+    profiles: ['tests']
+    build:
+      context: ../..
+      dockerfile: Dockerfile.test
+    environment:
+      TEST_DATABASE_HOST: postgres-test
+      TEST_DATABASE_PORT: '5432'
+    depends_on:
+      postgres-test:
+        condition: service_healthy
