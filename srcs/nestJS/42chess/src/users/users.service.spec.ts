@@ -59,6 +59,19 @@ describe('UsersService', () => {
     },
   );
 
+  it('reports a username that only differs by case', async () => {
+    repository.save.mockRejectedValue(
+      uniqueViolation('Key (lower(username::text))=(alice) already exists.'),
+    );
+
+    const error: unknown = await users
+      .create({ username: 'ALICE', email: null, passwordHash: null })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(DuplicateUserFieldError);
+    expect((error as DuplicateUserFieldError).field).toBe('username');
+  });
+
   it('rethrows any other database error', async () => {
     const failure = new Error('connection lost');
     repository.save.mockRejectedValue(failure);

@@ -73,6 +73,25 @@ describe('POST /v1/auth/register (e2e)', () => {
     expect(response.body.code).toBe('USERNAME_ALREADY_EXISTS');
   });
 
+  it('rejects a username that only differs by case with 409', async () => {
+    const response = await register(
+      body({
+        username: `ALICE_${suffix}`,
+        email: `upper_${suffix}@example.com`,
+      }),
+    ).expect(409);
+
+    expect(response.body.code).toBe('USERNAME_ALREADY_EXISTS');
+  });
+
+  it('rejects a reserved username with 400', async () => {
+    const response = await register(
+      body({ username: 'Admin', email: `admin_${suffix}@example.com` }),
+    ).expect(400);
+
+    expect(response.body.code).toBe('VALIDATION_ERROR');
+  });
+
   it('rejects a taken email, whatever its case, with 409', async () => {
     const response = await register(
       body({

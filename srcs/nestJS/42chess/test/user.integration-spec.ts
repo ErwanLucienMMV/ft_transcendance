@@ -78,6 +78,14 @@ describe('User entity and CreateUsers migration', () => {
     await expectUniqueViolation(users.save(users.create({ username: 'bob' })));
   });
 
+  it('rejects a username that only differs by case', async () => {
+    await users.save(users.create({ username: 'Frank' }));
+
+    await expectUniqueViolation(
+      users.save(users.create({ username: 'fRANK' })),
+    );
+  });
+
   it('rejects a duplicate email but allows several users without email', async () => {
     await users.save(users.create({ username: 'carol', email: 'c@test.dev' }));
     await expectUniqueViolation(

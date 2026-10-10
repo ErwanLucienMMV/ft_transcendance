@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -13,6 +14,10 @@ export const INITIAL_ELO = 1200;
  * Google, Github). Oauth identities will reference this entity; the rest of
  * the application only deal with 'User'.
  */
+// Case-insensitive uniqueness ("Alice" vs "alice"), created by the
+// UsernameCaseInsensitiveUnique migration: TypeORM cannot describe an
+// expression index, so it must not try to synchronize it.
+@Index('UQ_users_username_lower', { synchronize: false })
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')

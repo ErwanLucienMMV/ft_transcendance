@@ -39,6 +39,15 @@ describe('RegisterDto', () => {
     ]);
   });
 
+  it.each(['admin', 'Admin', 'GUEST', 'stockfish'])(
+    'rejects the reserved username %s',
+    async (username) => {
+      await expect(invalidFields({ ...VALID, username })).resolves.toEqual([
+        'username',
+      ]);
+    },
+  );
+
   it.each([
     ['not an email', 'alice'],
     ['too long', `${'a'.repeat(250)}@x.io`],
