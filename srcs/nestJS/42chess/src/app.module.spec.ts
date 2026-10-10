@@ -1,3 +1,5 @@
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { User } from './users/user.entity.js';
 import { Test } from '@nestjs/testing';
 import { AppModule } from './app.module.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -33,10 +35,15 @@ describe('AppModule', () => {
   });
 
   // Fails as soon as a module uses a provider it neither declares nor imports.
+  // TypeORM repositories are stubbed: unit tests never open a database
+  // connection (see test/*.integration-spec.ts for that).
   it.each(DOMAIN_MODULES)('compiles %o on its own', async (domainModule) => {
     const moduleRef = await Test.createTestingModule({
       imports: [domainModule],
-    }).compile();
+    })
+      .overrideProvider(getRepositoryToken(User))
+      .useValue({})
+      .compile();
 
     expect(moduleRef.get(domainModule)).toBeInstanceOf(domainModule);
   });
