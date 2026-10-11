@@ -2,6 +2,7 @@ import { vi } from 'vitest';
 import { GamesService } from '../dist/games/games.service.js';
 import { GameStoreService } from '../dist/games/game-store.service.js';
 import { GameRulesService } from '../dist/games/game-rules.service.js';
+import { GameAgreementsService } from '../dist/games/game-agreements.service.js';
 import { gameFixture, AFTER_E4 } from './game-service.fixture.js';
 
 describe('Authorized and atomic game moves', () => {
@@ -99,6 +100,7 @@ describe('Authorized and atomic game moves', () => {
     const other = new GamesService(
       new GameStoreService(f.source),
       new GameRulesService(f.engine),
+      new GameAgreementsService(new GameStoreService(f.source)),
     );
     const results = await Promise.allSettled([
       f.service.play(f.white, game.id, 'e2e4'),
