@@ -5,10 +5,14 @@ import { GameError } from './game-error.js';
 import { identifier } from './game-input.js';
 import { finishGame, participatingPlayer } from './game-actions.js';
 import type { GameState } from './game-state.js';
+import { GameClocksService } from './clock/game-clocks.service.js';
 
 @Injectable()
 export class GameAgreementsService {
-  constructor(private readonly store: GameStoreService) {}
+  constructor(
+    private readonly store: GameStoreService,
+    private readonly clocks: GameClocksService,
+  ) {}
 
   offer(actor: string, id: string): Promise<GameState> {
     return this.act(actor, id, (state, color) => {
@@ -53,7 +57,10 @@ export class GameAgreementsService {
     const userId = identifier(actor);
     return this.store.locked(identifier(id), async (manager, state) => {
       const player = participatingPlayer(state, userId);
-      action(state, player.color);
+      if (!(await this.clocks.settle(manager, state.game))) {
+        action(state, player.color);
+        if (state.game.status === 'FINISHED') this.clocks.stop(state.game);
+      }
       await manager.save(Game, state.game);
       return this.store.state(manager, state.game);
     });
