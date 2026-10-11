@@ -37,8 +37,8 @@ published PostgreSQL port instead of the Compose service hostname.
 Add entities as `src/<feature>/*.entity.ts`. Register them with
 `TypeOrmModule.forFeature([YourEntity])` in their feature module to inject
 repositories. Both the application and CLI discover compiled `*.entity.js`.
-`synchronize`, automatic migrations on startup and automatic schema dropping
-are disabled in every environment.
+`synchronize` and automatic schema dropping are disabled in every environment.
+Pending migrations run automatically when the API starts.
 
 Create an empty migration:
 

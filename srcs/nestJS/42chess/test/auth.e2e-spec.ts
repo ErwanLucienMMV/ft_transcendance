@@ -26,7 +26,6 @@ class FakeMailClient {
 describe('/v1/auth (e2e)', () => {
   let app: INestApplication<App>;
   let database: DataSource;
-  let appliedMigrations = 0;
   const mail = new FakeMailClient();
   const suffix = randomUUID().slice(0, 8);
 
@@ -79,13 +78,9 @@ describe('/v1/auth (e2e)', () => {
     app = moduleRef.createNestApplication();
     await app.init();
     database = app.get(DataSource);
-    appliedMigrations = (await database.runMigrations()).length;
   });
 
   afterAll(async () => {
-    for (let i = 0; i < appliedMigrations; i++) {
-      await database.undoLastMigration();
-    }
     await app.close();
   });
 

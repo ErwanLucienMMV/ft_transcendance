@@ -11,7 +11,7 @@ RUN apt-get update && \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     npm install -g npm@11 && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* 
 
 # Dependencies
 COPY ./42chess/package*.json ./
@@ -23,5 +23,8 @@ COPY ./42chess/ ./
 
 # Build NestJS
 RUN npm run build
+
+# Unit tests only: DB and e2e suites run with make test
+RUN npm test
 
 CMD ["node", "dist/main.js"]

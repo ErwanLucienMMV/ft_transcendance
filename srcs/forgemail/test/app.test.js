@@ -25,7 +25,7 @@ describe('forgemail', () => {
       sent.push(mail);
     },
   };
-  const config = loadConfig({ EMAIL_LINK_BASE_URL: `${LINK_BASE_URL}/` });
+  const config = loadConfig({ APPURL: `${LINK_BASE_URL}/` });
   let server;
   let baseUrl;
 

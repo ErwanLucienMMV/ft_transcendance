@@ -9,5 +9,6 @@ export default defineConfig({
     include: ['**/*.e2e-spec.ts'],
     setupFiles: ['./test/database.setup.ts'],
     hookTimeout: 15000,
+    fileParallelism: false,
   },
 });
