@@ -21,7 +21,13 @@ export function creationInput(
     Array.isArray(input) ||
     Object.keys(input).some(
       (key) =>
-        !['initialTime', 'increment', 'color', 'initialFen'].includes(key),
+        ![
+          'initialTime',
+          'increment',
+          'color',
+          'initialFen',
+          'opponentId',
+        ].includes(key),
     )
   ) {
     throw new GameError(
@@ -34,6 +40,7 @@ export function creationInput(
     increment = 0,
     color = 'WHITE',
     initialFen = INITIAL_FEN,
+    opponentId = null,
   } = input;
   if (
     !Number.isInteger(initialTime) ||
@@ -50,7 +57,13 @@ export function creationInput(
       'Invalid time control, color or initial FEN.',
     );
   }
-  return { initialTime, increment, color, initialFen };
+  return {
+    initialTime,
+    increment,
+    color,
+    initialFen,
+    opponentId: opponentId === null ? null : identifier(opponentId),
+  };
 }
 
 /** Syntax only. Position validity and move legality belong to the C++ engine. */
