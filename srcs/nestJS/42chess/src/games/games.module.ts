@@ -7,6 +7,7 @@ import { Move } from './move.entity.js';
 import { GamesService } from './games.service.js';
 import { GameStoreService } from './game-store.service.js';
 import { GameRulesService } from './game-rules.service.js';
+import { GameAgreementsService } from './game-agreements.service.js';
 
 /**
  * Core of the application: game lifecycle (WAITING → ACTIVE → FINISHED),
@@ -22,6 +23,7 @@ import { GameRulesService } from './game-rules.service.js';
     GamesService,
     GameStoreService,
     GameRulesService,
+    GameAgreementsService,
     ChessEngineService,
   ],
   exports: [GamesService],
