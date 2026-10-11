@@ -44,10 +44,24 @@ services:
       - DATABASE_USER=${DATABASE_USER}
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
       - CHESS_ENGINE_URL=ws://chess-engine:8081
+      - MAIL_SERVICE_URL=http://forgemail:3002
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - transcendence
+  forgemail:
+    container_name: forgemail
+    build:
+      context: ./forgemail
+    environment:
+      - EMAIL_LINK_BASE_URL=${EMAIL_LINK_BASE_URL:-https://localhost:${APPPORT}}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - MAIL_FROM=${MAIL_FROM}
     networks:
       - transcendence
   prometheus:

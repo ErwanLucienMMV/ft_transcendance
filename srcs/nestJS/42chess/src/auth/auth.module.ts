@@ -1,5 +1,9 @@
 import { Module } from '@nestjs/common';
+import { UsersModule } from '../users/users.module.js';
+import { AuthController } from './auth.controller.js';
+import { AuthService } from './auth.service.js';
 import { PasswordService } from './password.service.js';
+import { MailModule } from '../mail/mail.module.js';
 
 /**
  * Authentication: local accounts (register / login / logout), JWT issuing
@@ -12,7 +16,9 @@ import { PasswordService } from './password.service.js';
  * Routes: `/auth/*` (see spec §3).
  */
 @Module({
-  providers: [PasswordService],
+  imports: [UsersModule, MailModule],
+  controllers: [AuthController],
+  providers: [AuthService, PasswordService],
   exports: [PasswordService],
 })
 export class AuthModule {}
