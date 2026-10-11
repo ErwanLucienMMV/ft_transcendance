@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import type { PlayerColor } from './clock/game-clock.js';
+import type { PersistentClock } from './clock/game-clocks.service.js';
 
 export type GameStatus = 'WAITING' | 'ACTIVE' | 'FINISHED';
 export type GameResult = 'WHITE_WIN' | 'BLACK_WIN' | 'DRAW';
@@ -26,6 +27,9 @@ export const INITIAL_FEN =
 @Entity('games')
 @Index('IDX_games_status_createdAt', ['status', 'createdAt', 'id'])
 @Index('IDX_games_createdAt', ['createdAt', 'id'])
+@Index('IDX_games_clock_deadline', ['clockDeadline', 'id'], {
+  where: `"status" = 'ACTIVE'`,
+})
 @Check('CHK_games_status', `"status" IN ('WAITING', 'ACTIVE', 'FINISHED')`)
 @Check('CHK_games_turn', `"turn" IN ('WHITE', 'BLACK')`)
 @Check('CHK_games_time_control', `"initialTime" > 0 AND "increment" >= 0`)
@@ -41,6 +45,11 @@ export const INITIAL_FEN =
    OR ("status" = 'FINISHED' AND "startedAt" IS NOT NULL AND "finishedAt" IS NOT NULL AND "result" IS NOT NULL)`,
 )
 @Check('CHK_games_finish_time', `"finishedAt" >= "startedAt"`)
+@Check('CHK_games_clock', `clock IS NULL OR jsonb_typeof(clock) = 'object'`)
+@Check(
+  'CHK_games_clock_deadline',
+  `"clockDeadline" IS NULL OR status = 'ACTIVE'`,
+)
 @Check(
   'CHK_games_draw_offer',
   `"drawOffer" IS NULL OR ("status" = 'ACTIVE' AND "drawOffer" IN ('WHITE', 'BLACK'))`,
@@ -82,6 +91,12 @@ export class Game {
   // Existing finished games have no recorded reason; never invent one on migration.
   @Column({ type: 'varchar', length: 24, nullable: true })
   endReason: GameEndReason | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  clock: PersistentClock | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  clockDeadline: Date | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   startedAt: Date | null;
