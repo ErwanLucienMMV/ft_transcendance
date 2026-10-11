@@ -11,6 +11,15 @@ import type { PlayerColor } from './clock/game-clock.js';
 
 export type GameStatus = 'WAITING' | 'ACTIVE' | 'FINISHED';
 export type GameResult = 'WHITE_WIN' | 'BLACK_WIN' | 'DRAW';
+export type GameEndReason =
+  | 'CHECKMATE'
+  | 'RESIGNATION'
+  | 'TIMEOUT'
+  | 'DRAW_AGREEMENT'
+  | 'STALEMATE'
+  | 'INSUFFICIENT_MATERIAL'
+  | 'THREEFOLD_REPETITION'
+  | 'FIFTY_MOVE_RULE';
 export const INITIAL_FEN =
   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -32,6 +41,14 @@ export const INITIAL_FEN =
    OR ("status" = 'FINISHED' AND "startedAt" IS NOT NULL AND "finishedAt" IS NOT NULL AND "result" IS NOT NULL)`,
 )
 @Check('CHK_games_finish_time', `"finishedAt" >= "startedAt"`)
+@Check(
+  'CHK_games_draw_offer',
+  `"drawOffer" IS NULL OR ("status" = 'ACTIVE' AND "drawOffer" IN ('WHITE', 'BLACK'))`,
+)
+@Check(
+  'CHK_games_end_reason',
+  `"endReason" IS NULL OR ("status" = 'FINISHED' AND "endReason" IN ('CHECKMATE', 'RESIGNATION', 'TIMEOUT', 'DRAW_AGREEMENT', 'STALEMATE', 'INSUFFICIENT_MATERIAL', 'THREEFOLD_REPETITION', 'FIFTY_MOVE_RULE'))`,
+)
 export class Game {
   @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_games' })
   id: string;
@@ -58,6 +75,13 @@ export class Game {
 
   @Column({ type: 'varchar', length: 9, nullable: true })
   result: GameResult | null;
+
+  @Column({ type: 'varchar', length: 5, nullable: true })
+  drawOffer: PlayerColor | null;
+
+  // Existing finished games have no recorded reason; never invent one on migration.
+  @Column({ type: 'varchar', length: 24, nullable: true })
+  endReason: GameEndReason | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   startedAt: Date | null;
