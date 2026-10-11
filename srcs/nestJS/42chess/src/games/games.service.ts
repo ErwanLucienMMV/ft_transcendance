@@ -10,6 +10,7 @@ import { creationInput, identifier, moveInput } from './game-input.js';
 import { activePlayer, automaticResult, finishGame } from './game-actions.js';
 import { GameAgreementsService } from './game-agreements.service.js';
 import { GameClocksService } from './clock/game-clocks.service.js';
+import { algebraicMove } from './game-notation.js';
 import type { CreateGameInput, DrawClaim, GameState } from './game-state.js';
 
 /** Actor IDs must come from authenticated server context, never request bodies. */
@@ -24,7 +25,13 @@ export class GamesService {
 
   async create(actor: string, input: CreateGameInput): Promise<GameState> {
     const userId = identifier(actor);
-    const { initialTime, increment, color, initialFen } = creationInput(input);
+    const { initialTime, increment, color, initialFen, opponentId } =
+      creationInput(input);
+    if (opponentId === userId)
+      throw new GameError(
+        'INVALID_GAME_INPUT',
+        'A player cannot invite themselves.',
+      );
     const snapshot = await this.rules.analyze({ fen: initialFen });
     if (snapshot.status !== 'ongoing') {
       throw new GameError(
@@ -36,9 +43,18 @@ export class GamesService {
       if (!(await manager.existsBy(User, { id: userId }))) {
         throw new GameError('USER_NOT_FOUND', 'Player account does not exist.');
       }
+      if (opponentId !== null) {
+        const opponent = await manager.findOneBy(User, { id: opponentId });
+        if (!opponent || !opponent.emailVerifiedAt)
+          throw new GameError(
+            'USER_NOT_FOUND',
+            'Opponent account is not available.',
+          );
+      }
       const game = manager.create(Game, {
         initialTime,
         increment,
+        invitedOpponentId: opponentId,
         initialFen: snapshot.fen,
         currentFen: snapshot.fen,
         turn: snapshot.turn === 'white' ? 'WHITE' : 'BLACK',
@@ -67,6 +83,11 @@ export class GamesService {
           'GAME_NOT_WAITING',
           'Only a waiting game can be joined.',
         );
+      if (game.invitedOpponentId && game.invitedOpponentId !== userId)
+        throw new GameError(
+          'NOT_INVITED',
+          'This game is reserved for its invited opponent.',
+        );
       if (players.some((player) => player.userId === userId))
         throw new GameError(
           'ALREADY_JOINED',
@@ -85,7 +106,6 @@ export class GamesService {
         manager.create(GamePlayer, { gameId: game.id, userId, color }),
       );
       game.status = 'ACTIVE';
-      game.startedAt = new Date();
       await this.clocks.start(manager, game);
       game.startedAt = new Date(game.clock!.updatedAt);
       await manager.save(Game, game);
@@ -117,6 +137,7 @@ export class GamesService {
         await manager.save(Game, state.game);
         return this.store.state(manager, state.game);
       }
+      const before = await this.rules.current(state);
       const snapshot = await this.rules.move(state, uci);
       const { game, moves } = state;
       await manager.save(
@@ -126,6 +147,7 @@ export class GamesService {
           color: player.color,
           ply: moves.length + 1,
           uci,
+          notation: algebraicMove(before, snapshot, uci),
           fenAfter: snapshot.fen,
         }),
       );
