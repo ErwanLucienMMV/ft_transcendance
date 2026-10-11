@@ -89,6 +89,8 @@ services:
       depends_on:
         postgres:
           condition: service_healthy
+        forgemail:
+          condition: service_healthy
       healthcheck:
         test: ["CMD", "curl", "-f", "http://localhost:3000/v1/health"]
         interval: 5s
@@ -98,6 +100,8 @@ services:
     # Sends emails for the API. No published port: only reachable from the
     # transcendence network. Without SMTP credentials it logs mails instead.
     forgemail:
+      expose:
+        - "3002"
       container_name: forgemail
       build:
         context: ./forgemail
