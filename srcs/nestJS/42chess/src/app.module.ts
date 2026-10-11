@@ -17,6 +17,8 @@ import { ChatModule } from './chat/chat.module.js';
 import { RatingModule } from './rating/rating.module.js';
 import { PuzzlesModule } from './puzzles/puzzles.module.js';
 import { BotsModule } from './bots/bots.module.js';
+import { APP_PIPE } from '@nestjs/core';
+import { createValidationPipe } from './common/validation.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -41,6 +43,10 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     BotsModule,
   ],
   controllers: [AppController, MetricsController],
-  providers: [AppService, ChessEngineService],
+  providers: [
+    AppService,
+    ChessEngineService,
+    { provide: APP_PIPE, useFactory: createValidationPipe },
+  ],
 })
 export class AppModule {}

@@ -78,6 +78,14 @@ describe('User entity and CreateUsers migration', () => {
     await expectUniqueViolation(users.save(users.create({ username: 'bob' })));
   });
 
+  it('rejects a username that only differs by case', async () => {
+    await users.save(users.create({ username: 'Frank' }));
+
+    await expectUniqueViolation(
+      users.save(users.create({ username: 'fRANK' })),
+    );
+  });
+
   it('rejects a duplicate email but allows several users without email', async () => {
     await users.save(users.create({ username: 'carol', email: 'c@test.dev' }));
     await expectUniqueViolation(
@@ -88,6 +96,15 @@ describe('User entity and CreateUsers migration', () => {
     await expect(
       users.save(users.create({ username: 'no_mail_2', email: null })),
     ).resolves.toBeDefined();
+  });
+
+  it('refuses to store an email that is not lowercase', async () => {
+    const error: unknown = await users
+      .save(users.create({ username: 'grace', email: 'Grace@test.dev' }))
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(QueryFailedError);
+    expect((error as QueryFailedError & { code: string }).code).toBe('23514');
   });
 
   it('never selects passwordHash unless explicitly requested', async () => {
