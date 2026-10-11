@@ -14,7 +14,7 @@ export function loadConfig(env = process.env) {
 
   return {
     port: Number(env.FORGEMAIL_PORT || DEFAULT_PORT),
-    publicUrl: (env.PUBLIC_URL || 'https://localhost:8080').replace(/\/+$/, ''),
+    publicUrl: (env.EMAIL_LINK_BASE_URL || 'https://localhost:8080').replace(/\/+$/, ''),
     transport: user && password ? 'smtp' : 'log',
     smtp: {
       host: env.SMTP_HOST || DEFAULT_SMTP_HOST,

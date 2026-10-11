@@ -6,6 +6,8 @@ import { loadConfig } from '../src/config.js';
 import { emailVerification } from '../src/templates/email-verification.js';
 
 const TOKEN = 'a'.repeat(43);
+const LINK_BASE_URL = 'https://localhost:4443';
+const VERIFY_LINK = `${LINK_BASE_URL}/verify-email?token=${TOKEN}`;
 
 describe('forgemail', () => {
   const sent = [];
@@ -23,7 +25,7 @@ describe('forgemail', () => {
       sent.push(mail);
     },
   };
-  const config = loadConfig({ PUBLIC_URL: 'https://chess.test/' });
+  const config = loadConfig({ EMAIL_LINK_BASE_URL: `${LINK_BASE_URL}/` });
   let server;
   let baseUrl;
 
@@ -65,10 +67,7 @@ describe('forgemail', () => {
     assert.equal(response.status, 202);
     assert.equal(sent.length, 1);
     assert.equal(sent[0].to, 'alice@example.com');
-    assert.match(
-      sent[0].text,
-      new RegExp(`https://chess.test/verify-email\\?token=${TOKEN}`),
-    );
+    assert.ok(sent[0].text.includes(VERIFY_LINK));
     assert.ok(logs.every((line) => !line.includes(TOKEN)));
     assert.ok(logs.some((line) => line.includes('a***@example.com')));
   });
@@ -109,13 +108,19 @@ describe('configuration', () => {
       'smtp',
     );
   });
+
+  it('keeps the SMTP password untouched', () => {
+    const password = `p@ss w0rd 'with' "quotes" $HOME #1`;
+
+    assert.equal(loadConfig({ SMTP_PASSWORD: password }).smtp.password, password);
+  });
 });
 
 describe('email verification template', () => {
   it('escapes the username in the HTML version', () => {
     const { html } = emailVerification({
       username: '<script>',
-      link: 'https://chess.test/verify-email?token=x',
+      link: `${LINK_BASE_URL}/verify-email?token=x`,
     });
 
     assert.ok(html.includes('&lt;script&gt;'));
