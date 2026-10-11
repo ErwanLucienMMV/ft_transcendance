@@ -22,6 +22,8 @@ import { GamePlayer } from './game-player.entity.js';
 )
 @Check('CHK_moves_position', `length(btrim("fenAfter")) > 0`)
 export class Move {
+  @Column({ type: 'varchar', length: 16, nullable: true })
+  notation: string | null;
   @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_moves' })
   id: string;
 
