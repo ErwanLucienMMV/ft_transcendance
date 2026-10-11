@@ -1,4 +1,5 @@
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { User } from './users/user.entity.js';
 import { Test } from '@nestjs/testing';
 import { AppModule } from './app.module.js';
@@ -43,6 +44,15 @@ describe('AppModule', () => {
     })
       .overrideProvider(getRepositoryToken(User))
       .useValue({})
+      .useMocker((token) =>
+        token === DataSource
+          ? {
+              options: { type: 'postgres' },
+              entityMetadatas: [],
+              getRepository: () => ({}),
+            }
+          : undefined,
+      )
       .compile();
 
     expect(moduleRef.get(domainModule)).toBeInstanceOf(domainModule);
