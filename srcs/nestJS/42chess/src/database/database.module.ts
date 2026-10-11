@@ -18,6 +18,7 @@ import { databaseOptions } from './database.options.js';
           DATABASE_PASSWORD: config.get('DATABASE_PASSWORD', { infer: true }),
         }),
         autoLoadEntities: true,
+        migrationsRun: true,
         retryAttempts: 3,
         retryDelay: 1000,
       }),

@@ -102,12 +102,12 @@ services:
       build:
         context: ./forgemail
       environment:
-        EMAIL_LINK_BASE_URL: ${EMAIL_LINK_BASE_URL:-https://localhost:${APPPORT}}
         SMTP_HOST: ${SMTP_HOST}
         SMTP_PORT: ${SMTP_PORT}
         SMTP_USER: ${SMTP_USER}
         SMTP_PASSWORD: ${SMTP_PASSWORD}
         MAIL_FROM: ${MAIL_FROM}
+        APPURL: ${APPURL}
       networks:
         - transcendence
       restart: on-failure
@@ -126,7 +126,7 @@ services:
       environment:
         GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
         GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
-        GF_SERVER_ROOT_URL: https://localhost:${APPPORT}/grafana/
+        GF_SERVER_ROOT_URL: ${APPURL}/grafana/
         GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       expose:
         - "3000"
