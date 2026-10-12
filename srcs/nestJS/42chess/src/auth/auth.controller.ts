@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
-import type { AuthUserResponse } from './auth.service.js';
+import type { AuthTokenResponse, AuthUserResponse } from './auth.service.js';
+import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { ResendVerificationDto } from './dto/resend-verification.dto.js';
 import { VerifyEmailDto } from './dto/verify-email.dto.js';
@@ -13,6 +14,13 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto): Promise<AuthUserResponse> {
     return this.auth.register(dto);
+  }
+
+  /** `login` is a username or an email. Answers 200 with an access token. */
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  login(@Body() dto: LoginDto): Promise<AuthTokenResponse> {
+    return this.auth.login(dto);
   }
 
   /** Called by the front page the emailed link opens. */
