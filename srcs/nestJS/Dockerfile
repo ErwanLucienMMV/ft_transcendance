@@ -1,4 +1,4 @@
-FROM debian:bookworm
+FROM docker.io/library/debian:bookworm
 
 WORKDIR /app
 

@@ -1,11 +1,14 @@
-FROM node:22
+FROM docker.io/library/node:22
 
 WORKDIR /app
 
 COPY 42chess/package*.json ./
 
-RUN npm install
+RUN npm ci && cp package-lock.json node_modules/.installed-lock
 
 COPY 42chess/ .
 
-CMD ["npm", "start", "--", "--host", "0.0.0.0", "--allowed-hosts=true"]
+# node_modules lives in a named volume that outlives image rebuilds: reinstall
+# when package-lock.json changed since the last install. `npm ci` never
+# rewrites the lockfile, unlike `npm install`.
+CMD ["sh", "-c", "cmp -s package-lock.json node_modules/.installed-lock || { npm ci --no-audit --no-fund && cp package-lock.json node_modules/.installed-lock; } && npm start -- --host 0.0.0.0 --allowed-hosts=true"]
