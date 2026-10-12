@@ -1,9 +1,12 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import type { HttpException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { MailClient, MailUnavailableError } from '../mail/mail.client.js';
 import {
@@ -29,6 +32,8 @@ const ALICE = {
 
 const MINUTE = 60 * 1000;
 
+const JWT_SECRET = 'unit-test-jwt-secret-of-32-chars!';
+
 async function caught(promise: Promise<unknown>): Promise<HttpException> {
   return (await promise.catch((error: unknown) => error)) as HttpException;
 }
@@ -39,11 +44,16 @@ describe('AuthService', () => {
     delete: vi.fn(),
     deleteExpiredUnverified: vi.fn(),
     findByVerificationTokenHash: vi.fn(),
+    findForLogin: vi.fn(),
     findUnverifiedByEmail: vi.fn(),
     markEmailVerified: vi.fn(),
     setVerificationToken: vi.fn(),
   };
-  const passwords = { hash: vi.fn() };
+  const passwords = { hash: vi.fn(), verify: vi.fn() };
+  const jwt = new JwtService({
+    secret: JWT_SECRET,
+    signOptions: { expiresIn: 3600 },
+  });
   const mail = { sendEmailVerification: vi.fn() };
   let auth: AuthService;
 
@@ -58,6 +68,7 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: users },
         { provide: PasswordService, useValue: passwords },
         { provide: MailClient, useValue: mail },
+        { provide: JwtService, useValue: jwt },
       ],
     }).compile();
 
@@ -204,6 +215,105 @@ describe('AuthService', () => {
       await expect(
         auth.resendVerification('alice@example.com'),
       ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    });
+  });
+
+  describe('login', () => {
+    const CREDENTIALS = { login: 'alice', password: 'correct-horse' };
+    const VERIFIED = {
+      ...ALICE,
+      passwordHash: '$argon2id$stored',
+      emailVerifiedAt: new Date(),
+    };
+
+    it('returns a signed access token and the public user fields', async () => {
+      users.findForLogin.mockResolvedValue(VERIFIED);
+      passwords.verify.mockResolvedValue(true);
+
+      const response = await auth.login(CREDENTIALS);
+
+      expect(response.user).toEqual({
+        id: 'uuid',
+        username: 'alice',
+        elo: 1200,
+      });
+      const claims = await jwt.verifyAsync(response.accessToken);
+      expect(claims).toMatchObject({ sub: 'uuid', username: 'alice' });
+      expect(claims.exp - claims.iat).toBe(3600);
+      expect(users.findForLogin).toHaveBeenCalledWith('alice');
+      expect(passwords.verify).toHaveBeenCalledWith(
+        '$argon2id$stored',
+        'correct-horse',
+      );
+    });
+
+    it('rejects a wrong password with 401', async () => {
+      users.findForLogin.mockResolvedValue(VERIFIED);
+      passwords.verify.mockResolvedValue(false);
+
+      const error = await caught(auth.login(CREDENTIALS));
+
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect(error.getResponse()).toMatchObject({
+        statusCode: 401,
+        code: 'INVALID_CREDENTIALS',
+      });
+    });
+
+    it.each([
+      ['an unknown login', null],
+      [
+        'an account without password (OAuth)',
+        { ...VERIFIED, passwordHash: null },
+      ],
+    ])(
+      'answers %s like a wrong password, after hashing work',
+      async (_, user) => {
+        users.findForLogin.mockResolvedValue(user);
+        passwords.verify.mockResolvedValue(false);
+
+        const error = await caught(auth.login(CREDENTIALS));
+
+        expect(error).toBeInstanceOf(UnauthorizedException);
+        expect(error.getResponse()).toMatchObject({
+          code: 'INVALID_CREDENTIALS',
+        });
+        expect(passwords.verify).toHaveBeenCalledWith(
+          '$argon2id$hash',
+          'correct-horse',
+        );
+      },
+    );
+
+    it('computes the timing dummy hash only once', async () => {
+      users.findForLogin.mockResolvedValue(null);
+      passwords.verify.mockResolvedValue(false);
+
+      await caught(auth.login(CREDENTIALS));
+      await caught(auth.login(CREDENTIALS));
+
+      expect(passwords.hash).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects an unverified account with 403, only with the right password', async () => {
+      users.findForLogin.mockResolvedValue({
+        ...VERIFIED,
+        emailVerifiedAt: null,
+      });
+      passwords.verify.mockResolvedValue(true);
+
+      const error = await caught(auth.login(CREDENTIALS));
+
+      expect(error).toBeInstanceOf(ForbiddenException);
+      expect(error.getResponse()).toMatchObject({
+        statusCode: 403,
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+
+      passwords.verify.mockResolvedValue(false);
+      await expect(auth.login(CREDENTIALS)).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
     });
   });
 });

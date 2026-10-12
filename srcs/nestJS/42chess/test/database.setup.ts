@@ -1,4 +1,4 @@
-// Deliberately ignore DATABASE_* from the shell and srcs/.env.
+// Deliberately ignore DATABASE_* and JWT_SECRET from the shell and srcs/.env.
 // Only the host and port are configurable (host machine or the `tests`
 // container); database and credentials always match the fixture.
 Object.assign(process.env, {
@@ -8,4 +8,5 @@ Object.assign(process.env, {
   DATABASE_NAME: 'transcendence_test',
   DATABASE_USER: 'foundation_test',
   DATABASE_PASSWORD: 'foundation_test_only',
+  JWT_SECRET: 'test-only-jwt-secret-of-32-chars!',
 });

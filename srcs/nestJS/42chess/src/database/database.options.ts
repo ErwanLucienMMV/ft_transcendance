@@ -1,8 +1,10 @@
 import { fileURLToPath } from 'node:url';
 import type { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions.js';
-import type { Environment } from '../config/environment.js';
+import type { DatabaseEnvironment } from '../config/environment.js';
 
-export function databaseOptions(env: Environment): PostgresConnectionOptions {
+export function databaseOptions(
+  env: DatabaseEnvironment,
+): PostgresConnectionOptions {
   return {
     type: 'postgres',
     host: env.DATABASE_HOST,

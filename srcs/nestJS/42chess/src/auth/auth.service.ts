@@ -1,9 +1,12 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { MailClient, MailUnavailableError } from '../mail/mail.client.js';
 import type { User } from '../users/user.entity.js';
 import {
@@ -11,6 +14,7 @@ import {
   UsersService,
 } from '../users/users.service.js';
 import type { UniqueUserField } from '../users/users.service.js';
+import type { LoginDto } from './dto/login.dto.js';
 import type { RegisterDto } from './dto/register.dto.js';
 import {
   generateVerificationToken,
@@ -30,6 +34,16 @@ export interface AuthUserResponse {
   user: AuthUser;
 }
 
+export interface AuthTokenResponse extends AuthUserResponse {
+  accessToken: string;
+}
+
+/** Claims carried by an access token. */
+export interface AccessTokenPayload {
+  sub: string;
+  username: string;
+}
+
 const CONFLICT_CODES: Record<UniqueUserField, string> = {
   username: 'USERNAME_ALREADY_EXISTS',
   email: 'EMAIL_ALREADY_EXISTS',
@@ -41,7 +55,12 @@ export class AuthService {
     private readonly users: UsersService,
     private readonly passwords: PasswordService,
     private readonly mail: MailClient,
+    private readonly jwt: JwtService,
   ) {}
+
+  // Verified when the login matches no password, so that an unknown account
+  // takes as long to reject as a wrong password.
+  private dummyHash?: Promise<string>;
 
   /**
    * Creates an unverified account and emails its verification link. The
@@ -114,6 +133,42 @@ export class AuthService {
     }
   }
 
+  /**
+   * Exchanges a username or email and its password for an access token.
+   * Unknown accounts and wrong passwords get the same answer; whether the
+   * email is verified is only revealed to someone who knows the password.
+   */
+  async login(dto: LoginDto): Promise<AuthTokenResponse> {
+    const user = await this.users.findForLogin(dto.login);
+    if (!user?.passwordHash) {
+      // OAuth-only accounts have no password and cannot log in this way.
+      await this.passwords.verify(await this.getDummyHash(), dto.password);
+      throw invalidCredentials();
+    }
+    if (!(await this.passwords.verify(user.passwordHash, dto.password))) {
+      throw invalidCredentials();
+    }
+    if (!user.emailVerifiedAt) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'EMAIL_NOT_VERIFIED',
+        message: 'Verify your email address before logging in',
+      });
+    }
+
+    const payload: AccessTokenPayload = {
+      sub: user.id,
+      username: user.username,
+    };
+    const accessToken = await this.jwt.signAsync(payload);
+    return { accessToken, ...toResponse(user) };
+  }
+
+  private getDummyHash(): Promise<string> {
+    this.dummyHash ??= this.passwords.hash('dummy password for timing');
+    return this.dummyHash;
+  }
+
   private async createUser(
     input: Parameters<UsersService['create']>[0],
   ): Promise<User> {
@@ -135,6 +190,14 @@ export class AuthService {
 // Explicit whitelist: the entity itself is never sent to the client.
 function toResponse(user: User): AuthUserResponse {
   return { user: { id: user.id, username: user.username, elo: user.elo } };
+}
+
+function invalidCredentials(): UnauthorizedException {
+  return new UnauthorizedException({
+    statusCode: 401,
+    code: 'INVALID_CREDENTIALS',
+    message: 'Invalid login or password',
+  });
 }
 
 function invalidVerificationToken(): BadRequestException {

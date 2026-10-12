@@ -54,6 +54,10 @@ describe('/v1/auth (e2e)', () => {
       .send({ email });
   }
 
+  function login(payload: Record<string, unknown>) {
+    return request(app.getHttpServer()).post('/v1/auth/login').send(payload);
+  }
+
   async function verificationState(username: string) {
     const [row] = await database.query(
       `SELECT "emailVerifiedAt", "emailVerificationTokenHash"
@@ -245,6 +249,88 @@ describe('/v1/auth (e2e)', () => {
 
     it('rejects a malformed token with 400', async () => {
       const response = await verify('not-a-token').expect(400);
+
+      expect(response.body.code).toBe('VALIDATION_ERROR');
+    });
+  });
+
+  describe('login', () => {
+    const name = `lena_${suffix}`;
+    const email = `lena_${suffix}@example.com`;
+    const pending = `paul_${suffix}`;
+
+    beforeAll(async () => {
+      await register(body({ username: name, email })).expect(201);
+      await verify(mail.tokens.get(email) as string).expect(200);
+      await register(
+        body({ username: pending, email: `paul_${suffix}@example.com` }),
+      ).expect(201);
+    });
+
+    function claims(token: string): Record<string, unknown> {
+      const payload = token.split('.')[1];
+      return JSON.parse(Buffer.from(payload, 'base64url').toString());
+    }
+
+    it('returns an access token and the public user fields', async () => {
+      const response = await login({
+        login: name,
+        password: 'correct-horse',
+      }).expect(200);
+
+      expect(response.body).toEqual({
+        accessToken: expect.stringMatching(/^[\w-]+\.[\w-]+\.[\w-]+$/),
+        user: {
+          id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+          username: name,
+          elo: 1200,
+        },
+      });
+      expect(claims(response.body.accessToken)).toMatchObject({
+        sub: response.body.user.id,
+        username: name,
+      });
+    });
+
+    it.each([
+      ['a username in another case', () => name.toUpperCase()],
+      ['an email in another case', () => email.toUpperCase()],
+    ])('accepts %s', async (_, identifier) => {
+      const response = await login({
+        login: identifier(),
+        password: 'correct-horse',
+      }).expect(200);
+
+      expect(response.body.user.username).toBe(name);
+    });
+
+    it.each([
+      ['a wrong password', () => ({ login: name, password: 'wrong-horse' })],
+      [
+        'an unknown login',
+        () => ({ login: `ghost_${suffix}`, password: 'correct-horse' }),
+      ],
+    ])('rejects %s with the same 401', async (_, payload) => {
+      const response = await login(payload()).expect(401);
+
+      expect(response.body).toEqual({
+        statusCode: 401,
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid login or password',
+      });
+    });
+
+    it('rejects an account whose email is not verified with 403', async () => {
+      const response = await login({
+        login: pending,
+        password: 'correct-horse',
+      }).expect(403);
+
+      expect(response.body.code).toBe('EMAIL_NOT_VERIFIED');
+    });
+
+    it('rejects an invalid body with 400', async () => {
+      const response = await login({ login: name }).expect(400);
 
       expect(response.body.code).toBe('VALIDATION_ERROR');
     });

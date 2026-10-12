@@ -62,6 +62,25 @@ export class UsersService {
     return this.users.findOneBy({ emailVerificationTokenHash: tokenHash });
   }
 
+  /**
+   * Finds the account a login form refers to, with its `passwordHash`.
+   * Usernames cannot contain "@", so the identifier is unambiguous; both
+   * lookups ignore case, like the uniqueness rules.
+   */
+  findForLogin(login: string): Promise<User | null> {
+    const query = this.users
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash');
+    if (login.includes('@')) {
+      query.where('user.email = :email', { email: login.toLowerCase() });
+    } else {
+      query.where('LOWER(user.username) = LOWER(:username)', {
+        username: login,
+      });
+    }
+    return query.getOne();
+  }
+
   findUnverifiedByEmail(email: string): Promise<User | null> {
     return this.users.findOneBy({ email, emailVerifiedAt: IsNull() });
   }
