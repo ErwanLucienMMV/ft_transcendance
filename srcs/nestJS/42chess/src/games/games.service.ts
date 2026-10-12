@@ -7,7 +7,8 @@ import { GameRulesService } from './game-rules.service.js';
 import { GameStoreService } from './game-store.service.js';
 import { GameError } from './game-error.js';
 import { creationInput, identifier, moveInput } from './game-input.js';
-import { activePlayer, automaticResult } from './game-actions.js';
+import { activePlayer, automaticResult, finishGame } from './game-actions.js';
+import { GameAgreementsService } from './game-agreements.service.js';
 import type { CreateGameInput, DrawClaim, GameState } from './game-state.js';
 
 /** Actor IDs must come from authenticated server context, never request bodies. */
@@ -16,6 +17,7 @@ export class GamesService {
   constructor(
     private readonly store: GameStoreService,
     private readonly rules: GameRulesService,
+    private readonly agreements: GameAgreementsService,
   ) {}
 
   async create(actor: string, input: CreateGameInput): Promise<GameState> {
@@ -111,11 +113,15 @@ export class GamesService {
       );
       game.currentFen = snapshot.fen;
       game.turn = snapshot.turn === 'white' ? 'WHITE' : 'BLACK';
+      game.drawOffer = null;
       const result = automaticResult(snapshot);
       if (result !== null) {
-        game.status = 'FINISHED';
-        game.result = result;
-        game.finishedAt = new Date();
+        const reason = snapshot.checkmate
+          ? 'CHECKMATE'
+          : snapshot.stalemate
+            ? 'STALEMATE'
+            : 'INSUFFICIENT_MATERIAL';
+        finishGame(game, result, reason);
       }
       await manager.save(Game, game);
       return this.store.state(manager, game);
@@ -150,11 +156,29 @@ export class GamesService {
           'DRAW_NOT_CLAIMABLE',
           'The rules engine does not confirm this draw claim.',
         );
-      state.game.status = 'FINISHED';
-      state.game.result = 'DRAW';
-      state.game.finishedAt = new Date();
+      finishGame(
+        state.game,
+        'DRAW',
+        reason === 'FIFTY_MOVE' ? 'FIFTY_MOVE_RULE' : 'THREEFOLD_REPETITION',
+      );
       await manager.save(Game, state.game);
       return this.store.state(manager, state.game);
     });
+  }
+
+  offerDraw(actor: string, id: string): Promise<GameState> {
+    return this.agreements.offer(actor, id);
+  }
+
+  acceptDraw(actor: string, id: string): Promise<GameState> {
+    return this.agreements.respond(actor, id, true);
+  }
+
+  declineDraw(actor: string, id: string): Promise<GameState> {
+    return this.agreements.respond(actor, id, false);
+  }
+
+  resign(actor: string, id: string): Promise<GameState> {
+    return this.agreements.resign(actor, id);
   }
 }
