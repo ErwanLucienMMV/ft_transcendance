@@ -1,4 +1,4 @@
-FROM debian:bookworm as builder
+FROM docker.io/library/debian:bookworm as builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN npm run build
 
 
 # ---------- Nginx ----------
-FROM debian:bookworm
+FROM docker.io/library/debian:bookworm
 
 RUN apt update
 

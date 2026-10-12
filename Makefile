@@ -3,18 +3,22 @@ COMPOSE_FILE	= docker-compose.yml
 DEV_COMPOSE	= docker-compose.dev.yml
 TEST_COMPOSE	= $(COMPOSE_DIR)/nestJS/42chess/test/docker-compose.yml
 
-all:
+all: env
 	@echo "Starting the building of images, be patient this can take a loooong time"
 	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) up --build -d > compose.log 2>&1
 	@echo "Images have been built, now comes running them"
 	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) logs >> compose.log 2>&1
 	@echo "All set, feel free to test it"
 
-loud:
+loud: env
 	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) up --build
 
-dev:
+dev: env
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) up
+
+# Creates srcs/.env with random secrets, or fills the ones it lacks.
+env:
+	@sh $(COMPOSE_DIR)/init-env.sh
 
 down:
 	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) down
@@ -46,13 +50,16 @@ stop-app:
 start-app:
 	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) start chess-engine nginx prometheus nestjs grafana
 
+# The tests do not read srcs/.env: they bring their own settings.
+# --profile is required by podman-compose to see the `tests` service; the
+# container itself is removed by --rm, so `down` does not need it.
 test:
-	@docker compose -f $(TEST_COMPOSE) run --rm --build tests; \
+	@docker compose -f $(TEST_COMPOSE) --profile tests run --rm --build tests; \
 	status=$$?; \
 	docker compose -f $(TEST_COMPOSE) down; \
 	[ $$status -eq 0 ] || exit $$status
 	@echo "Running forgemail tests"
-	@docker run --rm -v "$(CURDIR)/srcs/forgemail:/src:ro" node:22-slim \
+	@docker run --rm -v "$(CURDIR)/srcs/forgemail:/src:ro" docker.io/library/node:22-slim \
 		sh -c 'cp -r /src /app && cd /app && npm ci --silent && npm test'
 
 re: clean
@@ -63,4 +70,4 @@ clean:
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down -v
 	docker compose -f ./backup/docker-compose.yml down -v
 
-.PHONY: all loud dev down backup backup-down backup-logs full test re clean
+.PHONY: all loud dev env down backup backup-down backup-logs full test re clean

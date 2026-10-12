@@ -9,7 +9,7 @@ services:
       - '127.0.0.1:${TEST_CHESS_ENGINE_PORT:-55433}:8081'
 
   postgres-test:
-    image: postgres:15
+    image: docker.io/library/postgres:15
     environment:
       POSTGRES_DB: transcendence_test
       POSTGRES_USER: foundation_test
