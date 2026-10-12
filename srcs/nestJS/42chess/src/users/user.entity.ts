@@ -76,6 +76,26 @@ export class User {
   @Column({ type: 'timestamptz', nullable: true })
   emailVerificationExpiresAt: Date | null;
 
+  // Base32 TOTP secret shared with the authenticator app.
+  @Column({ type: 'varchar', length: 64, nullable: true, select: false })
+  twoFactorSecret: string | null;
+
+  // Null while two-factor authentication is off. Once set, a password login
+  // only yields a challenge that must be completed with a TOTP code.
+  @Column({ type: 'timestamptz', nullable: true })
+  twoFactorEnabledAt: Date | null;
+
+  // RFC 6238 time step of the last accepted code, so a code is single use.
+  @Column({ type: 'integer', nullable: true })
+  twoFactorLastTimeStep: number | null;
+
+  // Wrong codes in a row; too many lock the code check for a while.
+  @Column({ type: 'integer', default: 0 })
+  twoFactorFailedAttempts: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  twoFactorLockedUntil: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
