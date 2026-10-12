@@ -81,6 +81,60 @@ export class UsersService {
     return query.getOne();
   }
 
+  /** Finds a user with its `twoFactorSecret`. */
+  findForTwoFactor(id: string): Promise<User | null> {
+    return this.users
+      .createQueryBuilder('user')
+      .addSelect('user.twoFactorSecret')
+      .where('user.id = :id', { id })
+      .getOne();
+  }
+
+  /**
+   * Burns the time step of an accepted code and clears the failure count.
+   * Returns false when that step (or a later one) was already used, which
+   * also stops two concurrent requests from both using the same code.
+   */
+  async consumeTwoFactorStep(id: string, timeStep: number): Promise<boolean> {
+    const result = await this.users
+      .createQueryBuilder()
+      .update()
+      .set({ twoFactorLastTimeStep: timeStep, twoFactorFailedAttempts: 0 })
+      .where('id = :id', { id })
+      .andWhere(
+        '("twoFactorLastTimeStep" IS NULL OR "twoFactorLastTimeStep" < :timeStep)',
+        { timeStep },
+      )
+      .execute();
+    return result.affected === 1;
+  }
+
+  /**
+   * Counts a wrong code. The `maxAttempts`-th one in a row locks the code
+   * check until `lockUntil` and restarts the count. Done in one statement so
+   * concurrent attempts cannot slip past the limit.
+   */
+  async recordTwoFactorFailure(
+    id: string,
+    maxAttempts: number,
+    lockUntil: Date,
+  ): Promise<void> {
+    await this.users
+      .createQueryBuilder()
+      .update()
+      .set({
+        twoFactorFailedAttempts: () =>
+          `CASE WHEN "twoFactorFailedAttempts" + 1 >= :maxAttempts
+             THEN 0 ELSE "twoFactorFailedAttempts" + 1 END`,
+        twoFactorLockedUntil: () =>
+          `CASE WHEN "twoFactorFailedAttempts" + 1 >= :maxAttempts
+             THEN :lockUntil::timestamptz ELSE "twoFactorLockedUntil" END`,
+      })
+      .where('id = :id', { id })
+      .setParameters({ maxAttempts, lockUntil })
+      .execute();
+  }
+
   findUnverifiedByEmail(email: string): Promise<User | null> {
     return this.users.findOneBy({ email, emailVerifiedAt: IsNull() });
   }

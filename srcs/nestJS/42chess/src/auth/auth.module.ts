@@ -6,6 +6,8 @@ import { UsersModule } from '../users/users.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { PasswordService } from './password.service.js';
+import { TotpService } from './totp.service.js';
+import { TwoFactorChallengeService } from './two-factor-challenge.service.js';
 import { MailModule } from '../mail/mail.module.js';
 
 /**
@@ -20,6 +22,7 @@ import { MailModule } from '../mail/mail.module.js';
  */
 @Module({
   imports: [
+    ConfigModule,
     UsersModule,
     MailModule,
     JwtModule.registerAsync({
@@ -35,7 +38,12 @@ import { MailModule } from '../mail/mail.module.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, PasswordService],
+  providers: [
+    AuthService,
+    PasswordService,
+    TotpService,
+    TwoFactorChallengeService,
+  ],
   exports: [PasswordService],
 })
 export class AuthModule {}

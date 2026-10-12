@@ -2,10 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpStatus,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import type { HttpException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { MailClient, MailUnavailableError } from '../mail/mail.client.js';
@@ -13,9 +15,15 @@ import {
   DuplicateUserFieldError,
   UsersService,
 } from '../users/users.service.js';
-import { AuthService } from './auth.service.js';
+import {
+  AuthService,
+  TWO_FACTOR_LOCK_MS,
+  TWO_FACTOR_MAX_ATTEMPTS,
+} from './auth.service.js';
 import { hashVerificationToken } from './email-verification-token.js';
 import { PasswordService } from './password.service.js';
+import { TotpService } from './totp.service.js';
+import { TwoFactorChallengeService } from './two-factor-challenge.service.js';
 
 const DTO = {
   username: 'alice',
@@ -43,10 +51,13 @@ describe('AuthService', () => {
     create: vi.fn(),
     delete: vi.fn(),
     deleteExpiredUnverified: vi.fn(),
+    consumeTwoFactorStep: vi.fn(),
     findByVerificationTokenHash: vi.fn(),
     findForLogin: vi.fn(),
+    findForTwoFactor: vi.fn(),
     findUnverifiedByEmail: vi.fn(),
     markEmailVerified: vi.fn(),
+    recordTwoFactorFailure: vi.fn(),
     setVerificationToken: vi.fn(),
   };
   const passwords = { hash: vi.fn(), verify: vi.fn() };
@@ -55,6 +66,10 @@ describe('AuthService', () => {
     signOptions: { expiresIn: 3600 },
   });
   const mail = { sendEmailVerification: vi.fn() };
+  const totp = { verify: vi.fn() };
+  const challenges = new TwoFactorChallengeService(jwt, {
+    get: () => JWT_SECRET,
+  } as unknown as ConfigService);
   let auth: AuthService;
 
   beforeEach(async () => {
@@ -69,6 +84,8 @@ describe('AuthService', () => {
         { provide: PasswordService, useValue: passwords },
         { provide: MailClient, useValue: mail },
         { provide: JwtService, useValue: jwt },
+        { provide: TotpService, useValue: totp },
+        { provide: TwoFactorChallengeService, useValue: challenges },
       ],
     }).compile();
 
@@ -314,6 +331,161 @@ describe('AuthService', () => {
       await expect(auth.login(CREDENTIALS)).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+    });
+  });
+
+  describe('two-factor login', () => {
+    const CREDENTIALS = { login: 'alice', password: 'correct-horse' };
+    const TWO_FACTOR_USER = {
+      ...ALICE,
+      passwordHash: '$argon2id$stored',
+      emailVerifiedAt: new Date(),
+      twoFactorEnabledAt: new Date(),
+      twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+      twoFactorLastTimeStep: 41,
+      twoFactorLockedUntil: null,
+    };
+
+    async function challenge(): Promise<string> {
+      users.findForLogin.mockResolvedValue(TWO_FACTOR_USER);
+      passwords.verify.mockResolvedValue(true);
+      const response = await auth.login(CREDENTIALS);
+      return (response as { challengeToken: string }).challengeToken;
+    }
+
+    beforeEach(() => {
+      users.findForTwoFactor.mockResolvedValue(TWO_FACTOR_USER);
+      users.consumeTwoFactorStep.mockResolvedValue(true);
+      totp.verify.mockResolvedValue(42);
+    });
+
+    it('answers a challenge instead of an access token', async () => {
+      users.findForLogin.mockResolvedValue(TWO_FACTOR_USER);
+      passwords.verify.mockResolvedValue(true);
+
+      const response = await auth.login(CREDENTIALS);
+
+      expect(response).toEqual({
+        requires2fa: true,
+        challengeToken: expect.any(String),
+      });
+      expect(response).not.toHaveProperty('accessToken');
+    });
+
+    it('does not let a challenge pass as an access token', async () => {
+      const token = await challenge();
+
+      await expect(jwt.verifyAsync(token)).rejects.toThrow();
+    });
+
+    it('trades the challenge and a valid code for an access token', async () => {
+      const response = await auth.verifyTwoFactor({
+        challengeToken: await challenge(),
+        code: '123456',
+      });
+
+      expect(response.user).toEqual({
+        id: 'uuid',
+        username: 'alice',
+        elo: 1200,
+      });
+      await expect(
+        jwt.verifyAsync(response.accessToken),
+      ).resolves.toMatchObject({
+        sub: 'uuid',
+      });
+      expect(users.findForTwoFactor).toHaveBeenCalledWith('uuid');
+      expect(totp.verify).toHaveBeenCalledWith(
+        'JBSWY3DPEHPK3PXP',
+        '123456',
+        41,
+      );
+      expect(users.consumeTwoFactorStep).toHaveBeenCalledWith('uuid', 42);
+    });
+
+    it.each([
+      ['a forged token', () => Promise.resolve('not.a.token')],
+      [
+        'an access token',
+        () => jwt.signAsync({ sub: 'uuid', username: 'alice' }),
+      ],
+    ])('rejects %s as challenge with 401', async (_, token) => {
+      const error = await caught(
+        auth.verifyTwoFactor({ challengeToken: await token(), code: '123456' }),
+      );
+
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect(error.getResponse()).toMatchObject({
+        code: 'INVALID_2FA_CHALLENGE',
+      });
+      expect(totp.verify).not.toHaveBeenCalled();
+    });
+
+    it('rejects the challenge once 2FA has been turned off', async () => {
+      const challengeToken = await challenge();
+      users.findForTwoFactor.mockResolvedValue({
+        ...TWO_FACTOR_USER,
+        twoFactorEnabledAt: null,
+      });
+
+      const error = await caught(
+        auth.verifyTwoFactor({ challengeToken, code: '123456' }),
+      );
+
+      expect(error.getResponse()).toMatchObject({
+        code: 'INVALID_2FA_CHALLENGE',
+      });
+    });
+
+    it('counts a wrong code and answers 401', async () => {
+      totp.verify.mockResolvedValue(null);
+
+      const error = await caught(
+        auth.verifyTwoFactor({
+          challengeToken: await challenge(),
+          code: '000000',
+        }),
+      );
+
+      expect(error).toBeInstanceOf(UnauthorizedException);
+      expect(error.getResponse()).toMatchObject({ code: 'INVALID_2FA_CODE' });
+      const [id, max, lockUntil] = users.recordTwoFactorFailure.mock.calls[0];
+      expect([id, max]).toEqual(['uuid', TWO_FACTOR_MAX_ATTEMPTS]);
+      expect(lockUntil.getTime() - Date.now()).toBeGreaterThan(
+        TWO_FACTOR_LOCK_MS - MINUTE,
+      );
+      expect(users.consumeTwoFactorStep).not.toHaveBeenCalled();
+    });
+
+    it('answers 429 without checking the code while locked', async () => {
+      const challengeToken = await challenge();
+      users.findForTwoFactor.mockResolvedValue({
+        ...TWO_FACTOR_USER,
+        twoFactorLockedUntil: new Date(Date.now() + MINUTE),
+      });
+
+      const error = await caught(
+        auth.verifyTwoFactor({ challengeToken, code: '123456' }),
+      );
+
+      expect(error.getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+      expect(error.getResponse()).toMatchObject({
+        code: 'TOO_MANY_2FA_ATTEMPTS',
+      });
+      expect(totp.verify).not.toHaveBeenCalled();
+    });
+
+    it('rejects a code another request has just used', async () => {
+      users.consumeTwoFactorStep.mockResolvedValue(false);
+
+      const error = await caught(
+        auth.verifyTwoFactor({
+          challengeToken: await challenge(),
+          code: '123456',
+        }),
+      );
+
+      expect(error.getResponse()).toMatchObject({ code: 'INVALID_2FA_CODE' });
     });
   });
 });
