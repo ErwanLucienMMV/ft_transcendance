@@ -8,6 +8,8 @@ import { GamesService } from './games.service.js';
 import { GameStoreService } from './game-store.service.js';
 import { GameRulesService } from './game-rules.service.js';
 import { GameAgreementsService } from './game-agreements.service.js';
+import { GameClocksService } from './clock/game-clocks.service.js';
+import { GameTimeoutsService } from './clock/game-timeouts.service.js';
 
 /**
  * Core of the application: game lifecycle (WAITING → ACTIVE → FINISHED),
@@ -24,6 +26,8 @@ import { GameAgreementsService } from './game-agreements.service.js';
     GameStoreService,
     GameRulesService,
     GameAgreementsService,
+    GameClocksService,
+    GameTimeoutsService,
     ChessEngineService,
   ],
   exports: [GamesService],
