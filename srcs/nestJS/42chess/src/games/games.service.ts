@@ -11,6 +11,7 @@ import { activePlayer, automaticResult, finishGame } from './game-actions.js';
 import { GameAgreementsService } from './game-agreements.service.js';
 import { GameClocksService } from './clock/game-clocks.service.js';
 import { algebraicMove } from './game-notation.js';
+import { activePlayer, automaticResult } from './game-actions.js';
 import type { CreateGameInput, DrawClaim, GameState } from './game-state.js';
 
 /** Actor IDs must come from authenticated server context, never request bodies. */
@@ -163,6 +164,14 @@ export class GamesService {
             ? 'STALEMATE'
             : 'INSUFFICIENT_MATERIAL';
         finishGame(game, result, reason);
+      const result = automaticResult(snapshot);
+      if (result !== null) {
+        const reason = snapshot.checkmate
+          ? 'CHECKMATE'
+          : snapshot.stalemate
+            ? 'STALEMATE'
+            : 'INSUFFICIENT_MATERIAL';
+        finishGame(game, result, reason);
         this.clocks.stop(game);
       }
       await manager.save(Game, game);
@@ -208,6 +217,9 @@ export class GamesService {
         reason === 'FIFTY_MOVE' ? 'FIFTY_MOVE_RULE' : 'THREEFOLD_REPETITION',
       );
       this.clocks.stop(state.game);
+      state.game.status = 'FINISHED';
+      state.game.result = 'DRAW';
+      state.game.finishedAt = new Date();
       await manager.save(Game, state.game);
       return this.store.state(manager, state.game);
     });
