@@ -1,7 +1,7 @@
 COMPOSE_DIR	= srcs
 COMPOSE_FILE	= docker-compose.yml
 DEV_COMPOSE	= docker-compose.dev.yml
-TEST_COMPOSE = $(COMPOSE_DIR)/nestJS/42chess/test/docker-compose.yml
+TEST_COMPOSE	= $(COMPOSE_DIR)/nestJS/42chess/test/docker-compose.yml
 
 all:
 	@echo "Starting the building of images, be patient this can take a loooong time"

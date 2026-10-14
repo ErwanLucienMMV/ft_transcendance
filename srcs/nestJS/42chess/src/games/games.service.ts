@@ -107,6 +107,7 @@ export class GamesService {
         manager.create(GamePlayer, { gameId: game.id, userId, color }),
       );
       game.status = 'ACTIVE';
+      game.startedAt = new Date();
       await this.clocks.start(manager, game);
       game.startedAt = new Date(game.clock!.updatedAt);
       await manager.save(Game, game);
@@ -138,7 +139,6 @@ export class GamesService {
         await manager.save(Game, state.game);
         return this.store.state(manager, state.game);
       }
-      const before = await this.rules.current(state);
       const snapshot = await this.rules.move(state, uci);
       const { game, moves } = state;
       await manager.save(
