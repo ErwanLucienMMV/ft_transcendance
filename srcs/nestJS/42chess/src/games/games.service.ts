@@ -9,6 +9,7 @@ import { GameError } from './game-error.js';
 import { creationInput, identifier, moveInput } from './game-input.js';
 import { activePlayer, automaticResult, finishGame } from './game-actions.js';
 import { GameAgreementsService } from './game-agreements.service.js';
+import { activePlayer, automaticResult } from './game-actions.js';
 import type { CreateGameInput, DrawClaim, GameState } from './game-state.js';
 
 /** Actor IDs must come from authenticated server context, never request bodies. */
@@ -122,6 +123,11 @@ export class GamesService {
             ? 'STALEMATE'
             : 'INSUFFICIENT_MATERIAL';
         finishGame(game, result, reason);
+      const result = automaticResult(snapshot);
+      if (result !== null) {
+        game.status = 'FINISHED';
+        game.result = result;
+        game.finishedAt = new Date();
       }
       await manager.save(Game, game);
       return this.store.state(manager, game);
@@ -161,6 +167,9 @@ export class GamesService {
         'DRAW',
         reason === 'FIFTY_MOVE' ? 'FIFTY_MOVE_RULE' : 'THREEFOLD_REPETITION',
       );
+      state.game.status = 'FINISHED';
+      state.game.result = 'DRAW';
+      state.game.finishedAt = new Date();
       await manager.save(Game, state.game);
       return this.store.state(manager, state.game);
     });

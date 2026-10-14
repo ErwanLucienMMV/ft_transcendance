@@ -19,6 +19,9 @@ export function participatingPlayer(
   state: GameState,
   actor: string,
 ): GamePlayer {
+import type { GameResult } from './game.entity.js';
+
+export function activePlayer(state: GameState, actor: string): GamePlayer {
   if (state.game.status === 'FINISHED')
     throw new GameError(
       'GAME_ALREADY_FINISHED',
@@ -42,6 +45,14 @@ export function finishGame(
   game.endReason = reason;
   game.finishedAt = new Date();
   game.drawOffer = null;
+}
+
+  if (player.color !== state.game.turn)
+    throw new GameError(
+      'WRONG_TURN',
+      'Only the player whose turn it is can act.',
+    );
+  return player;
 }
 
 /** Claimable draws are handled separately; they do not finish a game automatically. */

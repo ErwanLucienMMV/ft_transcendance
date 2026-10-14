@@ -39,6 +39,8 @@ Add entities as `src/<feature>/*.entity.ts`. Register them with
 repositories. Both the application and CLI discover compiled `*.entity.js`.
 `synchronize` and automatic schema dropping are disabled in every environment.
 Pending migrations run automatically when the API starts.
+`synchronize`, automatic migrations on startup and automatic schema dropping
+are disabled in every environment.
 
 Create an empty migration:
 

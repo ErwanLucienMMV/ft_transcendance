@@ -26,6 +26,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
   imports: [
     ConfigModule.forRoot(configurationOptions),
     DatabaseModule,
+    // Distributed tracing, auto-correlated logs, request/job metrics, error
+    // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
     ObserveModule.forRoot({
       appKey: 'YOUR_APP_KEY',
       appSecret: 'YOUR_APP_SECRET',
@@ -48,5 +50,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ChessEngineService,
     { provide: APP_PIPE, useFactory: createValidationPipe },
   ],
+  ],
+  controllers: [AppController, MetricsController],
+  providers: [AppService, ChessEngineService],
 })
 export class AppModule {}
