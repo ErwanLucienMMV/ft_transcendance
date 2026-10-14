@@ -65,8 +65,50 @@ export class GameClock {
     return this.#timeControl;
   }
 
+  /** Restore a server-owned checkpoint; callers provide its original time base. */
+  static restore(
+    control: TimeControl,
+    state: ClockSnapshot,
+    updatedAt: number,
+  ): GameClock {
+    const clock = new GameClock(control);
+    const validBalance = (value: number) =>
+      Number.isSafeInteger(value) && value >= 0;
+    const validColor = (color: unknown) =>
+      color === 'WHITE' || color === 'BLACK';
+    const consistent =
+      state &&
+      validBalance(state.white) &&
+      validBalance(state.black) &&
+      ((state.status === 'WAITING' &&
+        state.activeColor === null &&
+        state.expiredColor === null &&
+        state.white === control.initialTime &&
+        state.black === control.initialTime) ||
+        (state.status === 'RUNNING' &&
+          validColor(state.activeColor) &&
+          state.expiredColor === null &&
+          state[state.activeColor === 'WHITE' ? 'white' : 'black'] > 0) ||
+        (state.status === 'STOPPED' &&
+          state.activeColor === null &&
+          state.expiredColor === null) ||
+        (state.status === 'EXPIRED' &&
+          state.activeColor === null &&
+          validColor(state.expiredColor) &&
+          state[state.expiredColor === 'WHITE' ? 'white' : 'black'] === 0));
+    if (!consistent || !Number.isSafeInteger(updatedAt) || updatedAt < 0)
+      throw new ClockError(
+        'INVALID_TIMESTAMP',
+        'Persisted clock checkpoint is inconsistent.',
+      );
+    clock.#commit({ ...state }, updatedAt);
+    return clock;
+  }
+
   /** Call once when the game becomes ACTIVE, using a server timestamp. */
-  start(now: number): ClockSnapshot {
+  start(now: number, color: PlayerColor = 'WHITE'): ClockSnapshot {
+    if (color !== 'WHITE' && color !== 'BLACK')
+      throw new ClockError('WRONG_TURN', 'Invalid starting color.');
     if (this.#state.status !== 'WAITING') {
       throw new ClockError(
         'CLOCK_NOT_WAITING',
@@ -74,7 +116,7 @@ export class GameClock {
       );
     }
     return this.#commit(
-      { ...this.#project(now), status: 'RUNNING', activeColor: 'WHITE' },
+      { ...this.#project(now), status: 'RUNNING', activeColor: color },
       now,
     );
   }

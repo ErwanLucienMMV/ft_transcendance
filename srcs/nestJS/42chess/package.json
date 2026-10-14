@@ -30,6 +30,9 @@
     "migration:show": "npm run build && typeorm migration:show -d dist/database/data-source.js",
     "migration:run": "npm run build && typeorm migration:run -d dist/database/data-source.js",
     "migration:revert": "npm run build && typeorm migration:revert -d dist/database/data-source.js"
+    "migration:revert": "npm run build && typeorm migration:revert -d dist/database/data-source.js",
+    "test:all": "npm test && npm run test:db && npm run test:e2e",
+    "test:docker": "docker compose -f test/docker-compose.yml run --rm --build tests; status=$?; docker compose -f test/docker-compose.yml down; exit $status"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
