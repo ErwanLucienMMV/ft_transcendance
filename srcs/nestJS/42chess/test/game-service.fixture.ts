@@ -55,6 +55,7 @@ export function gameFixture() {
         new GameClocksService(),
       ),
       new GameClocksService(),
+      new GameAgreementsService(new GameStoreService(source)),
     );
   });
 

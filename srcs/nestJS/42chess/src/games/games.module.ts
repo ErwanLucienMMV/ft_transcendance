@@ -10,6 +10,9 @@ import { GameRulesService } from './game-rules.service.js';
 import { GameAgreementsService } from './game-agreements.service.js';
 import { GameClocksService } from './clock/game-clocks.service.js';
 import { GameTimeoutsService } from './clock/game-timeouts.service.js';
+import { GamesController } from './games.controller.js';
+import { GamePresenterService } from './game-presenter.service.js';
+import { GameActorGuard } from './game-actor.guard.js';
 
 /**
  * Core of the application: game lifecycle (WAITING → ACTIVE → FINISHED),
@@ -22,6 +25,8 @@ import { GameTimeoutsService } from './clock/game-timeouts.service.js';
 @Module({
   imports: [TypeOrmModule.forFeature([Game, GamePlayer, Move])],
   providers: [
+    GamePresenterService,
+    GameActorGuard,
     GamesService,
     GameStoreService,
     GameRulesService,
@@ -31,5 +36,6 @@ import { GameTimeoutsService } from './clock/game-timeouts.service.js';
     ChessEngineService,
   ],
   exports: [GamesService],
+  controllers: [GamesController],
 })
 export class GamesModule {}
