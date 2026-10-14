@@ -377,6 +377,15 @@ describe('Game persistence migrations', () => {
     const { id } = await createGame();
     await addPlayer(id, userId, 'WHITE');
     await addMove(id);
+    // Later game feature migrations must be reverted before CreateGames itself.
+    const applied: { name: string }[] = await source.query(
+      'SELECT "name" FROM "typeorm_migrations" ORDER BY "timestamp" DESC',
+    );
+    const gameMigrations =
+      applied.findIndex((m) => m.name.startsWith('CreateGames')) + 1;
+    expect(gameMigrations).toBeGreaterThan(0);
+    for (let index = 0; index < gameMigrations; index++)
+      await source.undoLastMigration();
     await source.undoLastMigration();
     const [row] = await source.query(
       `SELECT count(*)::int AS count FROM information_schema.tables WHERE table_schema = $1 AND table_name IN ('games', 'game_players', 'moves')`,
@@ -388,6 +397,7 @@ describe('Game persistence migrations', () => {
       [userId],
     );
     expect(user.id).toBe(userId);
+    expect(await source.runMigrations()).toHaveLength(gameMigrations);
     expect(await source.runMigrations()).toHaveLength(1);
     expect(await source.runMigrations()).toHaveLength(0);
     const fresh = await createGame();
