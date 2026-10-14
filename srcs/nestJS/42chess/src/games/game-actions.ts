@@ -22,6 +22,20 @@ export function participatingPlayer(
 import type { GameResult } from './game.entity.js';
 
 export function activePlayer(state: GameState, actor: string): GamePlayer {
+  const player = participatingPlayer(state, actor);
+  if (player.color !== state.game.turn)
+    throw new GameError(
+      'WRONG_TURN',
+      'Only the player whose turn it is can act.',
+    );
+  return player;
+}
+
+/** Agreement and resignation do not require it to be the actor's turn. */
+export function participatingPlayer(
+  state: GameState,
+  actor: string,
+): GamePlayer {
   if (state.game.status === 'FINISHED')
     throw new GameError(
       'GAME_ALREADY_FINISHED',
@@ -53,6 +67,18 @@ export function finishGame(
       'Only the player whose turn it is can act.',
     );
   return player;
+}
+
+export function finishGame(
+  game: Game,
+  result: GameResult,
+  reason: GameEndReason,
+): void {
+  game.status = 'FINISHED';
+  game.result = result;
+  game.endReason = reason;
+  game.finishedAt = new Date();
+  game.drawOffer = null;
 }
 
 /** Claimable draws are handled separately; they do not finish a game automatically. */

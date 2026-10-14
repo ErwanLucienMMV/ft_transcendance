@@ -5,6 +5,7 @@ import { GamesService } from '../dist/games/games.service.js';
 import { GameRulesService } from '../dist/games/game-rules.service.js';
 import { GameStoreService } from '../dist/games/game-store.service.js';
 import { GameAgreementsService } from '../dist/games/game-agreements.service.js';
+import { GameClocksService } from '../dist/games/clock/game-clocks.service.js';
 import { ChessEngineService } from '../dist/chess/chess-engine.service.js';
 import { User } from '../dist/users/user.entity.js';
 import { Game } from '../dist/games/game.entity.js';
@@ -49,6 +50,11 @@ export function gameFixture() {
     service = new GamesService(
       new GameStoreService(source),
       new GameRulesService(engine),
+      new GameAgreementsService(
+        new GameStoreService(source),
+        new GameClocksService(),
+      ),
+      new GameClocksService(),
       new GameAgreementsService(new GameStoreService(source)),
     );
   });

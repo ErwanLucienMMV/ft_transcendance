@@ -1,4 +1,5 @@
 import { gameFixture } from './game-service.fixture.js';
+import { AddGameAgreements1791740100000 } from '../dist/database/migrations/1791740100000-AddGameAgreements.js';
 
 describe('Draw offers and resignation', () => {
   const f = gameFixture();
@@ -185,6 +186,9 @@ describe('Draw offers and resignation', () => {
   it('rolls back agreement columns without losing games, players or moves', async () => {
     const { game } = await f.active();
     await f.service.play(f.white, game.id, 'e2e4');
+    const runner = f.source.createQueryRunner();
+    const migration = new AddGameAgreements1791740100000();
+    await migration.down(runner);
     await f.source.undoLastMigration();
     try {
       const [row] = await f.source.query(
@@ -195,6 +199,8 @@ describe('Draw offers and resignation', () => {
       expect(await f.count('moves')).toBe(1);
       expect(await f.count('game_players')).toBe(2);
     } finally {
+      await migration.up(runner);
+      await runner.release();
       await f.source.runMigrations();
     }
     expect((await f.service.get(game.id)).game.drawOffer).toBeNull();

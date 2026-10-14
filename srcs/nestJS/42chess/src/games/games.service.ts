@@ -9,6 +9,8 @@ import { GameError } from './game-error.js';
 import { creationInput, identifier, moveInput } from './game-input.js';
 import { activePlayer, automaticResult, finishGame } from './game-actions.js';
 import { GameAgreementsService } from './game-agreements.service.js';
+import { GameClocksService } from './clock/game-clocks.service.js';
+import { algebraicMove } from './game-notation.js';
 import { activePlayer, automaticResult } from './game-actions.js';
 import type { CreateGameInput, DrawClaim, GameState } from './game-state.js';
 
@@ -19,11 +21,18 @@ export class GamesService {
     private readonly store: GameStoreService,
     private readonly rules: GameRulesService,
     private readonly agreements: GameAgreementsService,
+    private readonly clocks: GameClocksService,
   ) {}
 
   async create(actor: string, input: CreateGameInput): Promise<GameState> {
     const userId = identifier(actor);
-    const { initialTime, increment, color, initialFen } = creationInput(input);
+    const { initialTime, increment, color, initialFen, opponentId } =
+      creationInput(input);
+    if (opponentId === userId)
+      throw new GameError(
+        'INVALID_GAME_INPUT',
+        'A player cannot invite themselves.',
+      );
     const snapshot = await this.rules.analyze({ fen: initialFen });
     if (snapshot.status !== 'ongoing') {
       throw new GameError(
@@ -35,16 +44,24 @@ export class GamesService {
       if (!(await manager.existsBy(User, { id: userId }))) {
         throw new GameError('USER_NOT_FOUND', 'Player account does not exist.');
       }
-      const game = await manager.save(
-        Game,
-        manager.create(Game, {
-          initialTime,
-          increment,
-          initialFen: snapshot.fen,
-          currentFen: snapshot.fen,
-          turn: snapshot.turn === 'white' ? 'WHITE' : 'BLACK',
-        }),
-      );
+      if (opponentId !== null) {
+        const opponent = await manager.findOneBy(User, { id: opponentId });
+        if (!opponent || !opponent.emailVerifiedAt)
+          throw new GameError(
+            'USER_NOT_FOUND',
+            'Opponent account is not available.',
+          );
+      }
+      const game = manager.create(Game, {
+        initialTime,
+        increment,
+        invitedOpponentId: opponentId,
+        initialFen: snapshot.fen,
+        currentFen: snapshot.fen,
+        turn: snapshot.turn === 'white' ? 'WHITE' : 'BLACK',
+      });
+      this.clocks.initialize(game);
+      await manager.save(Game, game);
       await manager.save(
         GamePlayer,
         manager.create(GamePlayer, { gameId: game.id, userId, color }),
@@ -67,6 +84,11 @@ export class GamesService {
           'GAME_NOT_WAITING',
           'Only a waiting game can be joined.',
         );
+      if (game.invitedOpponentId && game.invitedOpponentId !== userId)
+        throw new GameError(
+          'NOT_INVITED',
+          'This game is reserved for its invited opponent.',
+        );
       if (players.some((player) => player.userId === userId))
         throw new GameError(
           'ALREADY_JOINED',
@@ -85,7 +107,8 @@ export class GamesService {
         manager.create(GamePlayer, { gameId: game.id, userId, color }),
       );
       game.status = 'ACTIVE';
-      game.startedAt = new Date();
+      await this.clocks.start(manager, game);
+      game.startedAt = new Date(game.clock!.updatedAt);
       await manager.save(Game, game);
       return this.store.state(manager, game);
     });
@@ -95,11 +118,27 @@ export class GamesService {
     return this.store.get(identifier(id));
   }
 
+  /** HTTP state reads also settle due clocks; terminal states remain unchanged. */
+  settle(id: string): Promise<GameState> {
+    return this.store.locked(identifier(id), async (manager, state) => {
+      if (state.game.status === 'ACTIVE') {
+        await this.clocks.settle(manager, state.game);
+        await manager.save(Game, state.game);
+      }
+      return this.store.state(manager, state.game);
+    });
+  }
+
   async play(actor: string, id: string, input: string): Promise<GameState> {
     const userId = identifier(actor);
     const uci = moveInput(input);
     return this.store.locked(identifier(id), async (manager, state) => {
       const player = activePlayer(state, userId);
+      if (await this.clocks.settle(manager, state.game)) {
+        await manager.save(Game, state.game);
+        return this.store.state(manager, state.game);
+      }
+      const before = await this.rules.current(state);
       const snapshot = await this.rules.move(state, uci);
       const { game, moves } = state;
       await manager.save(
@@ -109,9 +148,11 @@ export class GamesService {
           color: player.color,
           ply: moves.length + 1,
           uci,
+          notation: algebraicMove(before, snapshot, uci),
           fenAfter: snapshot.fen,
         }),
       );
+      await this.clocks.move(manager, game, player.color);
       game.currentFen = snapshot.fen;
       game.turn = snapshot.turn === 'white' ? 'WHITE' : 'BLACK';
       game.drawOffer = null;
@@ -125,9 +166,13 @@ export class GamesService {
         finishGame(game, result, reason);
       const result = automaticResult(snapshot);
       if (result !== null) {
-        game.status = 'FINISHED';
-        game.result = result;
-        game.finishedAt = new Date();
+        const reason = snapshot.checkmate
+          ? 'CHECKMATE'
+          : snapshot.stalemate
+            ? 'STALEMATE'
+            : 'INSUFFICIENT_MATERIAL';
+        finishGame(game, result, reason);
+        this.clocks.stop(game);
       }
       await manager.save(Game, game);
       return this.store.state(manager, game);
@@ -149,6 +194,10 @@ export class GamesService {
       intendedMove === undefined ? undefined : moveInput(intendedMove);
     return this.store.locked(identifier(id), async (manager, state) => {
       activePlayer(state, userId);
+      if (await this.clocks.settle(manager, state.game)) {
+        await manager.save(Game, state.game);
+        return this.store.state(manager, state.game);
+      }
       const snapshot =
         uci === undefined
           ? await this.rules.current(state)
@@ -167,6 +216,7 @@ export class GamesService {
         'DRAW',
         reason === 'FIFTY_MOVE' ? 'FIFTY_MOVE_RULE' : 'THREEFOLD_REPETITION',
       );
+      this.clocks.stop(state.game);
       state.game.status = 'FINISHED';
       state.game.result = 'DRAW';
       state.game.finishedAt = new Date();

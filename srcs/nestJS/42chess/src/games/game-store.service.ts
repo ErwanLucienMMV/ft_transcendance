@@ -14,18 +14,45 @@ export class GameStoreService {
     return this.source.transaction(action);
   }
 
+  async dueClocks(): Promise<string[]> {
+    const rows: { id: string }[] = await this.source.query(`SELECT id FROM games
+      WHERE status='ACTIVE' AND "clockDeadline" <= CURRENT_TIMESTAMP
+      ORDER BY "clockDeadline",id LIMIT 100 FOR UPDATE SKIP LOCKED`);
+    return rows.map((row) => row.id);
+  }
+
   /** Every mutating operation locks the parent before reading its children. */
   async locked<T>(
     id: string,
     action: (manager: EntityManager, state: GameState) => Promise<T>,
   ): Promise<T> {
+    return (await this.lockTransaction(id, action, false)) as T;
+  }
+
+  /** Background work skips busy parents and retries their durable deadline later. */
+  async tryLocked(
+    id: string,
+    action: (manager: EntityManager, state: GameState) => Promise<void>,
+  ): Promise<void> {
+    await this.lockTransaction(id, action, true);
+  }
+
+  private async lockTransaction<T>(
+    id: string,
+    action: (manager: EntityManager, state: GameState) => Promise<T>,
+    skipBusy: boolean,
+  ): Promise<T | undefined> {
     try {
       return await this.source.transaction(async (manager) => {
         await manager.query(`SET LOCAL lock_timeout = '12s'`);
         const game = await manager.findOne(Game, {
           where: { id },
-          lock: { mode: 'pessimistic_write' },
+          lock: {
+            mode: 'pessimistic_write',
+            onLocked: skipBusy ? 'skip_locked' : undefined,
+          },
         });
+        if (!game && skipBusy) return undefined;
         if (!game)
           throw new GameError('GAME_NOT_FOUND', 'Game does not exist.');
         return action(manager, await this.state(manager, game));
