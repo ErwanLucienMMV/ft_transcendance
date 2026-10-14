@@ -14,6 +14,7 @@ export interface CreateGameInput {
   increment?: number;
   color?: PlayerColor;
   initialFen?: string;
+  opponentId?: string | null;
 }
 
 export type DrawClaim = 'THREEFOLD_REPETITION' | 'FIFTY_MOVE';

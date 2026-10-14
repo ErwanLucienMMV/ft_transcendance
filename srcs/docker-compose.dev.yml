@@ -38,6 +38,7 @@ services:
       - nestjs_node_modules:/app/node_modules
     environment:
       - APIPORT=${APIPORT:-3000}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
       - DATABASE_HOST=postgres
       - DATABASE_PORT=5432
       - DATABASE_NAME=${DATABASE_NAME}
