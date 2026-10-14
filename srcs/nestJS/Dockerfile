@@ -24,4 +24,7 @@ COPY ./42chess/ ./
 # Build NestJS
 RUN npm run build
 
+# Unit tests only: DB and e2e suites run with make test
+RUN npm test
+
 CMD ["node", "dist/main.js"]

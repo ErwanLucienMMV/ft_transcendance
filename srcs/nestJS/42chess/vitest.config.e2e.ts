@@ -8,6 +8,8 @@ export default defineConfig({
     root: './',
     include: ['**/*.e2e-spec.ts'],
     setupFiles: ['./test/database.setup.ts'],
+    hookTimeout: 15000,
+    fileParallelism: false,
     globalSetup: ['./test/e2e.global-setup.ts'],
     hookTimeout: 15000,
   },

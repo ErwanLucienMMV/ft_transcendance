@@ -8,6 +8,17 @@ import { MetricsController } from './metrics/metrics.controller.js';
 import { ConfigModule } from '@nestjs/config';
 import { configurationOptions } from './config/environment.js';
 import { DatabaseModule } from './database/database.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { UsersModule } from './users/users.module.js';
+import { FriendsModule } from './friends/friends.module.js';
+import { GamesModule } from './games/games.module.js';
+import { MatchmakingModule } from './matchmaking/matchmaking.module.js';
+import { ChatModule } from './chat/chat.module.js';
+import { RatingModule } from './rating/rating.module.js';
+import { PuzzlesModule } from './puzzles/puzzles.module.js';
+import { BotsModule } from './bots/bots.module.js';
+import { APP_PIPE } from '@nestjs/core';
+import { createValidationPipe } from './common/validation.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -23,6 +34,22 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: '42chess',
     }),
     PrometheusModule.register(),
+    AuthModule,
+    UsersModule,
+    FriendsModule,
+    GamesModule,
+    MatchmakingModule,
+    ChatModule,
+    RatingModule,
+    PuzzlesModule,
+    BotsModule,
+  ],
+  controllers: [AppController, MetricsController],
+  providers: [
+    AppService,
+    ChessEngineService,
+    { provide: APP_PIPE, useFactory: createValidationPipe },
+  ],
   ],
   controllers: [AppController, MetricsController],
   providers: [AppService, ChessEngineService],
