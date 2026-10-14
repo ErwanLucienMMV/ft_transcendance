@@ -106,6 +106,7 @@ describe('Authorized and atomic game moves', () => {
         new GameClocksService(),
       ),
       new GameClocksService(),
+      new GameAgreementsService(new GameStoreService(f.source)),
     );
     const results = await Promise.allSettled([
       f.service.play(f.white, game.id, 'e2e4'),

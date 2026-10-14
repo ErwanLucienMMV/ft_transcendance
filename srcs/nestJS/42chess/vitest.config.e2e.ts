@@ -10,5 +10,7 @@ export default defineConfig({
     setupFiles: ['./test/database.setup.ts'],
     hookTimeout: 15000,
     fileParallelism: false,
+    globalSetup: ['./test/e2e.global-setup.ts'],
+    hookTimeout: 15000,
   },
 });
