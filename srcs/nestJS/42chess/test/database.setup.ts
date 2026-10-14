@@ -1,9 +1,12 @@
-// Deliberately ignore DATABASE_* from the shell and srcs/.env.
-// Only the host port is configurable; database and credentials match the fixture.
+
+ // Deliberately ignore DATABASE_* from the shell and srcs/.env.
+// Test connection settings come from the test runner environment.
 Object.assign(process.env, {
   APIPORT: '3000',
-  DATABASE_HOST: '127.0.0.1',
-  DATABASE_PORT: process.env.TEST_DATABASE_PORT ?? '55432',
+  DATABASE_HOST:
+    process.env.TEST_DATABASE_HOST ?? '127.0.0.1',
+  DATABASE_PORT:
+    process.env.TEST_DATABASE_PORT ?? '55432',
   DATABASE_NAME: 'transcendence_test',
   DATABASE_USER: 'foundation_test',
   DATABASE_PASSWORD: 'foundation_test_only',
