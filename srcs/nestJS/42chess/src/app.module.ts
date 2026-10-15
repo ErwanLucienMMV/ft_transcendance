@@ -52,8 +52,5 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     { provide: APP_PIPE, useFactory: createValidationPipe },
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
   ],
-  ],
-  controllers: [AppController, MetricsController],
-  providers: [AppService, ChessEngineService],
 })
 export class AppModule {}

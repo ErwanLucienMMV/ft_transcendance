@@ -11,7 +11,6 @@ import { activePlayer, automaticResult, finishGame } from './game-actions.js';
 import { GameAgreementsService } from './game-agreements.service.js';
 import { GameClocksService } from './clock/game-clocks.service.js';
 import { algebraicMove } from './game-notation.js';
-import { activePlayer, automaticResult } from './game-actions.js';
 import type { CreateGameInput, DrawClaim, GameState } from './game-state.js';
 
 /** Actor IDs must come from authenticated server context, never request bodies. */
@@ -139,6 +138,7 @@ export class GamesService {
         await manager.save(Game, state.game);
         return this.store.state(manager, state.game);
       }
+      const before = await this.rules.current(state);
       const snapshot = await this.rules.move(state, uci);
       const { game, moves } = state;
       await manager.save(
@@ -156,14 +156,6 @@ export class GamesService {
       game.currentFen = snapshot.fen;
       game.turn = snapshot.turn === 'white' ? 'WHITE' : 'BLACK';
       game.drawOffer = null;
-      const result = automaticResult(snapshot);
-      if (result !== null) {
-        const reason = snapshot.checkmate
-          ? 'CHECKMATE'
-          : snapshot.stalemate
-            ? 'STALEMATE'
-            : 'INSUFFICIENT_MATERIAL';
-        finishGame(game, result, reason);
       const result = automaticResult(snapshot);
       if (result !== null) {
         const reason = snapshot.checkmate
