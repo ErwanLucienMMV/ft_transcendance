@@ -61,7 +61,6 @@ export class GameAgreementsService {
         action(state, player.color);
         if (state.game.status === 'FINISHED') this.clocks.stop(state.game);
       }
-      action(state, player.color);
       await manager.save(Game, state.game);
       return this.store.state(manager, state.game);
     });

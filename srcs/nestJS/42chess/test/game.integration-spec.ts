@@ -386,7 +386,6 @@ describe('Game persistence migrations', () => {
     expect(gameMigrations).toBeGreaterThan(0);
     for (let index = 0; index < gameMigrations; index++)
       await source.undoLastMigration();
-    await source.undoLastMigration();
     const [row] = await source.query(
       `SELECT count(*)::int AS count FROM information_schema.tables WHERE table_schema = $1 AND table_name IN ('games', 'game_players', 'moves')`,
       [schema],
@@ -398,6 +397,8 @@ describe('Game persistence migrations', () => {
     );
     expect(user.id).toBe(userId);
     expect(await source.runMigrations()).toHaveLength(gameMigrations);
+    // Also verify a single feature migration can be rolled back and reapplied.
+    await source.undoLastMigration();
     expect(await source.runMigrations()).toHaveLength(1);
     expect(await source.runMigrations()).toHaveLength(0);
     const fresh = await createGame();
