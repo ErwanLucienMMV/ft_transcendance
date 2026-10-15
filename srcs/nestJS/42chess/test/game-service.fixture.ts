@@ -70,7 +70,9 @@ export function gameFixture() {
   });
 
   beforeEach(async () => {
-    await source.query('TRUNCATE "moves", "game_players", "games", "users"');
+    await source.query(
+      'TRUNCATE "oauth_accounts", "friend_requests", "friendships", "messages", "game_messages", "rating_history", "matchmaking_queue", "puzzle_attempts", "moves", "game_players", "games", "users"',
+    );
     const rows = await source.query(`INSERT INTO "users" ("username")
       VALUES ('white_player'), ('black_player'), ('outsider') RETURNING "id"`);
     [white, black, outsider] = rows.map((row: { id: string }) => row.id);
