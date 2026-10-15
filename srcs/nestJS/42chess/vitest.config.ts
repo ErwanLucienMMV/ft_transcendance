@@ -13,6 +13,7 @@ export default defineConfig({
       DATABASE_NAME: 'unit_test',
       DATABASE_USER: 'unit_test',
       DATABASE_PASSWORD: 'unit_test',
+      JWT_SECRET: 'unit-test-jwt-secret-of-32-chars!',
     },
   },
 });

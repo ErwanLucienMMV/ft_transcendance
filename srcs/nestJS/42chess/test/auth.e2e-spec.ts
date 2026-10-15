@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
+import { generate, generateSecret } from 'otplib';
 import { DataSource } from 'typeorm';
 // Exercise the compiled application, including TypeScript decorator metadata.
 import { AppModule } from './../dist/app.module.js';
@@ -52,6 +53,10 @@ describe('/v1/auth (e2e)', () => {
     return request(app.getHttpServer())
       .post('/v1/auth/resend-verification')
       .send({ email });
+  }
+
+  function login(payload: Record<string, unknown>) {
+    return request(app.getHttpServer()).post('/v1/auth/login').send(payload);
   }
 
   async function verificationState(username: string) {
@@ -247,6 +252,212 @@ describe('/v1/auth (e2e)', () => {
       const response = await verify('not-a-token').expect(400);
 
       expect(response.body.code).toBe('VALIDATION_ERROR');
+    });
+  });
+
+  describe('login', () => {
+    const name = `lena_${suffix}`;
+    const email = `lena_${suffix}@example.com`;
+    const pending = `paul_${suffix}`;
+
+    beforeAll(async () => {
+      await register(body({ username: name, email })).expect(201);
+      await verify(mail.tokens.get(email) as string).expect(200);
+      await register(
+        body({ username: pending, email: `paul_${suffix}@example.com` }),
+      ).expect(201);
+    });
+
+    function claims(token: string): Record<string, unknown> {
+      const payload = token.split('.')[1];
+      return JSON.parse(Buffer.from(payload, 'base64url').toString());
+    }
+
+    it('returns an access token and the public user fields', async () => {
+      const response = await login({
+        login: name,
+        password: 'correct-horse',
+      }).expect(200);
+
+      expect(response.body).toEqual({
+        accessToken: expect.stringMatching(/^[\w-]+\.[\w-]+\.[\w-]+$/),
+        user: {
+          id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+          username: name,
+          elo: 1200,
+        },
+      });
+      expect(claims(response.body.accessToken)).toMatchObject({
+        sub: response.body.user.id,
+        username: name,
+      });
+    });
+
+    it.each([
+      ['a username in another case', () => name.toUpperCase()],
+      ['an email in another case', () => email.toUpperCase()],
+    ])('accepts %s', async (_, identifier) => {
+      const response = await login({
+        login: identifier(),
+        password: 'correct-horse',
+      }).expect(200);
+
+      expect(response.body.user.username).toBe(name);
+    });
+
+    it.each([
+      ['a wrong password', () => ({ login: name, password: 'wrong-horse' })],
+      [
+        'an unknown login',
+        () => ({ login: `ghost_${suffix}`, password: 'correct-horse' }),
+      ],
+    ])('rejects %s with the same 401', async (_, payload) => {
+      const response = await login(payload()).expect(401);
+
+      expect(response.body).toEqual({
+        statusCode: 401,
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid login or password',
+      });
+    });
+
+    it('rejects an account whose email is not verified with 403', async () => {
+      const response = await login({
+        login: pending,
+        password: 'correct-horse',
+      }).expect(403);
+
+      expect(response.body.code).toBe('EMAIL_NOT_VERIFIED');
+    });
+
+    it('rejects an invalid body with 400', async () => {
+      const response = await login({ login: name }).expect(400);
+
+      expect(response.body.code).toBe('VALIDATION_ERROR');
+    });
+  });
+
+  describe('two-factor login', () => {
+    const secret = generateSecret();
+
+    /** Registers a verified account with 2FA on (activation is AUTH-xx). */
+    async function twoFactorAccount(name: string) {
+      const email = `${name}@example.com`;
+      await register(body({ username: name, email })).expect(201);
+      await verify(mail.tokens.get(email) as string).expect(200);
+      await database.query(
+        `UPDATE users SET "twoFactorSecret" = $1, "twoFactorEnabledAt" = now()
+          WHERE username = $2`,
+        [secret, name],
+      );
+    }
+
+    async function challengeFor(name: string): Promise<string> {
+      const response = await login({
+        login: name,
+        password: 'correct-horse',
+      }).expect(200);
+      return response.body.challengeToken as string;
+    }
+
+    function verify2fa(challengeToken: string, code: string) {
+      return request(app.getHttpServer())
+        .post('/v1/auth/2fa/verify')
+        .send({ challengeToken, code });
+    }
+
+    /** A code that is valid in none of the accepted periods. */
+    async function wrongCode(): Promise<string> {
+      const now = Date.now() / 1000;
+      const valid = await Promise.all(
+        [-30, 0, 30].map((offset) => generate({ secret, epoch: now + offset })),
+      );
+      let code = 0;
+      while (valid.includes(String(code).padStart(6, '0'))) {
+        code += 1;
+      }
+      return String(code).padStart(6, '0');
+    }
+
+    const tina = `tina_${suffix}`;
+
+    beforeAll(async () => {
+      await twoFactorAccount(tina);
+    });
+
+    it('answers a challenge instead of an access token', async () => {
+      const response = await login({
+        login: tina,
+        password: 'correct-horse',
+      }).expect(200);
+
+      expect(response.body).toEqual({
+        requires2fa: true,
+        challengeToken: expect.any(String),
+      });
+    });
+
+    it('gives the access token for a valid code, which then cannot be reused', async () => {
+      const code = await generate({ secret });
+
+      const response = await verify2fa(await challengeFor(tina), code).expect(
+        200,
+      );
+
+      expect(response.body).toEqual({
+        accessToken: expect.any(String),
+        user: expect.objectContaining({ username: tina }),
+      });
+      const reuse = await verify2fa(await challengeFor(tina), code).expect(401);
+      expect(reuse.body.code).toBe('INVALID_2FA_CODE');
+    });
+
+    it('refuses an access token as challenge', async () => {
+      const plain = await login({
+        login: `lena_${suffix}`,
+        password: 'correct-horse',
+      }).expect(200);
+
+      const response = await verify2fa(
+        plain.body.accessToken,
+        await generate({ secret }),
+      ).expect(401);
+
+      expect(response.body.code).toBe('INVALID_2FA_CHALLENGE');
+    });
+
+    it('rejects a malformed code with 400', async () => {
+      const response = await verify2fa(await challengeFor(tina), '12ab').expect(
+        400,
+      );
+
+      expect(response.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('locks the code check after 5 wrong codes, even for a valid one', async () => {
+      const locked = `lock_${suffix}`;
+      await twoFactorAccount(locked);
+      const challengeToken = await challengeFor(locked);
+
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const response = await verify2fa(challengeToken, await wrongCode());
+        expect(response.status).toBe(401);
+      }
+      const response = await verify2fa(
+        challengeToken,
+        await generate({ secret }),
+      ).expect(429);
+
+      expect(response.body.code).toBe('TOO_MANY_2FA_ATTEMPTS');
+      const [row] = await database.query(
+        `SELECT "twoFactorFailedAttempts", "twoFactorLockedUntil"
+           FROM users WHERE username = $1`,
+        [locked],
+      );
+      expect(row.twoFactorFailedAttempts).toBe(0);
+      expect(row.twoFactorLockedUntil.getTime()).toBeGreaterThan(
+        Date.now() + 14 * 60 * 1000,
+      );
     });
   });
 });
