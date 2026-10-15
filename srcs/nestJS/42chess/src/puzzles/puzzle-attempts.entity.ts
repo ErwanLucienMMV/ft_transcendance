@@ -1,0 +1,43 @@
+import {
+  Entity,
+  Check,
+  Index,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { Puzzle } from '../puzzles/puzzles.entity.js';
+import { User } from '../users/user.entity.js';
+
+/** DB-21; constraints and indexes are owned by migrations. */
+@Check('CHK_puzzle_attempts_0', `array_position("moves", NULL) IS NULL`)
+@Index('IDX_puzzle_attempts_user', ['userId', 'puzzleId', 'createdAt'])
+@Entity('puzzle_attempts')
+export class PuzzleAttempt {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+  @CreateDateColumn({ type: 'timestamptz' })
+  createdAt: Date;
+  @Column({ type: 'uuid' })
+  userId: string;
+  @Column({ type: 'uuid' })
+  puzzleId: string;
+  @Column({ type: 'boolean', default: false })
+  solved: boolean;
+  @Column({ type: 'text', array: true, default: [] })
+  moves: string[];
+  @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({
+    name: 'userId',
+    foreignKeyConstraintName: 'FK_puzzle_attempts_userId',
+  })
+  user: User;
+  @ManyToOne(() => Puzzle, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({
+    name: 'puzzleId',
+    foreignKeyConstraintName: 'FK_puzzle_attempts_puzzleId',
+  })
+  puzzle: Puzzle;
+}
