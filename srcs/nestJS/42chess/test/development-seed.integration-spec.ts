@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { verify } from 'argon2';
 import { ChessEngineService } from '../dist/chess/chess-engine.service.js';
+import { validatePuzzle } from '../dist/puzzles/puzzle-validation.js';
+import { toPuzzle } from '../dist/puzzles/puzzle-presenter.js';
+import type { Puzzle } from '../dist/puzzles/puzzles.entity.js';
 import cliDataSource from '../dist/database/data-source.js';
+const options = cliDataSource.options;
+if (options.type !== 'postgres') throw new Error('PostgreSQL required');
+const postgresOptions = options;
 import {
   fixtureIds,
   seedDevelopment,
@@ -17,7 +23,7 @@ describe('DB-22 DB-23 DB-24 DB-25 development fixtures', () => {
   const schema = `seed_${randomUUID().replaceAll('-', '')}`;
   let source: DataSource;
   beforeAll(async () => {
-    const admin = new DataSource({ ...cliDataSource.options, migrations: [] });
+    const admin = new DataSource({ ...postgresOptions, migrations: [] });
     await admin.initialize();
     try {
       await admin.query(`CREATE SCHEMA "${schema}"`);
@@ -25,7 +31,7 @@ describe('DB-22 DB-23 DB-24 DB-25 development fixtures', () => {
       await admin.destroy();
     }
     source = new DataSource({
-      ...cliDataSource.options,
+      ...postgresOptions,
       schema,
       extra: { options: `-c search_path=${schema},public` },
     });
@@ -65,6 +71,15 @@ describe('DB-22 DB-23 DB-24 DB-25 development fixtures', () => {
     process.env.CHESS_ENGINE_URL =
       process.env.TEST_CHESS_ENGINE_URL ?? 'ws://127.0.0.1:55433';
     const engine = new ChessEngineService();
+    const stored = await source
+      .getRepository<Puzzle>('Puzzle')
+      .createQueryBuilder('puzzle')
+      .addSelect(['puzzle.solution', 'puzzle.solutionMoves'])
+      .getMany();
+    for (const row of stored) {
+      await validatePuzzle(toPuzzle(row), engine);
+      expect(row.solutionMoves?.[0].timestamp).toBeInstanceOf(Date);
+    }
     for (const puzzle of puzzles) {
       expect((await engine.analyze({ fen: puzzle.fen })).status).toBe(
         'ongoing',

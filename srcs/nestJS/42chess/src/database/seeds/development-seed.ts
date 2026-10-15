@@ -1,5 +1,8 @@
 import type { DataSource } from 'typeorm';
 import { hash } from 'argon2';
+import { assertFen } from '../../chess/fen.js';
+import { puzzleFixtures } from './puzzle-fixtures.js';
+import { puzzleMoveUci } from '../../puzzles/puzzle-validation.js';
 
 export function assertDevelopmentSeed(env: NodeJS.ProcessEnv): void {
   if (env.NODE_ENV !== 'development' || env.ALLOW_DEV_SEED !== 'yes') {
@@ -74,13 +77,19 @@ export async function seedDevelopment(
         [id, game, user, color],
       );
     }
-    for (const [id, fen, move] of [
-      [fixtureIds.whitePuzzle, '7k/5Q2/6K1/8/8/8/8/8 w - - 0 1', 'f7g7'],
-      [fixtureIds.blackPuzzle, '8/8/8/8/8/6k1/5q2/7K b - - 0 1', 'f2g2'],
-    ]) {
+    for (const puzzle of puzzleFixtures(fixtureIds)) {
+      assertFen(puzzle.fen);
       await manager.query(
-        `INSERT INTO puzzles (id, fen, solution, rating) VALUES ($1,$2,ARRAY[$3]::text[],800) ON CONFLICT (id) DO NOTHING`,
-        [id, fen, move],
+        `INSERT INTO puzzles (id, fen, solution, rating, themes, "solutionMoves", "createdAt") VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7) ON CONFLICT (id) DO NOTHING`,
+        [
+          puzzle.id,
+          puzzle.fen,
+          puzzle.solution.map(puzzleMoveUci),
+          puzzle.rating,
+          puzzle.themes,
+          JSON.stringify(puzzle.solution),
+          puzzle.createdAt,
+        ],
       );
     }
   });

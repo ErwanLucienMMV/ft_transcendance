@@ -26,7 +26,9 @@ Fixtures:
 - DB-24: one waiting game with Alice, one finished game where Bob resigned before
   making a move. Both use five minutes plus two seconds per move. Finished games
   legitimately have no live clock or move history in this example.
-- DB-25: two mate-in-one positions, one for each color, using UCI solutions.
+- DB-25: two mate-in-one positions, one for each color, using complete six-field
+  FEN, UCI solutions, themes and structured ChessMove metadata. Alice/Bob and a
+  fixed timestamp are explicitly synthetic fixture move annotations. See [PUZZLES.md](PUZZLES.md).
 - DB-22: the single transaction assembles all fixtures and serializes concurrent
   seed runs with a PostgreSQL advisory lock.
 
