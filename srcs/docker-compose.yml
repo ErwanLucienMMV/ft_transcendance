@@ -1,5 +1,16 @@
 services:
 
+    chess-engine:
+      build:
+        context: ./chess-engine
+        dockerfile: Dockerfile
+      init: true
+      restart: unless-stopped
+      expose:
+        - "8081"
+      networks:
+        - transcendence
+
     nginx:
       container_name: nginx
       build:
@@ -26,6 +37,8 @@ services:
         POSTGRES_DB: ${DATABASE_NAME}
         POSTGRES_USER: ${DATABASE_USER}
         POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+        POSTGRES_BACKUP_USER: ${POSTGRES_BACKUP_USER}
+        POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
       volumes:
         - postgres_data:/var/lib/postgresql/data
       ports:
@@ -55,7 +68,10 @@ services:
         context: ./nestJS
         dockerfile: Dockerfile
       environment:
+        CHESS_ENGINE_URL: ws://chess-engine:8081
+        MAIL_SERVICE_URL: http://forgemail:3002
         APIPORT: ${APIPORT}
+        CORS_ORIGINS: ${CORS_ORIGINS:-}
         DATABASE_HOST: ${DATABASE_HOST}
         DATABASE_PORT: ${DATABASE_PORT}
         DATABASE_NAME: ${DATABASE_NAME}
@@ -74,8 +90,34 @@ services:
       depends_on:
         postgres:
           condition: service_healthy
+        forgemail:
+          condition: service_healthy
       healthcheck:
         test: ["CMD", "curl", "-f", "http://localhost:3000/v1/health"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+
+    # Sends emails for the API. No published port: only reachable from the
+    # transcendence network. Without SMTP credentials it logs mails instead.
+    forgemail:
+      expose:
+        - "3002"
+      container_name: forgemail
+      build:
+        context: ./forgemail
+      environment:
+        SMTP_HOST: ${SMTP_HOST}
+        SMTP_PORT: ${SMTP_PORT}
+        SMTP_USER: ${SMTP_USER}
+        SMTP_PASSWORD: ${SMTP_PASSWORD}
+        MAIL_FROM: ${MAIL_FROM}
+        APPURL: ${APPURL}
+      networks:
+        - transcendence
+      restart: on-failure
+      healthcheck:
+        test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
         interval: 5s
         timeout: 5s
         retries: 5
@@ -89,8 +131,10 @@ services:
       environment:
         GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
         GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
-      ports:
-        - "3001:3000"
+        GF_SERVER_ROOT_URL: ${APPURL}/grafana/
+        GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      expose:
+        - "3000"
       volumes:
         - grafana_data:/var/lib/grafana
       networks:
@@ -103,3 +147,4 @@ volumes:
 
 networks:
   transcendence:
+    name: transcendence
