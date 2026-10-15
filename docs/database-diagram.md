@@ -43,6 +43,7 @@ erDiagram
         uuid id PK
         uuid userId FK
         int rating
+        string status
     }
     messages {
         uuid id PK

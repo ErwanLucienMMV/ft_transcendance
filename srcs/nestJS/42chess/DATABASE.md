@@ -112,3 +112,7 @@ Reference: [Nest configuration](https://docs.nestjs.com/techniques/configuration
 - [Complete database model](DATABASE-MODEL.md) (DOC-07).
 - [Entity relationship diagram](../../../docs/database-diagram.md) (DOC-16).
 - [Guarded development fixtures](DEVELOPMENT-DATA.md) (DB-22..25).
+
+The additive spec-contract migration preserves legacy data; required metadata
+that was never recorded remains NULL until an explicit backfill. See
+[PUZZLES.md](PUZZLES.md) for FEN references, fixture provenance and legacy handling.

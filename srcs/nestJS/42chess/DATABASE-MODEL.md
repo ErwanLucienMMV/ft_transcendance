@@ -24,9 +24,9 @@ Voir le [diagramme relationnel](../../../docs/database-diagram.md), le
 - Les champs de mot de passe, vérification et 2FA sont internes : ne pas
   sérialiser directement une entité utilisateur dans une réponse publique.
   Les secrets 2FA nécessitent les mêmes protections que les identifiants.
-- Les contrôles FEN et légalité des coups appartiennent au moteur d’échecs. Les
-  contraintes SQL des puzzles imposent une position non vide et une solution
-  non vide sans élément NULL, sans prétendre valider les règles d’échecs.
+- La syntaxe FEN (six champs) est contrôlée par `chess/fen.ts` ; la légalité
+  de la position et des coups appartient au moteur. `validatePuzzle` vérifie
+  également la correspondance SAN/UCI. Les contraintes SQL ne remplacent pas ces contrôles.
 - Une amitié est stockée une seule fois, avec `userId < friendId`. Les services
   trient les deux UUID et recherchent les deux colonnes. Une seule demande en
   attente est autorisée par paire non orientée ; les demandes terminées restent
@@ -38,15 +38,24 @@ Voir le [diagramme relationnel](../../../docs/database-diagram.md), le
 - `messages` et `game_messages` stockent un contenu non vide (2000 caractères
   maximum). Autorisation d’accès, modération et appartenance à une partie sont
   des responsabilités des services, pas des garanties de ces tables.
+  `messages.readAt` permet de compter les entrants non lus par expéditeur et
+  destinataire. Les lignes historiques sont considérées non lues jusqu’à leur
+  lecture explicite ; aucune date de lecture passée n’est inventée. La projection
+  expose receiverId à partir de recipientId et un sender public pour le chat de partie.
 - `rating_history` contient les snapshots avant/après, une fois par utilisateur
-  et partie. Le calcul et la mise à jour du classement doivent être atomiques
+  et partie. `change` est dérivé de ratingAfter - ratingBefore par la projection. Le calcul et la mise à jour du classement doivent être atomiques
   avec l’écriture de l’historique. Aucun trigger ne calcule le classement.
 - `matchmaking_queue` autorise une entrée par utilisateur. Les durées sont des
   millisecondes, le classement est capturé à l’entrée. L’index couvre égalité
-  sur le contrôle de temps puis intervalle de classement ; le service doit
+  sur le contrôle de temps puis intervalle de classement ; un second index
+  partiel cible les lignes WAITING. `status` conserve WAITING/MATCHED/CANCELLED.
+  Une réinscription remet la même ligne en WAITING et actualise createdAt ; le service doit
   encore gérer l’expiration, l’équité et la réservation concurrente des joueurs.
 - `puzzle_attempts` autorise plusieurs essais par utilisateur/puzzle. `solved`
-  et les coups enregistrés doivent être déterminés par le service.
+  et les coups enregistrés doivent être déterminés par le service. `attempts`
+  mesure les essais et `duration` le temps en millisecondes. Les anciennes lignes
+  conservent NULL pour les mesures inconnues ; la projection exige un backfill
+  explicite au lieu d’inventer une durée.
 
 ## Relations et suppression
 
@@ -56,6 +65,15 @@ existantes `games -> game_players/moves` gardent leur politique `CASCADE` ;
 les nouvelles références vers une partie peuvent désormais empêcher sa
 suppression. L’anonymisation, la rétention et la suppression de compte restent
 à définir avant d’exposer un endpoint de suppression.
+
+Les puzzles conservent `solution` en UCI pour le moteur et ajoutent themes et
+`solutionMoves` (objets ChessMove structurés, timestamps UTC en JSON). Ces deux
+représentations sont exclues des sélections ordinaires. `toPuzzle` nécessite les
+métadonnées privées sélectionnées explicitement et vérifie leur cohérence UCI.
+Les anciennes lignes gardent NULL pour les nouveaux champs inconnus : elles
+nécessitent un backfill explicite avant utilisation des nouvelles projections.
+`toDailyPuzzleResponse` énumère seulement id/date/rating/fen/themes et n’expose
+aucune solution. Voir [références FEN et puzzles](PUZZLES.md).
 
 Les colonnes `gameId` et `color` d’un coup référencent ensemble un siège de la
 même partie. Le lifecycle des parties vérifie la cohérence entre statut,
@@ -237,10 +255,12 @@ Index (y compris ceux créés par les clés primaires et uniques) :
 | `rating` | `integer` | non | `—` |
 | `initialTime` | `integer` | non | `—` |
 | `increment` | `integer` | non | `0` |
+| `status` | `character varying(9)` | non | `'WAITING'::character varying` |
 
 Contraintes :
 
 - `CHK_matchmaking_queue_1`: `CHECK (((rating >= 0) AND ("initialTime" > 0) AND (increment >= 0)))`
+- `CHK_matchmaking_status`: `CHECK (((status)::text = ANY ((ARRAY['WAITING'::character varying, 'MATCHED'::character varying, 'CANCELLED'::character varying])::text[])))`
 - `FK_matchmaking_queue_userId`: `FOREIGN KEY ("userId") REFERENCES users(id) ON DELETE RESTRICT`
 - `UQ_matchmaking_queue_0`: `UNIQUE ("userId")`
 - `matchmaking_queue_pkey`: `PRIMARY KEY (id)`
@@ -248,6 +268,7 @@ Contraintes :
 Index (y compris ceux créés par les clés primaires et uniques) :
 
 - `CREATE INDEX "IDX_matchmaking_lookup" ON matchmaking_queue USING btree ("initialTime", increment, rating, "createdAt", id)`
+- `CREATE INDEX "IDX_matchmaking_waiting" ON matchmaking_queue USING btree ("initialTime", increment, rating, "createdAt", id) WHERE ((status)::text = 'WAITING'::text)`
 - `CREATE UNIQUE INDEX "UQ_matchmaking_queue_0" ON matchmaking_queue USING btree ("userId")`
 - `CREATE UNIQUE INDEX matchmaking_queue_pkey ON matchmaking_queue USING btree (id)`
 
@@ -260,6 +281,7 @@ Index (y compris ceux créés par les clés primaires et uniques) :
 | `senderId` | `uuid` | non | `—` |
 | `recipientId` | `uuid` | non | `—` |
 | `content` | `character varying(2000)` | non | `—` |
+| `readAt` | `timestamp with time zone` | oui | `—` |
 
 Contraintes :
 
@@ -334,10 +356,13 @@ Index (y compris ceux créés par les clés primaires et uniques) :
 | `puzzleId` | `uuid` | non | `—` |
 | `solved` | `boolean` | non | `false` |
 | `moves` | `text[]` | non | `'{}'::text[]` |
+| `attempts` | `integer` | oui | `—` |
+| `duration` | `integer` | oui | `—` |
 
 Contraintes :
 
 - `CHK_puzzle_attempts_0`: `CHECK ((array_position(moves, NULL::text) IS NULL))`
+- `CHK_puzzle_attempts_metrics`: `CHECK (((attempts >= 0) AND (duration >= 0)))`
 - `FK_puzzle_attempts_puzzleId`: `FOREIGN KEY ("puzzleId") REFERENCES puzzles(id) ON DELETE RESTRICT`
 - `FK_puzzle_attempts_userId`: `FOREIGN KEY ("userId") REFERENCES users(id) ON DELETE RESTRICT`
 - `puzzle_attempts_pkey`: `PRIMARY KEY (id)`
@@ -356,12 +381,16 @@ Index (y compris ceux créés par les clés primaires et uniques) :
 | `fen` | `text` | non | `—` |
 | `solution` | `text[]` | non | `—` |
 | `rating` | `integer` | non | `1200` |
+| `themes` | `text[]` | oui | `—` |
+| `solutionMoves` | `jsonb` | oui | `—` |
 
 Contraintes :
 
 - `CHK_puzzles_0`: `CHECK ((length(btrim(fen)) > 0))`
 - `CHK_puzzles_1`: `CHECK (((cardinality(solution) > 0) AND (array_position(solution, NULL::text) IS NULL)))`
 - `CHK_puzzles_2`: `CHECK ((rating >= 0))`
+- `CHK_puzzles_solution_moves`: `CHECK ((("solutionMoves" IS NULL) OR ((jsonb_typeof("solutionMoves") = 'array'::text) AND (jsonb_array_length("solutionMoves") > 0))))`
+- `CHK_puzzles_themes`: `CHECK (((themes <@ ARRAY['CHECK'::text, 'CHECKMATE'::text, 'FORK'::text, 'PIN'::text, 'SKEWER'::text, 'DISCOVERED_ATTACK'::text, 'MATE_IN_ONE'::text, 'MATE_IN_TWO'::text]) AND (array_position(themes, NULL::text) IS NULL)))`
 - `puzzles_pkey`: `PRIMARY KEY (id)`
 
 Index (y compris ceux créés par les clés primaires et uniques) :
@@ -444,7 +473,7 @@ FROM friendships WHERE "userId" = $1 OR "friendId" = $1;
 -- Candidats compatibles ; le service réserve les lignes dans une transaction.
 SELECT * FROM matchmaking_queue
 WHERE "initialTime" = $1 AND increment = $2
-  AND rating BETWEEN $3 AND $4 AND "userId" <> $5
+  AND rating BETWEEN $3 AND $4 AND "userId" <> $5 AND status = 'WAITING'
 ORDER BY rating, "createdAt", id LIMIT 20 FOR UPDATE SKIP LOCKED;
 
 -- Historique des essais d’un utilisateur pour un puzzle.
