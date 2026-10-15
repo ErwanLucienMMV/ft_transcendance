@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import type { ConfigModuleOptions } from '@nestjs/config';
 
 export interface Environment {
+  CORS_ORIGINS?: string;
   APIPORT: number;
   DATABASE_HOST: string;
   DATABASE_PORT: number;

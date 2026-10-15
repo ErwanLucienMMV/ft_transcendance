@@ -10,6 +10,13 @@ all:
 	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) logs >> compose.log 2>&1
 	@echo "All set, feel free to test it"
 
+
+test:
+	@docker compose -f $(TEST_COMPOSE) run --rm --build tests; \
+	status=$$?; \
+	docker compose -f $(TEST_COMPOSE) down; \
+	exit $$status
+
 loud:
 	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) up --build
 
