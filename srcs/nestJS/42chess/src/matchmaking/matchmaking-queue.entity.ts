@@ -24,6 +24,15 @@ import { User } from '../users/user.entity.js';
   'createdAt',
   'id',
 ])
+@Check(
+  'CHK_matchmaking_status',
+  `"status" IN ('WAITING', 'MATCHED', 'CANCELLED')`,
+)
+@Index(
+  'IDX_matchmaking_waiting',
+  ['initialTime', 'increment', 'rating', 'createdAt', 'id'],
+  { where: `"status" = 'WAITING'` },
+)
 @Entity('matchmaking_queue')
 export class MatchmakingEntry {
   @PrimaryGeneratedColumn('uuid')
@@ -38,6 +47,17 @@ export class MatchmakingEntry {
   initialTime: number;
   @Column({ type: 'integer', default: 0 })
   increment: number;
+  @Column({ type: 'varchar', length: 9, default: 'WAITING' })
+  status: 'WAITING' | 'MATCHED' | 'CANCELLED';
+  get timeControl(): { initialTime: number; increment: number } {
+    return { initialTime: this.initialTime, increment: this.increment };
+  }
+  get elo(): number {
+    return this.rating;
+  }
+  get joinedAt(): Date {
+    return this.createdAt;
+  }
   @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({
     name: 'userId',

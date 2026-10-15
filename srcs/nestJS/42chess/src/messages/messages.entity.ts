@@ -31,6 +31,12 @@ export class Message {
   recipientId: string;
   @Column({ type: 'varchar', length: 2000 })
   content: string;
+  // Only the recipient service may advance this timestamp.
+  @Column({ type: 'timestamptz', nullable: true })
+  readAt: Date | null;
+  get receiverId(): string {
+    return this.recipientId;
+  }
   @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({
     name: 'senderId',
