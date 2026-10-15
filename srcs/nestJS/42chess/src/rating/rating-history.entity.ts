@@ -28,6 +28,9 @@ export class RatingHistory {
   ratingBefore: number;
   @Column({ type: 'integer' })
   ratingAfter: number;
+  get change(): number {
+    return this.ratingAfter - this.ratingBefore;
+  }
   @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({
     name: 'userId',

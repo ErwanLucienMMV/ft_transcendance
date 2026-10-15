@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import cliDataSource from '../dist/database/data-source.js';
+const options = cliDataSource.options;
+if (options.type !== 'postgres') throw new Error('PostgreSQL required');
+const postgresOptions = options;
 
 describe('DB ticket schema on PostgreSQL', () => {
   const schema = `tickets_${randomUUID().replaceAll('-', '')}`;
@@ -9,7 +12,7 @@ describe('DB ticket schema on PostgreSQL', () => {
   let bob: string;
   beforeAll(async () => {
     source = new DataSource({
-      ...cliDataSource.options,
+      ...postgresOptions,
       schema,
       extra: { max: 1 },
     });
@@ -152,17 +155,17 @@ describe('DB ticket schema on PostgreSQL', () => {
     );
     expect((await q('SELECT * FROM @.puzzle_attempts')).length).toBe(2);
   });
-  it('rolls back and reapplies all ten new migrations', async () => {
+  it('rolls back and reapplies all eleven feature migrations', async () => {
     // Fixture rows live only in this random schema; remove dependencies first.
     await q(
       'TRUNCATE @.puzzle_attempts, @.daily_puzzles, @.puzzles, @.matchmaking_queue, @.friendships, @.friend_requests, @.oauth_accounts',
     );
-    for (let i = 0; i < 10; i++) await source.undoLastMigration();
+    for (let i = 0; i < 11; i++) await source.undoLastMigration();
     const [row] = await source.query('SELECT to_regclass($1) AS name', [
       `${schema}.oauth_accounts`,
     ]);
     expect(row.name).toBeNull();
-    expect(await source.runMigrations()).toHaveLength(10);
+    expect(await source.runMigrations()).toHaveLength(11);
     expect(await source.runMigrations()).toHaveLength(0);
     expect((await q('SELECT id FROM @.users')).length).toBe(2);
   });
