@@ -397,6 +397,9 @@ describe('Game persistence migrations', () => {
     );
     expect(user.id).toBe(userId);
     expect(await source.runMigrations()).toHaveLength(gameMigrations);
+    // Also verify a single feature migration can be rolled back and reapplied.
+    await source.undoLastMigration();
+    expect(await source.runMigrations()).toHaveLength(1);
     expect(await source.runMigrations()).toHaveLength(0);
     const fresh = await createGame();
     await addPlayer(fresh.id, userId, 'WHITE');

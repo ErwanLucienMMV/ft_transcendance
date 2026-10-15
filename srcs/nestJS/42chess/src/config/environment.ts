@@ -12,6 +12,7 @@ export interface DatabaseEnvironment {
 }
 
 export interface Environment extends DatabaseEnvironment {
+  CORS_ORIGINS?: string;
   JWT_SECRET: string;
   /** Access token lifetime, in seconds. */
   JWT_EXPIRES_IN: number;

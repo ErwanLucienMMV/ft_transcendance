@@ -21,6 +21,10 @@ fill() {
   key=$1
   value=$2
   if ! grep -q "^$key=" "$env_file"; then
+    # Separate the new entry even when the existing file has no final newline.
+    if [ -s "$env_file" ] && [ -n "$(tail -c 1 "$env_file")" ]; then
+      printf '\n' >> "$env_file"
+    fi
     printf '%s=%s\n' "$key" "$value" >> "$env_file"
   elif grep -q "^$key=$" "$env_file"; then
     tmp="$env_file.tmp"

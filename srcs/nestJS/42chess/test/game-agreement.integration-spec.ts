@@ -189,6 +189,7 @@ describe('Draw offers and resignation', () => {
     const runner = f.source.createQueryRunner();
     const migration = new AddGameAgreements1791740100000();
     await migration.down(runner);
+    await f.source.undoLastMigration();
     try {
       const [row] = await f.source.query(
         'SELECT "currentFen" FROM games WHERE id = $1',
@@ -200,6 +201,7 @@ describe('Draw offers and resignation', () => {
     } finally {
       await migration.up(runner);
       await runner.release();
+      await f.source.runMigrations();
     }
     expect((await f.service.get(game.id)).game.drawOffer).toBeNull();
   });

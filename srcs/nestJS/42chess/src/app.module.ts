@@ -17,8 +17,9 @@ import { ChatModule } from './chat/chat.module.js';
 import { RatingModule } from './rating/rating.module.js';
 import { PuzzlesModule } from './puzzles/puzzles.module.js';
 import { BotsModule } from './bots/bots.module.js';
-import { APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { createValidationPipe } from './common/validation.js';
+import { ApiExceptionFilter } from './common/api-exception.filter.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -26,6 +27,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
   imports: [
     ConfigModule.forRoot(configurationOptions),
     DatabaseModule,
+    // Distributed tracing, auto-correlated logs, request/job metrics, error
+    // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
     ObserveModule.forRoot({
       appKey: 'YOUR_APP_KEY',
       appSecret: 'YOUR_APP_SECRET',
@@ -47,6 +50,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     AppService,
     ChessEngineService,
     { provide: APP_PIPE, useFactory: createValidationPipe },
+    { provide: APP_FILTER, useClass: ApiExceptionFilter },
   ],
 })
 export class AppModule {}

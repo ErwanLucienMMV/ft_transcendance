@@ -71,6 +71,7 @@ services:
         CHESS_ENGINE_URL: ws://chess-engine:8081
         MAIL_SERVICE_URL: http://forgemail:3002
         APIPORT: ${APIPORT}
+        CORS_ORIGINS: ${CORS_ORIGINS:-}
         DATABASE_HOST: ${DATABASE_HOST}
         DATABASE_PORT: ${DATABASE_PORT}
         DATABASE_NAME: ${DATABASE_NAME}

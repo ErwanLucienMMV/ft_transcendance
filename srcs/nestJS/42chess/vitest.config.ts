@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     globals: true,
+    setupFiles: ['./test/vitest.setup.ts'],
     root: './',
     include: ['**/*.spec.ts'],
     env: {
