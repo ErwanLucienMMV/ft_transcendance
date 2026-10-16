@@ -54,6 +54,9 @@
               "outputHashing": "all"
             },
             "development": {
+              "security": {
+                "allowedHosts": ["localhost", "127.0.0.1"]
+              },
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
