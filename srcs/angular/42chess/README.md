@@ -57,3 +57,51 @@ Angular CLI does not come with an end-to-end testing framework by default. You c
 ## Additional Resources
 
 For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+
+## Lot 1 implementation
+
+Covers FRONT-02, FRONT-04, FRONT-07, FRONT-08 and FRONT-AUTH-01..02
+(SCRUM-319, 321, 324, 325, 326, 327).
+
+- Public routes: `/`, `/login`, `/register`; unknown routes show a not-found page.
+  Known pages remain prerendered. Nginx falls back to Angular's `index.csr.html`
+  for other URLs, so client routing does not hydrate the home page's HTML as
+  a different page. Prerendered directories are resolved to their `index.html`
+  directly, avoiding slash redirects that lose the externally published HTTPS
+  port when it differs from 443.
+- `core/api/ApiClient` sends typed JSON requests to the same-origin `/api/v1`
+  prefix that production Nginx forwards to NestJS `/v1`. Use relative endpoint
+  paths and the `params` option for queries. `API_BASE_URL` is injectable.
+- The HTTP interceptor preserves the backend `statusCode/code/message/details`
+  error shape in `ApiError`. Network and server failures also show a dismissible
+  global message. Business errors remain available to the requesting feature.
+  Requests are not automatically retried, and raw server diagnostics are not
+  displayed in the global message.
+- Unexpected Angular errors are logged through `GlobalErrorHandler` and show
+  a generic message. Existing browser error listeners and hydration are retained.
+- Login and registration forms validate the existing DTO field limits. Login
+  accepts either a username or email; passwords are never trimmed. Registration
+  checks password confirmation locally and emits only the three API fields.
+
+The forms are presentation components with `submissionEnabled`, `pending` and
+`submitted` inputs/output. The routed pages keep submission disabled until lot 3
+connects the real authentication service. There is no simulated login, stored
+token or new authentication guard in this lot. No request is made during
+prerendering. The Figma theme and images are deferred; CSS provides structure
+and keyboard focus only.
+
+The development Compose stack currently has no Nginx. When connecting APIs,
+configure an Angular development proxy or explicitly provide the appropriate
+API origin and the backend CORS allowlist; `/api/v1` otherwise refers to the
+Angular development server. Production continues to use Nginx.
+
+Validate from this directory with the locked dependencies and Node 22:
+
+```bash
+npm ci
+npm test -- --watch=false
+npm run build
+```
+
+No dependency, lockfile, test configuration or CI workflow change is required
+for this lot. CI execution of the Angular test suite is tracked in lot 2.
