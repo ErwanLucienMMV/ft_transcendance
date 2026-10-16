@@ -197,3 +197,18 @@ Angular `GameRealtime` exposes a snapshot, clock updates, errors and typed
 move/resign/draw methods without any board rendering or image assets. It ignores
 unrelated game snapshots, clears state on session expiry and relies on the
 transport for reconnection. It never applies optimistic chess moves.
+
+# Lot 6 realtime integration verification
+
+SCRUM-194/195: `test/game-realtime.e2e-spec.ts` boots the actual Nest application
+with PostgreSQL and the C++ engine. Two native WS clients exercise the same room,
+legal move broadcasts and SAN persistence, wrong-turn/illegal/forged input,
+outsider refusal, leave/rejoin, reconnect after an unseen move and draw offer,
+draw refusal/acceptance, resignation and a real clock timeout. Reconnect verifies
+persisted history and preserves two seats instead of creating duplicates.
+The existing `make test` includes this file without changing test discovery or
+CI. Its only substituted boundary is `RealtimeAuthenticator`, via Nest's test
+module override; production still rejects authentication until SCRUM-178 lands.
+Real JWT acceptance/refusal remains an integration dependency, not a passing
+claim made by these fixtures. The browser suite additionally checks the actual
+Angular WS proxy and its fail-closed response with an untrusted token.
