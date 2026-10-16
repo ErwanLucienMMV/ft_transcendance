@@ -1,0 +1,36 @@
+name: Frontend validation
+on:
+  push:
+    branches: [main, dev_test, 'feat/lot-*']
+  pull_request:
+    branches: [main, dev_test]
+jobs:
+  angular:
+    name: Angular tests and production build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: srcs/angular/42chess
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: srcs/angular/42chess/package-lock.json
+      - run: npm ci
+      - run: npm test -- --watch=false
+      - run: npm run build
+  browser:
+    name: Browser E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run isolated browser tests
+        run: docker compose -f srcs/angular/compose.e2e.yml run --rm --build browser-tests
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose -f srcs/angular/compose.e2e.yml logs
+      - name: Stop isolated test services
+        if: always()
+        run: docker compose -f srcs/angular/compose.e2e.yml down
