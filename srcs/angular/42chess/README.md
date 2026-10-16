@@ -46,13 +46,15 @@ ng test
 
 ## Running end-to-end tests
 
-For end-to-end (e2e) testing, run:
+For end-to-end (e2e) testing, run from the repository root:
 
 ```bash
-ng e2e
+docker compose -f srcs/angular/compose.e2e.yml run --rm --build browser-tests
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+Playwright runs Chromium against Angular and the isolated API/database/mail
+fixtures. Stop the isolated services afterwards with
+`docker compose -f srcs/angular/compose.e2e.yml down`.
 
 ## Additional Resources
 
@@ -124,7 +126,9 @@ mail capture is test infrastructure, never a production mail endpoint. Browser
 tests exercise actual page navigation and form validation; registration/login
 against the real API are added in lot 3. Screenshots, traces and reports are
 ignored by Git. Locally, after installing Playwright's Chromium, `npm run
-test:e2e` starts its own Angular server and runs the same browser tests.
+test:e2e` starts its own Angular server. Running the complete suite this way also
+requires the isolated API (`API_PROXY_TARGET`) and mail capture (`TEST_MAIL_URL`)
+to be reachable; the Compose command supplies both automatically.
 The browser runner authorizes only `localhost` and `127.0.0.1` for Angular's
 Node SSR handler. Development build configuration has the same explicit host
 allowlist; production host restrictions are unchanged.
@@ -175,3 +179,22 @@ authenticated WS refusal test remain pending SCRUM-79/80/178. Existing transport
 tests already prove fail-closed behavior while the verifier is unavailable.
 The unit tests for enabled capabilities are HTTP contract fixtures, not proof
 that the absent server endpoints work.
+
+## Lot 8 OAuth client preparation
+
+Client entries for SCRUM-331/332 are present in `OAuthSignIn` and `OAuthService`.
+Each enabled provider opens the spec's same-origin API start route by full-page
+navigation: `/api/v1/auth/oauth/google` or `/api/v1/auth/oauth/github`. The backend
+owns provider secrets, state/PKCE, callback verification and account linking.
+No provider secret, JWT query parameter, arbitrary return URL or simulated login
+is introduced. Errors leave password sign-in available.
+
+`OAUTH_PROVIDERS` defaults to `[]`, so absent integrations are hidden and cause
+no outgoing request. Enable providers individually only after Nicolas's
+SCRUM-81..88 routes and the frontend callback/session handoff are agreed and
+tested with the real provider. The spec names server callback URLs but does not
+define that handoff; this branch does not invent a token exchange endpoint.
+Callback handling and end-to-end OAuth acceptance therefore remain pending.
+Google/GitHub follow the backlog; the Figma's 42 OAuth example is a design
+reference, not an additional provider implementation. Images and Figma styling
+remain deferred across all lots.

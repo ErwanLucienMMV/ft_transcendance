@@ -7,13 +7,15 @@ import { safeReturnUrl } from '../../core/auth/auth.interceptor';
 import { LoginCredentials } from './auth-form.models';
 import { authFeedback } from './auth-feedback';
 import { ResendVerification } from './resend-verification';
+import { OAuthSignIn } from './oauth-sign-in';
 import { LoginForm } from './login-form';
 
 @Component({
   selector: 'app-login-page',
-  imports: [LoginForm, RouterLink, ResendVerification],
+  imports: [LoginForm, RouterLink, ResendVerification, OAuthSignIn],
   template: `
     <h2>Sign in</h2>
+    <app-oauth-sign-in />
     @if (auth.session.notice()) {
       <p role="status">{{ auth.session.notice() }}</p>
     }
