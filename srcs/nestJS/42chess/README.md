@@ -116,3 +116,84 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# Lot 4 realtime transport
+
+SCRUM-176, 177, 180, 181, 323 and 460: native JSON WebSocket at `/ws` on the
+existing API server. Nginx forwards upgrade headers and preserves the public
+host; Angular's development proxy supports the same path. Messages use
+`{ "event": "EVENT_NAME", "data": {} }` (not Socket.IO framing).
+
+The first message must be `AUTHENTICATE { accessToken }` within five seconds.
+`RealtimeAuthenticator` is the SCRUM-178 integration point: it must verify the
+signature, expiry and user eligibility and return `{ userId, expiresAt }`, with
+expiry in epoch milliseconds. The default implementation returns
+`AUTH_UNAVAILABLE` and closes with 4401; it deliberately authenticates nobody.
+There is no production test bypass, URL token or client-supplied actor identity.
+Authentication success returns `AUTHENTICATED { userId }`; the gateway also closes
+at verified expiry. Nicolas's provider is required for production game events.
+
+Transport bounds: 16 KiB incoming text JSON, no compression or binary frames,
+60 frames per ten seconds, 32 queued frames and 256 KiB outgoing backpressure.
+Ping/pong detects broken connections. Browser origins must match the public host
+or the existing `CORS_ORIGINS` list. Disconnect/shutdown clears timers and calls
+the message handler's cleanup hook. Errors use the existing public API shape;
+credentials and frame contents are never logged.
+
+Angular `RealtimeService` exposes connection state and events. Call `connect()`
+when realtime is needed, `joinGame(id)`/`leaveGame(id)` for room subscriptions,
+and `send(event, data)` for commands. Sending before acknowledgement returns
+false. Network loss triggers up to five bounded exponential retries; successful
+reauthentication rejoins rooms for a fresh state. Mutations are never replayed.
+Session changes close the socket and clear memberships. Auth refusal stops
+retries. Tests use actual sockets and a test-only verifier; those passing tests
+do not establish production JWT integration.
+
+# Lot 5 game event contract
+
+SCRUM-182..193. After authentication:
+
+| Client event | Data | Server response |
+| --- | --- | --- |
+| `JOIN_GAME` | `{ gameId }` | `GAME_STATE` full snapshot to room |
+| `LEAVE_GAME` | `{ gameId }` | `GAME_LEFT { gameId }` to requester |
+| `MAKE_MOVE` | `{ gameId, from, to, promotion? }` | `MOVE_PLAYED`, then `GAME_STATE` |
+| `RESIGN` | `{ gameId }` | `GAME_STATE`, `GAME_ENDED` |
+| `OFFER_DRAW` | `{ gameId }` | `DRAW_OFFERED`, `GAME_STATE` |
+| `ACCEPT_DRAW` | `{ gameId }` | `GAME_STATE`, `GAME_ENDED` |
+| `DECLINE_DRAW` | `{ gameId }` | `DRAW_DECLINED`, `GAME_STATE` |
+
+`gameId` is a UUID, squares use lowercase algebraic coordinates, and promotion
+is null/omitted or `QUEEN`, `ROOK`, `BISHOP`, `KNIGHT`. Extra fields, including
+actor IDs, FEN or client clocks, are rejected. All legality, turn, agreement and
+terminal-state checks use the existing transactional `GamesService` and C++
+engine. Domain errors preserve REST codes (`NOT_YOUR_TURN`, `INVALID_MOVE`, etc.)
+and `ERROR { statusCode, code, message }` goes only to the requesting socket.
+
+Joining takes the second seat in a waiting open/invited game through the domain
+service. Seated players can rejoin active or finished games idempotently; other
+users cannot spectate through this transport. Eight subscriptions per connection
+are allowed. Leaving/disconnecting only removes the subscription, never resigns
+or pauses the game. Multiple tabs are independent subscriptions.
+
+`GAME_STATE.data` is the existing REST `GameResponse`, plus `gameId` (equal to
+`id`) and the full `moves` list from `GamePresenterService`. Reconnect obtains
+this durable snapshot, including board, history, clocks, draw offer and result.
+`MOVE_PLAYED.data` has `{ gameId, move, board, clocks, turn }` with the existing
+`MoveResponse`; an action that instead settles a timeout emits no fictitious move.
+`DRAW_OFFERED`/`DRAW_DECLINED` have `{ gameId, playerId }`.
+
+For subscribed active games, `CLOCK_UPDATE` is emitted once per second with
+`{ gameId, clocks: { white, black }, turn, serverTime }`; balances are milliseconds
+and serverTime is ISO UTC. The durable clock is settled before publication.
+Clock/REST changes trigger a fresh snapshot; terminal results emit
+`GAME_ENDED { gameId, result: { winner, reason } }` once per live room and stop
+clock refreshes. A reconnecting finished-game client reads the snapshot result.
+Commands and broadcasts are ordered per game with a bounded queue. PostgreSQL
+locks remain authoritative across REST and WS. Room fanout currently targets one
+NestJS process, matching the existing deployment; a multi-instance deployment
+would require shared fanout before use.
+
+Angular `GameRealtime` exposes a snapshot, clock updates, errors and typed
+move/resign/draw methods without any board rendering or image assets. It ignores
+unrelated game snapshots, clears state on session expiry and relies on the
+transport for reconnection. It never applies optimistic chess moves.

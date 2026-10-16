@@ -1,0 +1,63 @@
+name: transcendence-browser-tests
+services:
+  postgres-e2e:
+    image: docker.io/library/postgres:15
+    environment:
+      POSTGRES_DB: browser_test
+      POSTGRES_USER: browser_test
+      POSTGRES_PASSWORD: browser_test_only
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U browser_test -d browser_test]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  mail-e2e:
+    image: docker.io/library/node:22
+    working_dir: /test
+    volumes:
+      - ./42chess/e2e/mail-capture.mjs:/test/mail-capture.mjs:ro
+    command: [node, mail-capture.mjs]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:3002/health').then(r=>process.exit(r.ok?0:1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  api-e2e:
+    build:
+      context: ../nestJS
+      dockerfile: Dockerfile
+    environment:
+      APIPORT: '3000'
+      DATABASE_HOST: postgres-e2e
+      DATABASE_PORT: '5432'
+      DATABASE_NAME: browser_test
+      DATABASE_USER: browser_test
+      DATABASE_PASSWORD: browser_test_only
+      JWT_SECRET: browser-tests-only-secret-at-least-32-characters
+      JWT_EXPIRES_IN: '3600'
+      MAIL_SERVICE_URL: http://mail-e2e:3002
+    command: [sh, -c, 'node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js && node dist/main.js']
+    depends_on:
+      postgres-e2e:
+        condition: service_healthy
+      mail-e2e:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:3000/v1/health').then(r=>process.exit(r.ok?0:1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  browser-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    init: true
+    shm_size: 1gb
+    environment:
+      API_PROXY_TARGET: http://api-e2e:3000
+      TEST_MAIL_URL: http://mail-e2e:3002
+    depends_on:
+      api-e2e:
+        condition: service_healthy

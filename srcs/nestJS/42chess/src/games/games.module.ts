@@ -35,7 +35,7 @@ import { GameActorGuard } from './game-actor.guard.js';
     GameTimeoutsService,
     ChessEngineService,
   ],
-  exports: [GamesService],
+  exports: [GamesService, GamePresenterService],
   controllers: [GamesController],
 })
 export class GamesModule {}
