@@ -1,19 +1,35 @@
 <a class="skip-link" href="#main-content">Skip to main content</a>
-<header>
-  <h1>Hello, {{ title() }}</h1>
-  <nav aria-label="Main navigation">
-    <a
-      routerLink="/"
-      routerLinkActive="active"
-      [routerLinkActiveOptions]="{ exact: true }"
-      ariaCurrentWhenActive="page"
-      >Home</a
-    >
-    <a routerLink="/login" routerLinkActive="active" ariaCurrentWhenActive="page">Sign in</a>
-    <a routerLink="/register" routerLinkActive="active" ariaCurrentWhenActive="page"
-      >Create an account</a
-    >
-  </nav>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" routerLink="/" aria-label="42 Chess home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><use href="/chess-pieces.svg#knight" /></svg>
+      <span>42 CHESS</span>
+    </a>
+    <h1 class="sr-only">Hello, {{ title() }}</h1>
+    <nav aria-label="Main navigation">
+      <a
+        routerLink="/"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        ariaCurrentWhenActive="page"
+        >Play</a
+      >
+      <a
+        class="nav-login"
+        routerLink="/login"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        >Sign in</a
+      >
+      <a
+        class="nav-register"
+        routerLink="/register"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        >Create an account</a
+      >
+    </nav>
+  </div>
 </header>
 <main id="main-content" tabindex="-1">
   @if (errors.message(); as message) {
@@ -24,3 +40,6 @@
   }
   <router-outlet />
 </main>
+<footer class="site-footer">
+  <span>42 CHESS · BUILT TO PLAY</span><span>Every move is a new beginning.</span>
+</footer>

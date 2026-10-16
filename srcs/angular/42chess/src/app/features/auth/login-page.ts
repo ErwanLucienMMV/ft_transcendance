@@ -8,21 +8,30 @@ import { LoginCredentials } from './auth-form.models';
 import { authFeedback } from './auth-feedback';
 import { ResendVerification } from './resend-verification';
 import { LoginForm } from './login-form';
+import { AuthFrame } from '../../shared/auth-frame';
 
 @Component({
   selector: 'app-login-page',
-  imports: [LoginForm, RouterLink, ResendVerification],
+  imports: [LoginForm, RouterLink, ResendVerification, AuthFrame],
   template: `
-    <h2>Sign in</h2>
-    @if (auth.session.notice()) {
-      <p role="status">{{ auth.session.notice() }}</p>
-    }
-    <app-login-form [submissionEnabled]="true" [pending]="pending()" (submitted)="submit($event)" />
-    @if (error()) {
-      <p role="alert">{{ error() }}</p>
-    }
-    <app-resend-verification />
-    <p>New to 42 Chess? <a routerLink="/register">Create an account</a></p>
+    <app-auth-frame>
+      <h2>Welcome back</h2>
+      <p class="auth-intro">Sign in to pick up where you left off.</p>
+      @if (auth.session.notice()) {
+        <p role="status">{{ auth.session.notice() }}</p>
+      }
+      <app-login-form
+        [submissionEnabled]="true"
+        [pending]="pending()"
+        (submitted)="submit($event)"
+      />
+      @if (error()) {
+        <p role="alert">{{ error() }}</p>
+      }
+      <app-resend-verification />
+      <p class="auth-switch">New to 42 Chess? <a routerLink="/register">Create an account</a></p>
+      <p class="auth-footnote">A familiar board. A fresh beginning.</p>
+    </app-auth-frame>
   `,
 })
 export class LoginPage {

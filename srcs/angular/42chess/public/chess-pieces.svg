@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="pawn" viewBox="0 0 64 64">
+    <circle cx="32" cy="16" r="8"/>
+    <path d="M25 25h14v6c-5 7-6 13 1 18H24c7-5 6-11 1-18zM21 49h22l3 7H18z"/>
+  </symbol>
+  <symbol id="rook" viewBox="0 0 64 64">
+    <path d="M18 9h7v7h4V9h6v7h4V9h7v15l-6 5v19H24V29l-6-5zM21 48h22l4 8H17z"/>
+    <path d="M24 30h16M24 42h16" fill="none"/>
+  </symbol>
+  <symbol id="knight" viewBox="0 0 64 64">
+    <path d="m38 9-9 2-7-4 1 12-11 16 5 8 12-7 4-1c-8 8-13 11-11 14h22c5-11 6-24-3-33zM19 49h27l3 7H16z"/>
+    <path d="m30 20-5 5m11 11 5-10" fill="none" stroke-linecap="round"/>
+    <circle cx="28" cy="23" r="1.7" fill="var(--piece-eye, #0e1112)" stroke="none"/>
+  </symbol>
+  <symbol id="bishop" viewBox="0 0 64 64">
+    <path d="M32 7c-4 7-12 12-12 21 0 7 5 11 12 11s12-4 12-11C44 19 36 14 32 7zM26 39h12l4 10H22zM20 49h24l4 7H16z"/>
+    <path d="m28 20 8 9" fill="none" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="queen" viewBox="0 0 64 64">
+    <path d="m16 19 7 7 2-13 7 13 7-13 2 13 7-7-6 24H22zM22 43h20v6H22zM20 49h24l4 7H16z"/>
+    <circle cx="15" cy="15" r="4"/><circle cx="25" cy="10" r="4"/><circle cx="39" cy="10" r="4"/><circle cx="49" cy="15" r="4"/>
+  </symbol>
+  <symbol id="king" viewBox="0 0 64 64">
+    <path d="M29 6h6v6h6v6h-6v6h-6v-6h-6v-6h6zM32 29c-12-15-25-5-17 8l8 8h18l8-8c8-13-5-23-17-8zM23 45h18v5H23zM20 50h24l4 6H16z"/>
+  </symbol>
+</svg>

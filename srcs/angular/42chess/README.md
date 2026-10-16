@@ -155,3 +155,35 @@ internal service address). Production uses the existing Nginx proxy.
 The isolated browser suite exercises real registration, unverified refusal,
 email verification, wrong-password refusal, login and anonymous route protection.
 JWT guard, server logout, OAuth and `/users/me` are still server dependencies.
+
+## Lot 9 Figma visual integration
+
+`feat/lot-9-figma-ui` applies the supplied PNG's dark/lime visual direction to
+the shared header/footer, landing page, login, registration, email verification,
+2FA, session and not-found pages. Form validation, requests and guards remain
+the existing implementations. Registration/email/2FA/mobile states extend the same visual language because the PNG contains no such frames.
+The main layout collapses at 700px; authentication cards adapt below 600px.
+Focus indicators, visible labels, field errors and reduced-motion preferences
+are retained. Fonts use local system fallbacks without a font service request.
+
+Chess pieces are original local SVG symbols. The landing board is an illustrative
+opening position, not the live chess component. Landing links lead to working
+authentication routes; player counts, rankings and matchmaking are not
+simulated for presentation. Game/profile/history screens remain their separate
+frontend backlog. The welcome heading is retained for assistive technology while
+the visible header uses the Figma-style wordmark.
+
+Actual Chromium screenshots are saved outside the source tree in
+`outputs/figma_preview_2026-10-16/` (desktop and mobile). The local preview started
+for visual review listens on `http://localhost:4300`; it uses the isolated E2E
+API/mail/database fixtures, so verification emails are captured rather than sent.
+The original Figma PNG and other local documents remain untouched and untracked.
+The guarded 2FA screenshot uses a browser-scoped challenge response fixture;
+it does not enable a fake login mode in the application. Visual QA checks five
+public routes at 320, 360, 390, 768, 1024 and 1440px, including horizontal overflow
+and the illustration's 64 equal square cells.
+
+This review branch (`feat/lot-9-figma-ui-standalone`) starts from lot 6 and
+applies the visual changes from `61dba0c`. Lots 7 and 8 are not included: the
+header keeps the existing public navigation and the login page has no OAuth
+entry. Their original branches and commits are preserved for later integration.

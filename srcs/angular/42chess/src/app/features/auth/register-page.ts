@@ -6,28 +6,32 @@ import { RegisterCredentials } from './auth-form.models';
 import { authFeedback } from './auth-feedback';
 import { RouterLink } from '@angular/router';
 import { RegisterForm } from './register-form';
+import { AuthFrame } from '../../shared/auth-frame';
 
 @Component({
   selector: 'app-register-page',
-  imports: [RegisterForm, RouterLink],
+  imports: [RegisterForm, RouterLink, AuthFrame],
   template: `
-    <h2>Create an account</h2>
-    @if (registered()) {
-      <p role="status">
-        Account created. Check your email for the verification link before signing in.
-      </p>
-      <a routerLink="/verify-email">Verification help</a>
-    } @else {
-      <app-register-form
-        [submissionEnabled]="true"
-        [pending]="pending()"
-        (submitted)="submit($event)"
-      />
-    }
-    @if (error()) {
-      <p role="alert">{{ error() }}</p>
-    }
-    <p>Already have an account? <a routerLink="/login">Sign in</a></p>
+    <app-auth-frame>
+      <h2>Create an account</h2>
+      <p class="auth-intro">Your next chapter starts with a first move.</p>
+      @if (registered()) {
+        <p role="status">
+          Account created. Check your email for the verification link before signing in.
+        </p>
+        <a routerLink="/verify-email">Verification help</a>
+      } @else {
+        <app-register-form
+          [submissionEnabled]="true"
+          [pending]="pending()"
+          (submitted)="submit($event)"
+        />
+      }
+      @if (error()) {
+        <p role="alert">{{ error() }}</p>
+      }
+      <p class="auth-switch">Already have an account? <a routerLink="/login">Sign in</a></p>
+    </app-auth-frame>
   `,
 })
 export class RegisterPage {
