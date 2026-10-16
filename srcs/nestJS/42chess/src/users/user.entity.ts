@@ -8,7 +8,10 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export const INITIAL_ELO = 1200;
+import { INITIAL_ELO } from '../rating/rating.constants.js';
+
+// Preserve the existing import path while keeping calculation code dependency-free.
+export { INITIAL_ELO } from '../rating/rating.constants.js';
 
 /**
  * Internal account shared by every authentification method (local password,
