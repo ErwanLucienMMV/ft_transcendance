@@ -5,7 +5,8 @@ import { OAuthProvider, OAuthService } from '../../core/auth/oauth.service';
   selector: 'app-oauth-sign-in',
   template: `
     @if (oauth.available('google') || oauth.available('github')) {
-      <section aria-label="Alternative sign-in">
+      <section class="oauth-options" aria-label="Alternative sign-in">
+        <span class="divider">Or continue with</span>
         @if (oauth.available('google')) {
           <button type="button" (click)="start('google')">Continue with Google</button>
         }

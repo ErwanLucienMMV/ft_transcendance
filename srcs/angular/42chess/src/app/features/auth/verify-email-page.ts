@@ -4,17 +4,22 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { ResendVerification } from './resend-verification';
 import { authFeedback } from './auth-feedback';
+import { AuthFrame } from '../../shared/auth-frame';
 
 @Component({
   selector: 'app-verify-email-page',
-  imports: [RouterLink, ResendVerification],
+  imports: [RouterLink, ResendVerification, AuthFrame],
   template: `
-    <h2>Verify your email</h2>
-    <p role="status">{{ message() }}</p>
-    @if (verified()) {
-      <a routerLink="/login">Sign in</a>
-    }
-    <app-resend-verification />
+    <app-auth-frame>
+      <h2>Verify your email</h2>
+      <p class="auth-intro">One last step before your first move.</p>
+      <p role="status">{{ message() }}</p>
+      @if (verified()) {
+        <a class="button" routerLink="/login">Sign in <span aria-hidden="true">→</span></a>
+      }
+      <app-resend-verification />
+      <p class="auth-switch"><a routerLink="/login">Back to sign in</a></p>
+    </app-auth-frame>
   `,
 })
 export class VerifyEmailPage implements OnInit {
