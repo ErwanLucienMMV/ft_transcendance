@@ -1,1 +1,40 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* Structural styles only; the Figma theme and image assets come in a later lot. */
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+a,
+button,
+input {
+  font: inherit;
+}
+button {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 3px;
+}
+.form-field {
+  display: grid;
+  gap: 0.25rem;
+  margin-block: 1rem;
+  max-width: 32rem;
+}
+.form-field input {
+  width: 100%;
+  padding: 0.5rem;
+}
+.form-field p {
+  margin: 0;
+}
