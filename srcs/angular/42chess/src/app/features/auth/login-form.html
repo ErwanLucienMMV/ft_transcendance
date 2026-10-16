@@ -1,0 +1,44 @@
+<form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="pending()" novalidate>
+  <div class="form-field">
+    <label for="login">Username or email address</label>
+    <input
+      id="login"
+      type="text"
+      formControlName="login"
+      autocomplete="username"
+      required
+      [maxLength]="limits.emailMax"
+      [attr.aria-invalid]="invalid('login')"
+      [attr.aria-describedby]="invalid('login') ? 'login-error' : null"
+    />
+    @if (invalid('login')) {
+      <p id="login-error">
+        Enter your username or email address (up to {{ limits.emailMax }} characters).
+      </p>
+    }
+  </div>
+  <div class="form-field">
+    <label for="login-password">Password</label>
+    <input
+      id="login-password"
+      type="password"
+      formControlName="password"
+      autocomplete="current-password"
+      required
+      [maxLength]="limits.passwordMax"
+      [attr.aria-invalid]="invalid('password')"
+      [attr.aria-describedby]="invalid('password') ? 'login-password-error' : null"
+    />
+    @if (invalid('password')) {
+      <p id="login-password-error">
+        Enter your password (up to {{ limits.passwordMax }} characters).
+      </p>
+    }
+  </div>
+  @if (!submissionEnabled()) {
+    <p role="status">Sign-in is temporarily unavailable.</p>
+  }
+  <button type="submit" [disabled]="!submissionEnabled() || pending()">
+    {{ pending() ? 'Signing in…' : 'Sign in' }}
+  </button>
+</form>

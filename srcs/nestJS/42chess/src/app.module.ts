@@ -20,6 +20,7 @@ import { BotsModule } from './bots/bots.module.js';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { createValidationPipe } from './common/validation.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
+import { RealtimeModule } from './realtime/realtime.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -44,6 +45,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     RatingModule,
     PuzzlesModule,
     BotsModule,
+    RealtimeModule,
   ],
   controllers: [AppController, MetricsController],
   providers: [
