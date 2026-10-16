@@ -12,6 +12,7 @@ import { ChatModule } from './chat/chat.module.js';
 import { RatingModule } from './rating/rating.module.js';
 import { PuzzlesModule } from './puzzles/puzzles.module.js';
 import { BotsModule } from './bots/bots.module.js';
+import { RealtimeModule } from './realtime/realtime.module.js';
 
 /** Feature modules that must be wired into `AppModule`. Add new ones here. */
 const DOMAIN_MODULES = [
@@ -24,6 +25,7 @@ const DOMAIN_MODULES = [
   RatingModule,
   PuzzlesModule,
   BotsModule,
+  RealtimeModule,
 ];
 
 describe('AppModule', () => {
