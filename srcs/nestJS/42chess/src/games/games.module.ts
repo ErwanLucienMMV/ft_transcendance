@@ -13,6 +13,7 @@ import { GameTimeoutsService } from './clock/game-timeouts.service.js';
 import { GamesController } from './games.controller.js';
 import { GamePresenterService } from './game-presenter.service.js';
 import { GameActorGuard } from './game-actor.guard.js';
+import { RatingModule } from '../rating/rating.module.js';
 
 /**
  * Core of the application: game lifecycle (WAITING → ACTIVE → FINISHED),
@@ -23,7 +24,7 @@ import { GameActorGuard } from './game-actor.guard.js';
  * from the client (see spec §6–§20 and §28).
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Game, GamePlayer, Move])],
+  imports: [TypeOrmModule.forFeature([Game, GamePlayer, Move]), RatingModule],
   providers: [
     GamePresenterService,
     GameActorGuard,

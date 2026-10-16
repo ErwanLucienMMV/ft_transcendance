@@ -5,10 +5,14 @@ import { GamePlayer } from './game-player.entity.js';
 import { Move } from './move.entity.js';
 import { GameError } from './game-error.js';
 import type { GameState } from './game-state.js';
+import { RatingService } from '../rating/rating.service.js';
 
 @Injectable()
 export class GameStoreService {
-  constructor(private readonly source: DataSource) {}
+  constructor(
+    private readonly source: DataSource,
+    private readonly ratings: RatingService,
+  ) {}
 
   transaction<T>(action: (manager: EntityManager) => Promise<T>): Promise<T> {
     return this.source.transaction(action);
@@ -55,7 +59,15 @@ export class GameStoreService {
         if (!game && skipBusy) return undefined;
         if (!game)
           throw new GameError('GAME_NOT_FOUND', 'Game does not exist.');
-        return action(manager, await this.state(manager, game));
+        const state = await this.state(manager, game);
+        const wasActive = game.status === 'ACTIVE';
+        const result = await action(manager, state);
+        // All terminal actions, including background clocks, finalize here.
+        // A rating failure rejects this same transaction, including game/move writes.
+        if (wasActive && game.status === 'FINISHED') {
+          await this.ratings.applyFinishedGame(manager, game, state.players);
+        }
+        return result;
       });
     } catch (error: unknown) {
       if (
