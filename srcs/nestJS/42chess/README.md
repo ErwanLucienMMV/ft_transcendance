@@ -116,3 +116,34 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# Lot 4 realtime transport
+
+SCRUM-176, 177, 180, 181, 323 and 460: native JSON WebSocket at `/ws` on the
+existing API server. Nginx forwards upgrade headers and preserves the public
+host; Angular's development proxy supports the same path. Messages use
+`{ "event": "EVENT_NAME", "data": {} }` (not Socket.IO framing).
+
+The first message must be `AUTHENTICATE { accessToken }` within five seconds.
+`RealtimeAuthenticator` is the SCRUM-178 integration point: it must verify the
+signature, expiry and user eligibility and return `{ userId, expiresAt }`, with
+expiry in epoch milliseconds. The default implementation returns
+`AUTH_UNAVAILABLE` and closes with 4401; it deliberately authenticates nobody.
+There is no production test bypass, URL token or client-supplied actor identity.
+Authentication success returns `AUTHENTICATED { userId }`; the gateway also closes
+at verified expiry. Nicolas's provider is required for production game events.
+
+Transport bounds: 16 KiB incoming text JSON, no compression or binary frames,
+60 frames per ten seconds, 32 queued frames and 256 KiB outgoing backpressure.
+Ping/pong detects broken connections. Browser origins must match the public host
+or the existing `CORS_ORIGINS` list. Disconnect/shutdown clears timers and calls
+the message handler's cleanup hook. Errors use the existing public API shape;
+credentials and frame contents are never logged.
+
+Angular `RealtimeService` exposes connection state and events. Call `connect()`
+when realtime is needed, `joinGame(id)`/`leaveGame(id)` for room subscriptions,
+and `send(event, data)` for commands. Sending before acknowledgement returns
+false. Network loss triggers up to five bounded exponential retries; successful
+reauthentication rejoins rooms for a fresh state. Mutations are never replayed.
+Session changes close the socket and clear memberships. Auth refusal stops
+retries. Tests use actual sockets and a test-only verifier; those passing tests
+do not establish production JWT integration.
