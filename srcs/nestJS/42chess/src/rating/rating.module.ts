@@ -3,6 +3,8 @@ import { RatingService } from './rating.service.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/user.entity.js';
 import { RatingHistory } from './rating-history.entity.js';
+import { RatingHistoryService } from './rating-history.service.js';
+import { RatingController } from './rating.controller.js';
 
 /**
  * ELO computation and rating history. Ratings are only updated by the
@@ -12,7 +14,8 @@ import { RatingHistory } from './rating-history.entity.js';
  */
 @Module({
   imports: [TypeOrmModule.forFeature([User, RatingHistory])],
-  providers: [RatingService],
+  providers: [RatingService, RatingHistoryService],
+  controllers: [RatingController],
   exports: [RatingService],
 })
 export class RatingModule {}
