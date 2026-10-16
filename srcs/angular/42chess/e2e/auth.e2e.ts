@@ -39,6 +39,15 @@ test('registers, refuses unverified login, verifies email and signs in against t
   expect(
     await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })),
   ).toEqual({ local: 0, session: 0 });
+  await page.getByRole('button', { name: 'Sign out of this tab', exact: true }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(
+    page.getByRole('navigation').getByRole('link', { name: 'Sign in', exact: true }),
+  ).toBeVisible();
+  await page.getByLabel('Username or email address').fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page).toHaveURL(/\/session$/);
   await page.reload();
   await expect(page).toHaveURL(/\/login\?returnUrl=%2Fsession$/);
 });

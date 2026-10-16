@@ -1,9 +1,10 @@
-import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpHeaders, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api-base-url';
 
 export interface ApiRequestOptions {
+  headers?: HttpHeaders | Record<string, string | string[]>;
   params?:
     HttpParams | Record<string, string | number | boolean | readonly (string | number | boolean)[]>;
   context?: HttpContext;

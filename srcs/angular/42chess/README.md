@@ -155,3 +155,23 @@ internal service address). Production uses the existing Nginx proxy.
 The isolated browser suite exercises real registration, unverified refusal,
 email verification, wrong-password refusal, login and anonymous route protection.
 JWT guard, server logout, OAuth and `/users/me` are still server dependencies.
+
+## Lot 7 session integration preparation
+
+Client part of SCRUM-330: the header shows the current user and a tab sign-out
+button. It immediately clears the token, user and 2FA challenge and closes the
+realtime transport. `SessionLifecycle.signOut()` can also call the spec's server
+logout route with the captured bearer, including after local cleanup. A failed
+server request cannot restore the session. `refreshUser()` can refresh a live
+memory session using the flat `/users/me` response, with stale-response and
+identity-mismatch protection. It does not implement reload restoration.
+
+`SERVER_AUTH_CAPABILITIES` defaults to `{ logout: false, currentUser: false }`:
+neither missing route is called in the current application. These switches must
+remain off until Nicolas's SCRUM-78/79/80 are integrated and verified. Current
+sign-out affects this tab; it does not claim to revoke the JWT on the server.
+Reload restoration, real protected-route/JWT verification and SCRUM-179's
+authenticated WS refusal test remain pending SCRUM-79/80/178. Existing transport
+tests already prove fail-closed behavior while the verifier is unavailable.
+The unit tests for enabled capabilities are HTTP contract fixtures, not proof
+that the absent server endpoints work.
