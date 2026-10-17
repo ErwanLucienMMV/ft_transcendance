@@ -192,16 +192,17 @@ inserting a move. Actor IDs always come from server authentication context.
 From the repository root:
 
 ```sh
-make -C srcs/bot test
-make -C srcs/chess-engine
-python3 srcs/bot/tests/integration_test.py srcs/bot/build/chess_bot srcs/chess-engine/build/chess_engine
+make -C srcs/bot check
+# Run the same native and transport checks in Docker:
+make test-bot
 (cd srcs/nestJS/42chess && npm ci && npm run build && npm test)
 node srcs/bot/tests/nest_adapter_test.mjs
 # Real PostgreSQL + both daemons + backend integration/HTTP tests:
 make test
 ```
 
-The final command uses the existing Docker test stack, now including `bot-test`.
+The final command first runs `test-bot` inside Docker, then uses the existing
+Docker backend test stack, including the `bot-test` daemon.
 For host execution, start that stack with `npm run test:db:up` in the NestJS app,
 then use `npm run test:db`. Override `TEST_BOT_ENGINE_URL` and
 `TEST_CHESS_ENGINE_URL` when the daemons are not at the fixture defaults.
@@ -239,3 +240,27 @@ See `VALIDATION.md` for what was executed in the implementation environment.
 | SCRUM-299 / BOT-13 | PostgreSQL bot seats, normal move persistence, replay and restart |
 | SCRUM-301 / BOT-15 | Database locks, turn checks and fail-fast human submissions |
 | SCRUM-302 / BOT-16 | Difficulty, tactical, legality, transport and integration tests |
+
+## Code layout and build targets
+
+C++ declarations live in `include/bot/*.hpp`; implementations live in matching
+source files. `search.cpp` owns search implementation, `evaluation.cpp` owns
+position scoring, and `main.cpp`, `listener.cpp` and `session.cpp` own process
+startup and transport. The source files do not contain class/struct definitions.
+Tabs and expanded control flow are enforced by `.clang-format`; `.editorconfig`
+records tab indentation for this directory. Run `make -C srcs/bot format-check`
+with clang-format 15 or newer to check the C++ style.
+
+The Makefile compiles each source to its own object with automatic header
+tracking (`-MMD -MP`), then links the executable and tests from shared objects.
+It honors `CPPFLAGS`, `CXXFLAGS`, `LDFLAGS` and `LDLIBS`. `test` runs the C++
+checks, `integration-test` builds both daemons and runs the real socket tests,
+and `check` runs both. `clean` removes objects/dependency files; `fclean` also
+removes the two binaries; `re` rebuilds the daemon.
+
+`make test-bot` at the repository root (or `make -C srcs/bot docker-test`)
+builds the Docker `test` stage and runs its `make check` command in a container.
+Root `make test` depends on that target. Normal production image builds also
+must pass the `test` stage because the runtime copies its binary from that stage.
+The backend's Docker test stack continues to run NestJS unit, PostgreSQL and
+HTTP tests against the real engine and bot services.

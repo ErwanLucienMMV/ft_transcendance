@@ -68,3 +68,13 @@ Implements SCRUM-287/BOT-01, SCRUM-288/BOT-02, SCRUM-289/BOT-03,
 SCRUM-290/BOT-04, SCRUM-291/BOT-05, SCRUM-292/BOT-06, SCRUM-293/BOT-07,
 SCRUM-294/BOT-08, SCRUM-295/BOT-09, SCRUM-296/BOT-10, SCRUM-299/BOT-13,
 SCRUM-301/BOT-15 and SCRUM-302/BOT-16 using the native engine replacement.
+
+## Cleanup follow-up
+
+Continue the original `feat/bot` history with a source-layout/style refactor:
+move all C++ class/struct declarations into `.hpp` files, separate search,
+evaluation, protocol and transport implementations, use tabs and expanded
+control flow, and apply tab formatting to the accompanying NestJS changes.
+Add incremental object/dependency builds and explicit `test`, `integration-test`,
+`check` and `docker-test` Make targets. Production Docker builds pass through
+the test stage; root `make test` also explicitly runs the bot checks in Docker.

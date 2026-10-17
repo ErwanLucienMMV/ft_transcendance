@@ -49,3 +49,25 @@ Not executed here:
 Before merging, run `make test` and build/start Compose in a Docker-capable
 checkout. See README.md for all reproduction commands, migration and API notes.
 No Elo rating or claim of defeating a particular player strength was measured.
+
+## Cleanup follow-up
+
+The cleanup continues the original six commits on `feat/bot`.
+
+Revalidated after splitting declarations/implementations and changing the build:
+
+- 112 native bot checks pass with the object-based Makefile.
+- Real bot/rules WebSocket integration and compiled NestJS adapter checks pass.
+- NestJS build, lint and all 194 unit tests pass after tab formatting.
+- C++ clang-format check and Python syntax check pass.
+- Source/test `.cpp` files contain no class, struct or enum declarations.
+- A subsequent `make all` has nothing to rebuild; generated dependency files
+  track headers for the separate object files.
+- `make -n test-bot` resolves to the Docker test-stage build and container run.
+
+The Dockerfile now has explicit `build`, `test` and `runtime` stages. `test`
+executes `make check`; `runtime` copies the tested binary from that stage.
+Root `make test` also invokes `make test-bot` before the existing backend stack.
+Docker and the real PostgreSQL integration stack still could not be executed
+in this environment; the earlier limitation remains. Sanitizer results above
+refer to the initial implementation, not a new sanitizer run after the cleanup.
