@@ -12,9 +12,9 @@ namespace ws = beast::websocket;
 using tcp = asio::ip::tcp;
 namespace {
 struct Runtime {
+    std::size_t connections = 0, pending = 0;
     asio::io_context io{1};
     asio::thread_pool workers{2};
-    std::size_t connections = 0, pending = 0;
 };
 class Session : public std::enable_shared_from_this<Session> {
     Runtime& runtime_;
