@@ -16,10 +16,23 @@ export class GamePresenterService {
 
   async state({ game, players }: GameState): Promise<GameResponse> {
     const users = await this.source.getRepository(User).find({
-      where: { id: In(players.map((player) => player.userId)) },
+      where: {
+        id: In(
+          players.flatMap((player) => (player.userId ? [player.userId] : [])),
+        ),
+      },
       select: { id: true, username: true, avatarUrl: true, elo: true },
     });
-    const refs = players.map((player) => {
+    const refs: PlayerRef[] = players.map((player) => {
+      if (player.botDifficulty && player.userId === null)
+        return {
+          id: player.id,
+          username: `Bot ${player.botDifficulty}`,
+          avatarUrl: null,
+          elo: null,
+          color: player.color,
+          botDifficulty: player.botDifficulty,
+        };
       const user = users.find((user) => user.id === player.userId);
       if (!user)
         throw new GameError(
@@ -100,7 +113,7 @@ export class GamePresenterService {
           );
         return {
           number: move.ply,
-          playerId: player.userId,
+          playerId: player.userId ?? player.id,
           from: move.uci.slice(0, 2),
           to: move.uci.slice(2, 4),
           ...(move.uci.length === 5

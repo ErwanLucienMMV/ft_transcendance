@@ -10,8 +10,9 @@ export interface PlayerRef {
   id: UUID;
   username: string;
   avatarUrl: string | null;
-  elo: number;
+  elo: number | null;
   color: PlayerColor;
+  botDifficulty?: import('../bots/bot-engine.js').BotDifficulty;
 }
 export type PromotionPiece = 'QUEEN' | 'ROOK' | 'BISHOP' | 'KNIGHT';
 export interface GameResponse {

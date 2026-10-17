@@ -24,6 +24,8 @@ const gameStatus: Record<GameErrorCode, number> = {
   INVALID_ENGINE_RESPONSE: 502,
   INVALID_GAME_HISTORY: 500,
   GAME_BUSY: 409,
+  BOT_UNAVAILABLE: 503,
+  INVALID_BOT_RESPONSE: 502,
 };
 const httpCodes: Record<number, string> = {
   400: 'BAD_REQUEST',

@@ -25,8 +25,9 @@ export class GameStoreService {
   async locked<T>(
     id: string,
     action: (manager: EntityManager, state: GameState) => Promise<T>,
+    failIfBusy = false,
   ): Promise<T> {
-    return (await this.lockTransaction(id, action, false)) as T;
+    return (await this.lockTransaction(id, action, false, failIfBusy)) as T;
   }
 
   /** Background work skips busy parents and retries their durable deadline later. */
@@ -41,6 +42,7 @@ export class GameStoreService {
     id: string,
     action: (manager: EntityManager, state: GameState) => Promise<T>,
     skipBusy: boolean,
+    failIfBusy = false,
   ): Promise<T | undefined> {
     try {
       return await this.source.transaction(async (manager) => {
@@ -49,7 +51,11 @@ export class GameStoreService {
           where: { id },
           lock: {
             mode: 'pessimistic_write',
-            onLocked: skipBusy ? 'skip_locked' : undefined,
+            onLocked: skipBusy
+              ? 'skip_locked'
+              : failIfBusy
+                ? 'nowait'
+                : undefined,
           },
         });
         if (!game && skipBusy) return undefined;

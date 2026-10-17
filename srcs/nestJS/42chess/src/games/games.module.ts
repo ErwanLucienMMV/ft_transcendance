@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BotEngineModule } from '../bots/bot-engine.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChessEngineService } from '../chess/chess-engine.service.js';
 import { Game } from './game.entity.js';
@@ -23,7 +24,7 @@ import { GameActorGuard } from './game-actor.guard.js';
  * from the client (see spec §6–§20 and §28).
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Game, GamePlayer, Move])],
+  imports: [BotEngineModule, TypeOrmModule.forFeature([Game, GamePlayer, Move])],
   providers: [
     GamePresenterService,
     GameActorGuard,
@@ -35,7 +36,7 @@ import { GameActorGuard } from './game-actor.guard.js';
     GameTimeoutsService,
     ChessEngineService,
   ],
-  exports: [GamesService],
+  exports: [GamesService, GamePresenterService, GameActorGuard],
   controllers: [GamesController],
 })
 export class GamesModule {}
