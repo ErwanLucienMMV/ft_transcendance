@@ -53,7 +53,7 @@ start-app:
 # The tests do not read srcs/.env: they bring their own settings.
 # --profile is required by podman-compose to see the `tests` service; the
 # container itself is removed by --rm, so `down` does not need it.
-test:
+test: test-bot
 	@docker compose -f $(TEST_COMPOSE) --profile tests run --rm --build tests; \
 	status=$$?; \
 	docker compose -f $(TEST_COMPOSE) down; \
@@ -61,6 +61,10 @@ test:
 	@echo "Running forgemail tests"
 	@docker run --rm -v "$(CURDIR)/srcs/forgemail:/src:ro" docker.io/library/node:22-slim \
 		sh -c 'cp -r /src /app && cd /app && npm ci --silent && npm test'
+
+# Runs the bot's C++ and real rules-daemon transport suites inside Docker.
+test-bot:
+	$(MAKE) -C srcs/bot docker-test
 
 re: clean
 	$(MAKE)
@@ -70,4 +74,4 @@ clean:
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down -v
 	docker compose -f ./backup/docker-compose.yml down -v
 
-.PHONY: all loud dev env down backup backup-down backup-logs full test re clean
+.PHONY: all loud dev env down backup backup-down backup-logs full test test-bot re clean
