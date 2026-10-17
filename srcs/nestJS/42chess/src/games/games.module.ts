@@ -24,19 +24,22 @@ import { GameActorGuard } from './game-actor.guard.js';
  * from the client (see spec §6–§20 and §28).
  */
 @Module({
-  imports: [BotEngineModule, TypeOrmModule.forFeature([Game, GamePlayer, Move])],
-  providers: [
-    GamePresenterService,
-    GameActorGuard,
-    GamesService,
-    GameStoreService,
-    GameRulesService,
-    GameAgreementsService,
-    GameClocksService,
-    GameTimeoutsService,
-    ChessEngineService,
-  ],
-  exports: [GamesService, GamePresenterService, GameActorGuard],
-  controllers: [GamesController],
+	imports: [
+		BotEngineModule,
+		TypeOrmModule.forFeature([Game, GamePlayer, Move]),
+	],
+	providers: [
+		GamePresenterService,
+		GameActorGuard,
+		GamesService,
+		GameStoreService,
+		GameRulesService,
+		GameAgreementsService,
+		GameClocksService,
+		GameTimeoutsService,
+		ChessEngineService,
+	],
+	exports: [GamesService, GamePresenterService, GameActorGuard],
+	controllers: [GamesController],
 })
 export class GamesModule {}
