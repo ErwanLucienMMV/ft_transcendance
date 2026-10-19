@@ -28,15 +28,30 @@ is legal or historically reachable. The existing C++ engine validates playable
 positions and solution moves. No client-submitted success flag is trusted.
 `validatePuzzle` checks the complete FEN, engine-confirmed moves and their SAN,
 valid metadata, themes, and a checkmate ending for mate-tagged solutions.
+Every supplied move must start from an ongoing position. The final move may end
+the game, but the variation cannot continue afterwards, including after a draw by
+insufficient material even when the engine still lists geometrically legal moves.
+
+### Scope of mate themes
+
+`MATE_IN_ONE` requires a one-ply solution and `MATE_IN_TWO` a three-ply solution;
+both must end in checkmate for the side that started the puzzle. Validation checks
+the supplied variation. It does **not** search every opponent reply, prove a forced
+mate, or establish that the solution has the shortest possible mating length.
+For example, after `f3`, the line `...e5 g4 ...Qh4#` satisfies the current
+`MATE_IN_TWO` validation, although `e3` instead of `g4` avoids that mate.
+Proposition spec.md defines the theme names and a linear `ChessMove[]` solution,
+without specifying a forced-mate search guarantee. Certifying that stronger
+guarantee would require a separate validation policy and search over defences.
 
 ## Development fixtures
 
 These are original composed positions, not claims about historical games:
 
-| Side | Complete FEN | UCI solution | SAN |
-| --- | --- | --- | --- |
-| White | `7k/5Q2/6K1/8/8/8/8/8 w - - 0 1` | `f7g7` | `Qg7#` |
-| Black | `8/8/8/8/8/6k1/5q2/7K b - - 0 1` | `f2g2` | `Qg2#` |
+| Side  | Complete FEN                     | UCI solution | SAN    |
+| ----- | -------------------------------- | ------------ | ------ |
+| White | `7k/5Q2/6K1/8/8/8/8/8 w - - 0 1` | `f7g7`       | `Qg7#` |
+| Black | `8/8/8/8/8/6k1/5q2/7K b - - 0 1` | `f2g2`       | `Qg2#` |
 
 Both have CHECKMATE and MATE_IN_ONE themes. The structured moves use the seeded
 Alice/Bob UUIDs and a fixed fixture timestamp. Those are explicitly synthetic

@@ -35,6 +35,13 @@ Fixtures:
 Fixed UUIDs make reruns insert-only and idempotent. Existing passwords and rows
 are never updated or deleted; changing the supplied password does not reset an
 existing fixture account. A conflicting username/email aborts the transaction.
+Existing fixture game UUIDs are accepted only when their initial settings and
+original fixture seats match. A waiting fixture that has since been joined or
+finished through normal gameplay is preserved without adding seats. Missing or
+reassigned fixture seats, unrelated games using fixture UUIDs, and seat UUID
+collisions abort the whole transaction; existing games are never repaired or
+given extra players by a rerun. User identity checks and existing-game checks
+lock their rows until the transaction completes.
 The seed does not recalculate user statistics or create a daily puzzle assignment.
 It contains no cleanup/reset command. Review any fixture removal separately.
 

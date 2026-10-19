@@ -21,7 +21,7 @@ export function puzzleMoveUci(move: ChessMove): string {
     move.from + move.to + (move.promotion ? promotions[move.promotion] : '')
   );
 }
-/** Imported/generated puzzles must pass this before persistence; FEN alone is not a solution. */
+/** Validate the supplied legal variation, not a forced-mate proof against every defence. */
 export async function validatePuzzle(
   puzzle: Puzzle,
   engine: Pick<ChessEngineService, 'analyze'>,
@@ -46,6 +46,8 @@ export async function validatePuzzle(
     throw new Error('Mate theme does not match solution length');
   const moves: string[] = [];
   for (const move of puzzle.solution) {
+    if (before.status !== 'ongoing')
+      throw new Error('Puzzle solution continues after the game has ended');
     if (
       !(move.timestamp instanceof Date) ||
       !Number.isFinite(move.timestamp.getTime()) ||
