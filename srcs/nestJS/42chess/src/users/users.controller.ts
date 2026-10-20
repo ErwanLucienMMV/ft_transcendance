@@ -40,7 +40,7 @@ export class UsersController {
   @Get(':id')
   async profile(@Param('id', new ParseUUIDPipe()) id: string) {
     return publicProfile(
-      await this.users.requireById(id),
+      await this.users.publicById(id),
       this.presence.isOnline(id),
     );
   }

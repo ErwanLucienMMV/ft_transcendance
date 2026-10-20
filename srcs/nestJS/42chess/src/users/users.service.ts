@@ -49,6 +49,30 @@ export class UsersService {
     return user;
   }
 
+  async publicById(
+    id: string,
+  ): Promise<
+    Pick<User, 'id' | 'username' | 'avatarUrl' | 'elo' | 'gamesPlayed'>
+  > {
+    const user = await this.users.findOne({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        avatarUrl: true,
+        elo: true,
+        gamesPlayed: true,
+      },
+    });
+    if (!user)
+      throw new NotFoundException({
+        statusCode: 404,
+        code: 'USER_NOT_FOUND',
+        message: 'User not found.',
+      });
+    return user;
+  }
+
   async updateProfile(
     id: string,
     input: { username?: string; avatarUrl?: string | null },
