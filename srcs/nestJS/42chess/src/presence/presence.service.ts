@@ -15,7 +15,9 @@ export interface UserPresence {
 export class PresenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PresenceService.name);
   private readonly games = new Map<string, Set<string>>();
-  private readonly listeners = new Set<(state: UserPresence) => void>();
+  private readonly listeners = new Set<
+    (state: UserPresence, previous: PresenceStatus) => void
+  >();
   private readonly sessions = new Map<string, Set<string>>();
   private readonly seen = new Map<string, Date>();
   private readonly dirtySeen = new Map<string, Date>();
@@ -106,7 +108,9 @@ export class PresenceService implements OnModuleInit, OnModuleDestroy {
     return new Date(at);
   }
 
-  subscribe(listener: (state: UserPresence) => void): () => void {
+  subscribe(
+    listener: (state: UserPresence, previous: PresenceStatus) => void,
+  ): () => void {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -137,7 +141,7 @@ export class PresenceService implements OnModuleInit, OnModuleDestroy {
     if (state.status === before) return;
     for (const listener of this.listeners) {
       try {
-        listener(state);
+        listener(state, before);
       } catch (error) {
         this.logger.error('Presence listener failed', error);
       }
