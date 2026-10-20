@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { ownProfile, publicProfile } from './user-profile.js';
 import { PresenceService } from '../presence/presence.service.js';
 import { UsersService } from './users.service.js';
 import { UpdateProfileDto } from './dto/update-profile.dto.js';
+import { SearchUsersDto } from './dto/search-users.dto.js';
 
 @Controller('v1/users')
 export class UsersController {
@@ -35,6 +37,19 @@ export class UsersController {
     @Body() input: UpdateProfileDto,
   ) {
     return ownProfile(await this.users.updateProfile(request.user.id, input));
+  }
+
+  @Get('search')
+  async search(@Query() query: SearchUsersDto) {
+    const users = await this.users.searchByUsername(query.q);
+    return {
+      users: users.map((user) => ({
+        id: user.id,
+        username: user.username,
+        elo: user.elo,
+        online: this.presence.isOnline(user.id),
+      })),
+    };
   }
 
   @Get(':id')

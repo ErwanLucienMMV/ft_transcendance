@@ -73,6 +73,17 @@ export class UsersService {
     return user;
   }
 
+  searchByUsername(q: string): Promise<User[]> {
+    return this.users
+      .createQueryBuilder('user')
+      .select(['user.id', 'user.username', 'user.elo'])
+      .where('user.username = :q', { q })
+      .orderBy('LOWER(user.username)', 'ASC')
+      .addOrderBy('user.id', 'ASC')
+      .take(20)
+      .getMany();
+  }
+
   async updateProfile(
     id: string,
     input: { username?: string; avatarUrl?: string | null },
