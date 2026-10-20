@@ -41,7 +41,7 @@ export class UsersController {
 
   @Get('search')
   async search(@Query() query: SearchUsersDto) {
-    const users = await this.users.searchByUsername(query.q);
+    const users = await this.users.searchByUsername(query.q, query);
     return {
       users: users.map((user) => ({
         id: user.id,

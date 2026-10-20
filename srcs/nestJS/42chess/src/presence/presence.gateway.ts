@@ -164,5 +164,6 @@ export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
       socket.terminate();
     }
     await new Promise<void>((resolve) => this.server!.close(() => resolve()));
+    await this.presence.flushSeen();
   }
 }

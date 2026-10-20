@@ -6,6 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, LessThan, QueryFailedError, Repository } from 'typeorm';
 import { User } from './user.entity.js';
+import type { UserPreferences } from './user-preferences.js';
+import type { Pagination } from '../common/types/api.js';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -73,7 +75,10 @@ export class UsersService {
     return user;
   }
 
-  searchByUsername(q: string): Promise<User[]> {
+  searchByUsername(
+    q: string,
+    pagination: Pagination = { limit: 20, offset: 0 },
+  ): Promise<User[]> {
     return this.users
       .createQueryBuilder('user')
       .select(['user.id', 'user.username', 'user.elo'])
@@ -82,21 +87,47 @@ export class UsersService {
       })
       .orderBy('LOWER(user.username)', 'ASC')
       .addOrderBy('user.id', 'ASC')
-      .take(20)
+      .take(pagination.limit)
+      .skip(pagination.offset)
       .getMany();
   }
 
   async updateProfile(
     id: string,
-    input: { username?: string; avatarUrl?: string | null },
+    input: {
+      username?: string;
+      avatarUrl?: string | null;
+      preferences?: Partial<UserPreferences>;
+    },
   ): Promise<User> {
     // Copy only explicitly editable fields; never write the request wholesale.
-    const changes: { username?: string; avatarUrl?: string | null } = {};
+    const changes: {
+      username?: string;
+      avatarUrl?: string | null;
+      preferences?: () => string;
+    } = {};
     if (input.username !== undefined) changes.username = input.username;
     if (input.avatarUrl !== undefined) changes.avatarUrl = input.avatarUrl;
+    const preferences: Partial<UserPreferences> = {};
+    if (input.preferences?.language !== undefined)
+      preferences.language = input.preferences.language;
+    if (input.preferences?.theme !== undefined)
+      preferences.theme = input.preferences.theme;
+    if (input.preferences?.soundEnabled !== undefined)
+      preferences.soundEnabled = input.preferences.soundEnabled;
+    if (Object.keys(preferences).length)
+      changes.preferences = () =>
+        '"preferences" || CAST(:preferences AS jsonb)';
     await this.requireById(id);
     try {
-      if (Object.keys(changes).length) await this.users.update(id, changes);
+      if (Object.keys(changes).length)
+        await this.users
+          .createQueryBuilder()
+          .update()
+          .set(changes)
+          .where('id = :id', { id })
+          .setParameter('preferences', JSON.stringify(preferences))
+          .execute();
     } catch (error: unknown) {
       if (duplicateField(error) === 'username')
         throw new ConflictException({

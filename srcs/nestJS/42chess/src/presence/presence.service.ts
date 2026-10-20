@@ -1,5 +1,5 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import type { OnModuleInit } from '@nestjs/common';
+import type { OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { isUUID } from 'class-validator';
 
@@ -12,12 +12,16 @@ export interface UserPresence {
 
 /** Process-local authenticated sessions, as specified in §29; one entry per tab. */
 @Injectable()
-export class PresenceService implements OnModuleInit {
+export class PresenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PresenceService.name);
   private readonly games = new Map<string, Set<string>>();
   private readonly listeners = new Set<(state: UserPresence) => void>();
   private readonly sessions = new Map<string, Set<string>>();
   private readonly seen = new Map<string, Date>();
+  private readonly dirtySeen = new Map<string, Date>();
+  private saving?: Promise<void>;
+  private retry?: ReturnType<typeof setTimeout>;
+  private closing = false;
 
   constructor(@Optional() private readonly source?: DataSource) {}
 
@@ -27,6 +31,79 @@ export class PresenceService implements OnModuleInit {
       `SELECT p."userId", p."gameId" FROM game_players p JOIN games g ON g.id = p."gameId" WHERE g.status = 'ACTIVE'`,
     );
     for (const row of rows) this.setGameStatus(row.gameId, [row.userId], true);
+    const accounts: { id: string; lastSeenAt: Date }[] =
+      await this.source.query(
+        'SELECT id, "lastSeenAt" FROM users WHERE "lastSeenAt" IS NOT NULL',
+      );
+    for (const account of accounts)
+      this.seen.set(account.id, new Date(account.lastSeenAt));
+  }
+
+  private recordSeen(id: string, at: Date): void {
+    const previous = this.seen.get(id);
+    if (previous && previous >= at) return;
+    this.seen.set(id, at);
+    if (this.source) {
+      this.dirtySeen.set(id, at);
+      this.requestFlush();
+    }
+  }
+
+  private requestFlush(): void {
+    if (this.saving) return;
+    void this.flushSeen().catch((error: unknown) => {
+      this.logger.error(
+        'Cannot persist presence lastSeen; retaining pending updates',
+        error,
+      );
+      if (!this.closing && !this.retry) {
+        this.retry = setTimeout(() => {
+          this.retry = undefined;
+          this.requestFlush();
+        }, 1000);
+        this.retry.unref();
+      }
+    });
+  }
+
+  /** Flushes coalesced updates; failed writes remain pending for retry. */
+  async flushSeen(): Promise<void> {
+    if (!this.source) return;
+    if (this.saving) {
+      await this.saving;
+      if (this.dirtySeen.size) await this.flushSeen();
+      return;
+    }
+    const work = (async () => {
+      while (this.dirtySeen.size) {
+        const [id, at] = this.dirtySeen.entries().next().value!;
+        await this.source!.query(
+          `UPDATE users SET "lastSeenAt" =
+          GREATEST(COALESCE("lastSeenAt", $2::timestamptz), $2::timestamptz) WHERE id = $1`,
+          [id, at],
+        );
+        if (this.dirtySeen.get(id) === at) this.dirtySeen.delete(id);
+      }
+    })();
+    this.saving = work;
+    try {
+      await work;
+    } finally {
+      if (this.saving === work) this.saving = undefined;
+    }
+    if (this.dirtySeen.size) await this.flushSeen();
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    this.closing = true;
+    clearTimeout(this.retry);
+    await this.flushSeen();
+  }
+
+  private timestamp(at: Date): Date {
+    if (!(at instanceof Date) || !Number.isFinite(at.getTime()))
+      throw new RangeError('Invalid presence timestamp');
+    return new Date(at);
   }
 
   subscribe(listener: (state: UserPresence) => void): () => void {
@@ -87,6 +164,7 @@ export class PresenceService implements OnModuleInit {
 
   connect(userId: string, connectionId: string, at = new Date()): boolean {
     const id = this.identifier(userId);
+    const timestamp = this.timestamp(at);
     const before = this.get(id).status;
     if (!connectionId || connectionId.length > 128)
       throw new RangeError('Invalid connection ID');
@@ -95,7 +173,7 @@ export class PresenceService implements OnModuleInit {
     if (!connections.has(connectionId)) {
       connections.add(connectionId);
       this.sessions.set(id, connections);
-      this.seen.set(id, new Date(at));
+      this.recordSeen(id, timestamp);
     }
     this.publish(id, before);
     return wasOffline;
@@ -103,12 +181,13 @@ export class PresenceService implements OnModuleInit {
 
   disconnect(userId: string, connectionId: string, at = new Date()): boolean {
     const id = this.identifier(userId);
+    const timestamp = this.timestamp(at);
     const before = this.get(id).status;
     const connections = this.sessions.get(id);
     if (!connections?.delete(connectionId)) return false;
     if (connections.size) return false;
     this.sessions.delete(id);
-    this.seen.set(id, new Date(at));
+    this.recordSeen(id, timestamp);
     this.publish(id, before);
     return true;
   }
