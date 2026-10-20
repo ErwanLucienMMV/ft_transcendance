@@ -16,6 +16,8 @@ import { PresenceService } from './presence.service.js';
 @Injectable()
 export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
   private server?: WebSocketServer;
+  private heartbeat?: ReturnType<typeof setInterval>;
+  private readonly alive = new WeakSet<WebSocket>();
   private readonly clients = new Map<
     WebSocket,
     { userId: string; connectionId: string }
@@ -35,9 +37,33 @@ export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
       maxPayload: 16384,
     });
     this.server.on('connection', (socket) => this.accept(socket));
+    this.heartbeat = setInterval(() => this.checkConnections(), 30000);
+    this.heartbeat.unref();
+  }
+
+  /** Ping/pong detects dead TCP peers without relying on a close frame. */
+  checkConnections(): void {
+    for (const socket of this.server?.clients ?? []) {
+      if (socket.readyState !== WebSocket.OPEN || !this.alive.has(socket)) {
+        this.release(socket);
+        socket.terminate();
+      } else {
+        this.alive.delete(socket);
+        socket.ping();
+      }
+    }
+  }
+
+  private release(socket: WebSocket): void {
+    const session = this.clients.get(socket);
+    if (!session) return;
+    this.clients.delete(socket);
+    this.presence.disconnect(session.userId, session.connectionId);
   }
 
   private accept(socket: WebSocket): void {
+    this.alive.add(socket);
+    socket.on('pong', () => this.alive.add(socket));
     const connectionId = randomUUID();
     let authenticating = false;
     let expires: ReturnType<typeof setTimeout> | undefined;
@@ -50,11 +76,7 @@ export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
     socket.on('close', () => {
       clearTimeout(deadline);
       clearTimeout(expires);
-      const session = this.clients.get(socket);
-      if (session) {
-        this.clients.delete(socket);
-        this.presence.disconnect(session.userId, session.connectionId);
-      }
+      this.release(socket);
     });
     socket.on('message', (raw, binary) => {
       void (async () => {
@@ -110,8 +132,10 @@ export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
           clearTimeout(deadline);
           const expire = () => {
             const remaining = subject.expiresAt - Date.now();
-            if (remaining <= 0) socket.close(4401, 'Access token expired');
-            else {
+            if (remaining <= 0) {
+              this.release(socket);
+              socket.close(4401, 'Access token expired');
+            } else {
               expires = setTimeout(expire, Math.min(remaining, 2_147_483_647));
               expires.unref();
             }
@@ -133,8 +157,12 @@ export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    clearInterval(this.heartbeat);
     if (!this.server) return;
-    for (const socket of this.server.clients) socket.terminate();
+    for (const socket of this.server.clients) {
+      this.release(socket);
+      socket.terminate();
+    }
     await new Promise<void>((resolve) => this.server!.close(() => resolve()));
   }
 }
