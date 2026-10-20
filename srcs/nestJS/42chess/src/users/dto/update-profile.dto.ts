@@ -17,7 +17,12 @@ export class UpdateProfileDto {
   username?: string;
 
   @ValidateIf((_object, value) => value !== undefined && value !== null)
-  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @IsUrl({
+    protocols: ['http', 'https'],
+    require_protocol: true,
+    require_valid_protocol: true,
+    disallow_auth: true,
+  })
   @MaxLength(2048)
   avatarUrl?: string | null;
 }
