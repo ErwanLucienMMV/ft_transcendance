@@ -1,14 +1,24 @@
 import {
   IsString,
+  IsObject,
   IsUrl,
   Length,
   Matches,
   MaxLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { IsNotReservedUsername } from '../username.rules.js';
+import { Type } from 'class-transformer';
+import { UpdatePreferencesDto } from './update-preferences.dto.js';
 
 export class UpdateProfileDto {
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsObject()
+  @ValidateNested()
+  @Type(() => UpdatePreferencesDto)
+  preferences?: UpdatePreferencesDto;
+
   @ValidateIf((_object, value) => value !== undefined)
   @IsString()
   @Length(3, 32)
