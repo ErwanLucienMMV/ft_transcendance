@@ -85,4 +85,62 @@ describe('FEN puzzle references and actual chess legality', () => {
       ),
     ).rejects.toThrow(/metadata/);
   });
+
+  async function annotatedLine(fen: string, line: string[]): Promise<Puzzle> {
+    const puzzle: Puzzle = {
+      id: ids.whitePuzzle,
+      fen,
+      rating: 800,
+      themes: [],
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      solution: [],
+    };
+    let before = await engine.analyze({ fen });
+    const moves: string[] = [];
+    for (const uci of line) {
+      moves.push(uci);
+      const after = await engine.analyze({ fen, moves });
+      puzzle.solution.push({
+        from: uci.slice(0, 2) as Square,
+        to: uci.slice(2, 4) as Square,
+        notation: algebraicMove(before, after, uci),
+        timestamp: puzzle.createdAt,
+        playerId: before.turn === 'white' ? ids.alice : ids.bob,
+      });
+      before = after;
+    }
+    return puzzle;
+  }
+
+  it('rejects an extra legal king move after insufficient material has ended the game', async () => {
+    const fen = '4k3/8/8/8/8/8/4r3/4K3 w - - 0 1';
+    const terminal = await engine.analyze({ fen, moves: ['e1e2'] });
+    expect(terminal.status).toBe('insufficient_material');
+    expect(terminal.legalMoves).toContain('e8e7');
+    const puzzle = await annotatedLine(fen, ['e1e2', 'e8e7']);
+    await expect(validatePuzzle(puzzle, engine)).rejects.toThrow(
+      /finished|ended|terminal/i,
+    );
+  });
+
+  it('accepts a terminal position when it is reached by the final supplied move', async () => {
+    const puzzle = await annotatedLine('4k3/8/8/8/8/8/4r3/4K3 w - - 0 1', [
+      'e1e2',
+    ]);
+    await expect(validatePuzzle(puzzle, engine)).resolves.toBeUndefined();
+  });
+
+  it('validates a MATE_IN_TWO variation without claiming the opponent cannot avoid it', async () => {
+    const start = await engine.analyze({ moves: ['f2f3'] });
+    const puzzle = await annotatedLine(start.fen, ['e7e5', 'g2g4', 'd8h4']);
+    puzzle.themes = ['MATE_IN_TWO'];
+    await expect(validatePuzzle(puzzle, engine)).resolves.toBeUndefined();
+    const defence = await engine.analyze({
+      fen: start.fen,
+      moves: ['e7e5', 'e2e3', 'd8h4'],
+    });
+    expect(defence.checkmate).toBe(false);
+    expect(defence.status).toBe('ongoing');
+    expect(defence.legalMoves).toContain('g2g3');
+  });
 });
