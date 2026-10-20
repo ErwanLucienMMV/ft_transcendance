@@ -36,8 +36,8 @@ services:
   tests:
     profiles: ['tests']
     build:
-      context: ../..
-      dockerfile: Dockerfile.test
+      context: ../../..
+      dockerfile: nestJS/Dockerfile.test
     environment:
       TEST_DATABASE_HOST: postgres-test
       TEST_DATABASE_PORT: '5432'
