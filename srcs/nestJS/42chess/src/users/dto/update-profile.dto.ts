@@ -1,0 +1,21 @@
+import {
+  IsString,
+  IsUrl,
+  Length,
+  Matches,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
+
+export class UpdateProfileDto {
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsString()
+  @Length(3, 32)
+  @Matches(/^[A-Za-z0-9_]+$/)
+  username?: string;
+
+  @ValidateIf((_object, value) => value !== undefined && value !== null)
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2048)
+  avatarUrl?: string | null;
+}

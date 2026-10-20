@@ -45,6 +45,19 @@ export class UsersService {
     return user;
   }
 
+  async updateProfile(
+    id: string,
+    input: { username?: string; avatarUrl?: string | null },
+  ): Promise<User> {
+    // Copy only explicitly editable fields; never write the request wholesale.
+    const changes: { username?: string; avatarUrl?: string | null } = {};
+    if (input.username !== undefined) changes.username = input.username;
+    if (input.avatarUrl !== undefined) changes.avatarUrl = input.avatarUrl;
+    await this.requireById(id);
+    if (Object.keys(changes).length) await this.users.update(id, changes);
+    return this.requireById(id);
+  }
+
   /**
    * Inserts the user directly and relies on the database unique constraints:
    * a "check then insert" would let two concurrent requests both pass.
