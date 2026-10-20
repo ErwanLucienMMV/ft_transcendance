@@ -48,6 +48,7 @@ participants, and a valid finished result. Checkmate, resignation, agreed draws,
 valid draw claims, stalemate, insufficient material, and timeout all qualify.
 Custom starting FENs are excluded.
 
-Eligibility and automatic rating updates are not yet enforced by the game
-lifecycle; the current engine calculates adjustments from supplied ratings
-and a score.
+Each eligible game updates both ratings, game statistics, and two history
+entries atomically with its final result. Repeated completion requests cannot
+award another rating change. Custom-position games change neither ratings nor
+the statistics tracked by this rating policy.

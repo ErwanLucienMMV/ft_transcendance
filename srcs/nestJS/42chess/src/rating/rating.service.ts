@@ -98,7 +98,12 @@ export class RatingService {
     const black = users.get(
       seats.find((seat) => seat.color === 'BLACK')!.userId,
     )!;
-    const history = await manager.findBy(RatingHistory, { gameId: game.id });
+    // Game callers may register only game entities on their DataSource.
+    // The migrated history table remains available in that transaction/schema.
+    const history: RatingHistory[] = await manager.query(
+      'SELECT * FROM "rating_history" WHERE "gameId" = $1',
+      [game.id],
+    );
     if (history.length) {
       this.validateHistory(history, white.id, black.id, game.result!);
       if (game.initialFen !== INITIAL_FEN) {
@@ -129,7 +134,7 @@ export class RatingService {
       });
     }
     // Keep the database's unique (userId, gameId) constraint as the final guard.
-    await manager.insert(RatingHistory, [
+    const entries = [
       {
         userId: white.id,
         gameId: game.id,
@@ -142,7 +147,22 @@ export class RatingService {
         ratingBefore: ratings.b.ratingBefore,
         ratingAfter: ratings.b.ratingAfter,
       },
-    ]);
+    ];
+    if (manager.connection.hasMetadata(RatingHistory)) {
+      await manager.insert(RatingHistory, entries);
+    } else {
+      await manager
+        .createQueryBuilder()
+        .insert()
+        .into('rating_history', [
+          'userId',
+          'gameId',
+          'ratingBefore',
+          'ratingAfter',
+        ])
+        .values(entries)
+        .execute();
+    }
     return 'APPLIED';
   }
 
