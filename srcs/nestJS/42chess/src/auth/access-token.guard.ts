@@ -8,6 +8,27 @@ import type { Environment } from '../config/environment.js';
 
 export type AuthenticatedRequest = Request & { user: { id: string } };
 
+/** Shared HTTP/WebSocket verifier; challenge tokens never establish a session. */
+export async function verifyAccessToken(
+  jwt: JwtService,
+  secret: string,
+  token: string,
+) {
+  const payload = await jwt.verifyAsync<Record<string, unknown>>(token, {
+    secret,
+    algorithms: ['HS256'],
+  });
+  if (
+    typeof payload.sub !== 'string' ||
+    !isUUID(payload.sub) ||
+    typeof payload.exp !== 'number' ||
+    !Number.isFinite(payload.exp) ||
+    payload.typ !== undefined
+  )
+    throw new Error('Invalid access claims');
+  return { id: payload.sub.toLowerCase(), expiresAt: payload.exp * 1000 };
+}
+
 /** Accept only signed, expiring access tokens, using the login signing key. */
 @Injectable()
 export class AccessTokenGuard implements CanActivate {
@@ -23,22 +44,12 @@ export class AccessTokenGuard implements CanActivate {
     );
     try {
       if (!match) throw new Error('Missing bearer token');
-      const payload = await this.jwt.verifyAsync<Record<string, unknown>>(
+      const subject = await verifyAccessToken(
+        this.jwt,
+        this.config.get('JWT_SECRET', { infer: true }),
         match[1],
-        {
-          secret: this.config.get('JWT_SECRET', { infer: true }),
-          algorithms: ['HS256'],
-        },
       );
-      if (
-        typeof payload.sub !== 'string' ||
-        !isUUID(payload.sub) ||
-        typeof payload.exp !== 'number' ||
-        !Number.isFinite(payload.exp) ||
-        payload.typ !== undefined
-      )
-        throw new Error('Invalid access claims');
-      request.user = { id: payload.sub.toLowerCase() };
+      request.user = { id: subject.id };
       return true;
     } catch {
       throw new UnauthorizedException({
