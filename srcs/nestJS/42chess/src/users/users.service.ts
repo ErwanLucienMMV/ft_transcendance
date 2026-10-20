@@ -77,7 +77,9 @@ export class UsersService {
     return this.users
       .createQueryBuilder('user')
       .select(['user.id', 'user.username', 'user.elo'])
-      .where('user.username = :q', { q })
+      .where('user.username ILIKE :q', {
+        q: `%${q.replace(/[\\%_]/g, '\\$&')}%`,
+      })
       .orderBy('LOWER(user.username)', 'ASC')
       .addOrderBy('user.id', 'ASC')
       .take(20)
