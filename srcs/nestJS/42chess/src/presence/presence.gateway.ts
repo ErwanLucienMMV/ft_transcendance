@@ -44,9 +44,12 @@ export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
     this.heartbeat = setInterval(() => this.checkConnections(), 30000);
     this.heartbeat.unref();
     this.unsubscribe = this.presence.subscribe((state, previous) => {
-      if (state.status === 'OFFLINE') return;
       const event =
-        previous === 'OFFLINE' ? 'USER_ONLINE' : 'USER_STATUS_CHANGED';
+        state.status === 'OFFLINE'
+          ? 'USER_OFFLINE'
+          : previous === 'OFFLINE'
+            ? 'USER_ONLINE'
+            : 'USER_STATUS_CHANGED';
       this.notifications = this.notifications
         .then(() => this.notifyFriends(event, state))
         .catch((error: unknown) => {
