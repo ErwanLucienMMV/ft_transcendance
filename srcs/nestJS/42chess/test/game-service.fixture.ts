@@ -74,31 +74,8 @@ export function gameFixture(bot: BotEngine = new NativeBotAdapter()) {
   });
 
   beforeEach(async () => {
-    // Erwan's #48 reset list, scoped to the tables present in this branch's
-    // isolated schema (also works before the remaining database PR is merged).
-    const fixtureTables = [
-      'oauth_accounts',
-      'friend_requests',
-      'friendships',
-      'messages',
-      'game_messages',
-      'rating_history',
-      'matchmaking_queue',
-      'puzzle_attempts',
-      'moves',
-      'game_players',
-      'games',
-      'users',
-    ];
-    const tables: { table_name: string }[] = await source.query(
-      'SELECT table_name FROM information_schema.tables WHERE table_schema=$1 AND table_name=ANY($2::text[])',
-      [schema, fixtureTables],
-    );
     await source.query(
-      'TRUNCATE ' +
-        tables
-          .map(({ table_name }) => `"${schema}"."${table_name}"`)
-          .join(', '),
+      'TRUNCATE "oauth_accounts", "friend_requests", "friendships", "messages", "game_messages", "rating_history", "matchmaking_queue", "puzzle_attempts", "moves", "game_players", "games", "users"',
     );
     const rows = await source.query(`INSERT INTO "users" ("username")
       VALUES ('white_player'), ('black_player'), ('outsider') RETURNING "id"`);
