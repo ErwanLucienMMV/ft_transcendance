@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, LessThan, QueryFailedError, Repository } from 'typeorm';
 import { User } from './user.entity.js';
@@ -54,7 +58,17 @@ export class UsersService {
     if (input.username !== undefined) changes.username = input.username;
     if (input.avatarUrl !== undefined) changes.avatarUrl = input.avatarUrl;
     await this.requireById(id);
-    if (Object.keys(changes).length) await this.users.update(id, changes);
+    try {
+      if (Object.keys(changes).length) await this.users.update(id, changes);
+    } catch (error: unknown) {
+      if (duplicateField(error) === 'username')
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'USERNAME_ALREADY_EXISTS',
+          message: 'This username is already in use.',
+        });
+      throw error;
+    }
     return this.requireById(id);
   }
 

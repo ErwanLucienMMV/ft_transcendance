@@ -6,12 +6,14 @@ import {
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+import { IsNotReservedUsername } from '../username.rules.js';
 
 export class UpdateProfileDto {
   @ValidateIf((_object, value) => value !== undefined)
   @IsString()
   @Length(3, 32)
   @Matches(/^[A-Za-z0-9_]+$/)
+  @IsNotReservedUsername()
   username?: string;
 
   @ValidateIf((_object, value) => value !== undefined && value !== null)
