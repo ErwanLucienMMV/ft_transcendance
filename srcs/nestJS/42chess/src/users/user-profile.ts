@@ -12,5 +12,6 @@ export function ownProfile(user: User) {
     gamesDraw: user.gamesDraw,
     gamesLost: user.gamesLost,
     createdAt: user.createdAt.toISOString(),
+    preferences: { ...user.preferences },
   };
 }

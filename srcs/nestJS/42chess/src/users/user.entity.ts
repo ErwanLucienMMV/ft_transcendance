@@ -7,6 +7,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { DEFAULT_PREFERENCES } from './user-preferences.js';
+import type { UserPreferences } from './user-preferences.js';
 
 export const INITIAL_ELO = 1200;
 
@@ -38,6 +40,9 @@ export class User {
 
   @Column({ type: 'varchar', length: 2048, nullable: true })
   avatarUrl: string | null;
+
+  @Column({ type: 'jsonb', default: DEFAULT_PREFERENCES })
+  preferences: UserPreferences;
 
   @Column({ type: 'integer', default: INITIAL_ELO })
   elo: number;
