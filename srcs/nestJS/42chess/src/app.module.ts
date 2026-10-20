@@ -20,6 +20,7 @@ import { BotsModule } from './bots/bots.module.js';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { createValidationPipe } from './common/validation.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
+import { PresenceModule } from './presence/presence.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -27,6 +28,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
   imports: [
     ConfigModule.forRoot(configurationOptions),
     DatabaseModule,
+    PresenceModule,
     // Distributed tracing, auto-correlated logs, request/job metrics, error
     // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
     ObserveModule.forRoot({

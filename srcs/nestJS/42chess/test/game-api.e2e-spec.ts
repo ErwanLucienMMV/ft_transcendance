@@ -56,8 +56,12 @@ describe('Game REST contract (real PostgreSQL and C++ engine)', () => {
   });
   afterAll(async () => {
     if (source?.isInitialized) {
-      for (const id of owned)
+      for (const id of owned) {
+        await source.query('DELETE FROM rating_history WHERE "gameId"=$1', [
+          id,
+        ]);
         await source.query('DELETE FROM games WHERE id=$1', [id]);
+      }
       for (const user of [white, black, outsider])
         if (user)
           await source.query('DELETE FROM users WHERE id=$1', [user.id]);

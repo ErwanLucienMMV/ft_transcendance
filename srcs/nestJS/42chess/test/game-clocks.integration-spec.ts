@@ -3,6 +3,7 @@ import { GameStoreService } from '../dist/games/game-store.service.js';
 import { GameClocksService } from '../dist/games/clock/game-clocks.service.js';
 import { GameTimeoutsService } from '../dist/games/clock/game-timeouts.service.js';
 import { AddGameClocks1791741000000 } from '../dist/database/migrations/1791741000000-AddGameClocks.js';
+import { RatingService } from '../dist/rating/rating.service.js';
 
 describe('Persistent game clocks and timeouts', () => {
   const f = gameFixture();
@@ -87,7 +88,7 @@ describe('Persistent game clocks and timeouts', () => {
     const reloaded = await f.service.get(game.id);
     expect(reloaded.game.clock).toEqual(played.game.clock);
     // A second clock service restores solely from PostgreSQL, as after restart.
-    const store = new GameStoreService(f.source);
+    const store = new GameStoreService(f.source, new RatingService());
     await store.locked(game.id, async (manager, state) => {
       const clocks = new GameClocksService();
       await clocks.settle(manager, state.game);
@@ -156,7 +157,7 @@ describe('Persistent game clocks and timeouts', () => {
     const { game } = await f.active();
     await overdue(game.id);
     const sweeper = new GameTimeoutsService(
-      new GameStoreService(f.source),
+      new GameStoreService(f.source, new RatingService()),
       new GameClocksService(),
     );
     await sweeper.sweep();
@@ -206,7 +207,7 @@ describe('Persistent game clocks and timeouts', () => {
       first.game.id,
     ]);
     const sweeper = new GameTimeoutsService(
-      new GameStoreService(f.source),
+      new GameStoreService(f.source, new RatingService()),
       new GameClocksService(),
     );
     const sweep = sweeper.sweep();
@@ -298,7 +299,7 @@ describe('Persistent game clocks and timeouts', () => {
     );
     try {
       const sweeper = new GameTimeoutsService(
-        new GameStoreService(f.source),
+        new GameStoreService(f.source, new RatingService()),
         new GameClocksService(),
       );
       await sweeper.sweep();
