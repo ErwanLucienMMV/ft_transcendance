@@ -131,8 +131,8 @@ exposes the bot-game HTTP endpoints using the existing `GameActorGuard` principa
 boundary. No client can choose a bot identity, difficulty on an existing game,
 or bypass the rules engine by returning its own bot move.
 
-Apply the new `AddBotSeats1792278000000` migration through the normal migration
-workflow. A seat now contains either `userId` or `botDifficulty`, exclusively,
+Apply `AddBotSeats1792278000000` and `AddBotTurnLease1792500000000` through
+the normal migration workflow. A seat now contains either `userId` or `botDifficulty`, exclusively,
 enforced by a PostgreSQL check. Bot seats have no fake account. Existing human
 rows are preserved. Rollback intentionally fails if bot seats remain, rather
 than deleting their games to restore a NOT NULL constraint.
@@ -150,42 +150,72 @@ integration, accepts:
 {"difficulty":"MEDIUM","color":"WHITE","timeControl":{"initialTime":300000,"increment":2000}}
 ```
 
-It returns `{ "gameId":"...", "status":"ACTIVE" }` after atomically saving
-both seats and starting the clock. Creation always returns the durable ID even
-if the bot daemon is unavailable. If the human chooses BLACK, call
-`POST /v1/games/:id/bot-move` immediately to compute the bot's first move.
+It returns the normal public game state plus `gameId`. The bot plays its opening
+move **automatically before this response** if the human chooses BLACK. A failed
+opening still returns the durable ID, `botPending:true` and a safe error code;
+the frontend does not need a separate successful opening request.
 
-### Play and retry
+Only **one ACTIVE bot game per account** is allowed. Creation locks the account
+row briefly, checks existing bot seats, and inserts the game atomically. This
+also prevents concurrent requests/replicas from bypassing the limit. Finish,
+resign or settle a timed-out bot game before starting another. Other human-only
+games are not counted. The limit returns `BOT_GAME_LIMIT` (409).
 
-`POST /v1/games/:id/bot/player-move` accepts `{ "uci":"e2e4" }`. It commits the
+### Play, status and retry
+
+`POST /v1/games/:id/bot/player-move` accepts `{ "uci":"e2e4" }`. It saves the
 human move, computes the bot reply, and returns the normal game state. The
-existing `GamesService.play()` also performs this orchestration for future
-realtime transports. State/history remain available from the existing GET routes.
+existing `GamesService.play()` performs the same orchestration for realtime
+transports. A response can contain **two new plies**: consumers must publish all
+new moves in order, not just the final row.
 
-`POST /v1/games/:id/bot-move` resumes a bot turn. It requires a participant and is
-idempotent once it is the human's turn. This endpoint is also the recovery path
-following a daemon/backend restart or a failed search.
+Public create/move/retry/GET responses include:
 
-Human moves commit **before** bot calculation. If the bot is unavailable, the
-request returns `BOT_UNAVAILABLE` (503), but the human move is still saved. The
-client should GET the game, then retry **bot-move**, not resend the human move.
-The board remains on the bot's turn; the bot clock keeps running. There is no
-hidden in-memory job required to recover the game.
+| Field | Meaning |
+| --- | --- |
+| `botPending` | The game is ACTIVE and its next move belongs to a bot |
+| `botThinking` | A worker currently holds an unexpired reservation for that move |
+| `botError` | `null`, `BOT_UNAVAILABLE` or `INVALID_BOT_RESPONSE`; no internal error text |
 
-A PostgreSQL parent-row lock spans bot history loading, calculation, validation
-and saving. Human move submissions to bot games and duplicate bot requests use
-`FOR UPDATE NOWAIT`; while locked they return `GAME_BUSY` (409), rather than
-waiting to become a valid human move after the bot finishes. Normal human-only
-games keep their previous serialized behavior. The lock works across backend
-replicas; connection loss/transaction failure releases it automatically.
+A crash, timeout or invalid bot response does **not** turn an already accepted
+human move into an API error. The normal successful response contains that move
+and reports `botPending:true`, `botThinking:false`, and `botError`. The frontend
+may retry `POST /v1/games/:id/bot-move`; it must not replay the human move. This
+also handles a failed bot opening. Retry requires a participant and is idempotent
+when the bot has already played or another worker is computing. Database failures
+still propagate normally; no API can guarantee a successful response while its
+state store is unavailable.
 
-Before insertion, the reply must match current FEN, contain a move in the rules
-snapshot, pass the existing rules service again, and match the resulting FEN.
-Stale or illegal replies return `INVALID_BOT_RESPONSE` (502) and roll back only
-the bot transaction. Moves are saved through the same SAN, ply uniqueness,
-clock, current-FEN and terminal-result path as human moves. Bot calculation
-consumes the bot clock; a timeout during search saves the timeout result without
-inserting a move. Actor IDs always come from server authentication context.
+### Short database transactions
+
+Bot turns use three distinct phases:
+
+1. Briefly lock the game, authorize the participant, settle clocks and reserve
+   the bot turn with a random token and a **45-second lease**, then commit.
+2. **Without a transaction, game lock or pooled database connection**, replay and
+   validate the position, ask the bot for a move, and verify that move and its
+   resulting FEN through the rules daemon.
+3. Reacquire the game lock and check token ownership, lease expiry, ACTIVE status,
+   initial/current FEN, turn, move count/history and bot seat. If still current,
+   settle the bot clock and save through the normal SAN/history/clock/result path.
+
+A changed/finished position discards the computed result. Resignation and clock
+settlement can complete while search is running. Duplicate bot requests observe
+the reservation and return current state without launching another search.
+Human moves on the bot's turn are rejected immediately. A dead worker's expired
+lease can be reclaimed on retry; an old worker cannot save over or clear a newer
+worker's lease. No long-running computation holds a database connection.
+
+On bot error, only the matching reservation is cleared and a pending/error
+state is saved. Calculation and validation time consume the bot clock; if it
+expires, the timeout result is saved without a move. Lease tokens and deadlines
+are internal and never returned publicly.
+
+Draw offers (`OFFER_DRAW`) against a bot return `BOT_DRAW_UNSUPPORTED` (409)
+without storing a pending offer. Rule-based draw claims and resignation retain
+the existing game behavior. Bot games carry explicit bot seats for the rating
+integration to exclude; rating and realtime-handler changes owned by other PRs
+are not duplicated here.
 
 ## Tests
 
@@ -196,7 +226,7 @@ make -C srcs/bot check
 # Run the same native and transport checks in Docker:
 make test-bot
 (cd srcs/nestJS/42chess && npm ci && npm run build && npm test)
-node srcs/bot/tests/nest_adapter_test.mjs
+(cd srcs/nestJS/42chess && npm run test:bot-adapter)
 # Real PostgreSQL + both daemons + backend integration/HTTP tests:
 make test
 ```
@@ -218,8 +248,14 @@ then use `npm run test:db`. Override `TEST_BOT_ENGINE_URL` and
   reply rejection, recovery after failure, lock conflicts and bot clock expiry
   using transaction doubles; they do not claim to verify PostgreSQL.
 - `test/bot-games.integration-spec.ts` verifies the actual migration constraints,
-  durable bot moves, SAN, replay, service restart, NOWAIT locks, failure/retry and
-  bot player presentation against PostgreSQL and both real executables.
+  durable moves, account-creation locks/caps, non-blocking search, stale-result
+  rejection, failure/retry and bot player presentation against PostgreSQL and
+  both real executables.
+- `test/bot-controller.e2e-spec.ts` exercises the real Nest HTTP controller,
+  authentication boundary, DTO validation, pending-state response and error codes.
+  Run `npm run test:bot-http` without PostgreSQL; the full e2e stack includes it too.
+- `test:all` (hence root `make test`) includes `nest_adapter_test.mjs`. In Docker
+  it targets the bot/rules services; standalone it launches both local daemons.
 
 See `VALIDATION.md` for what was executed in the implementation environment.
 
@@ -227,7 +263,7 @@ See `VALIDATION.md` for what was executed in the implementation environment.
 
 | Issue | Custom implementation |
 | --- | --- |
-| SCRUM-287 / BOT-01 | Build/install the native bot executable; Stockfish explicitly replaced |
+| SCRUM-287 / BOT-01 | **Compiler et installer le bot maison** (replacement title for the tracker) |
 | SCRUM-288 / BOT-02 | C++ and NestJS `BotEngine` interfaces |
 | SCRUM-289 / BOT-03 | `SearchEngine` and `NativeBotAdapter`, replacing the Stockfish adapter |
 | SCRUM-290 / BOT-04 | Correlated JSON WebSocket requests with bounded workers/timeouts |
@@ -238,7 +274,7 @@ See `VALIDATION.md` for what was executed in the implementation environment.
 | SCRUM-295 / BOT-09 | MEDIUM profile |
 | SCRUM-296 / BOT-10 | HARD profile |
 | SCRUM-299 / BOT-13 | PostgreSQL bot seats, normal move persistence, replay and restart |
-| SCRUM-301 / BOT-15 | Database locks, turn checks and fail-fast human submissions |
+| SCRUM-301 / BOT-15 | Short turn reservations, outside-transaction calculation and stale-result checks |
 | SCRUM-302 / BOT-16 | Difficulty, tactical, legality, transport and integration tests |
 
 ## Code layout and build targets

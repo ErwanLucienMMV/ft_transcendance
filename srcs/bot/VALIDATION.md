@@ -1,73 +1,63 @@
 # Validation of feat/bot
 
-Based on `origin/feat/bot` at `779e654418b5c7a130a23d6780747d40061845df`.
-That branch already contains the updated engine and persisted game lifecycle.
-No old engine ZIP or old checkout was substituted for current repository files.
+## PR-review follow-up (2026-10-20)
 
-Executed successfully in the implementation environment:
+Continues `d7d0cdc` on `feat/bot`; no engine or bot search implementation was
+replaced. The current follow-up changes backend turn coordination, API behavior,
+formatting and the test wiring.
 
-- GCC 13.3 build of the bot and current rules daemon, C++17, warnings as errors.
-- **112 C++ bot checks**, covering EASY/MEDIUM/HARD, legal moves in special-move
-  and pinned/check positions, hanging-queen captures, mates in one, a forced
-  mate in two verified against every defense, terminal positions, history replay,
-  deterministic search, budget fallback and JSON validation.
-- The same **112 checks under AddressSanitizer and UndefinedBehaviorSanitizer**.
-  Leak detection was disabled (`ASAN_OPTIONS=detect_leaks=0`) because the sandbox
-  cannot support LeakSanitizer process inspection. No leak-check result is claimed.
-- Real bot + rules WebSocket integration: all difficulties return legal moves
-  and matching resulting FENs according to the separate rules daemon. Also tests
-  malformed JSON recovery, fragmentation, concurrent clients, mate, terminal
-  positions, binary/oversized messages and SIGTERM.
-- Live compiled NestJS `NativeBotAdapter` against both real daemons: all three
-  profiles, FEN replay, chosen-move validation, invalid input, terminal/null moves
-  and daemon disconnect handling.
-- NestJS `npm run build` succeeds.
-- Backend `npm test`: **194 tests across 18 files pass**, including eight new
-  orchestration tests with transaction doubles (persistence flow, retry,
-  stale/illegal/FEN mismatch rejection, lock conflict, actor checks and timeout).
-- Backend `npm run lint` succeeds.
-- All three edited Compose files parse as YAML and contain their bot service.
-- `git diff --check` succeeds.
+Executed successfully for this follow-up:
 
-Example opening measurement (e2e4 e7e5; informational, not a benchmark promise):
+- NestJS `npm run build`.
+- **204 backend unit tests across 20 files**, including bot calculation/rules
+  calls with no active transaction, duplicate coalescing, abandoned-lease reclaim,
+  stale position/result rejection, failure responses, automatic White openings,
+  active-game limits, bot draw rejection and public pending/thinking indicators.
+  Transaction-double tests check orchestration, not actual PostgreSQL behavior.
+- **12 HTTP e2e contract tests** for the real compiled bot controller, guard,
+  DTO validation and error/status mapping (`npm run test:bot-http`). Domain and
+  repository providers are replaced in that isolated HTTP contract suite.
+- Live `npm run test:bot-adapter` against the actual C++ bot and rules daemons:
+  all three difficulties, legal moves, matching resulting FENs, malformed FEN,
+  terminal positions and disconnect behavior.
+- The same adapter smoke test in **external-endpoint mode**, relocated outside
+  the repository with `NEST_DIST_DIR` overridden, validating the Docker test
+  image's layout and use of the running bot/rules services.
+- `npm run lint`, backend Prettier checks and `git diff --check`.
+- Docker test Compose context and all changed `COPY` source paths resolve.
 
-| Difficulty | Selected move | Completed depth | Nodes | Search time |
-| --- | --- | ---: | ---: | ---: |
-| EASY | b1c3 | 1 | 60 | <1 ms |
-| MEDIUM | b1c3 | 3 | 1791 | 21 ms |
-| HARD | b1c3 | 4 | 100000 | 1236 ms |
+Added/updated real PostgreSQL tests in `test/bot-games.integration-spec.ts` for:
 
-Not executed here:
+- Durable legal replies, SAN/replay and restart behavior for all difficulties.
+- Automatic bot opening and successful pending responses after an outage.
+- Lock-free stalled search: another connection acquires the same game row with
+  `FOR UPDATE NOWAIT`, and unrelated SQL remains available while calculation waits.
+- Duplicate jobs, resignation during calculation, expired reservations and one
+  saved reply after concurrent retry.
+- Concurrent account creation limits, draw rejection and human/bot-seat checks.
 
-- Docker image builds/full Compose startup (Docker is unavailable).
-- PostgreSQL integration/HTTP test stack. The sandbox only maps root and cannot
-  run PostgreSQL as a non-root account. The new real-database tests are included
-  in `test/bot-games.integration-spec.ts` and wired into the existing `make test`
-  Docker stack with PostgreSQL 15 and both real C++ services. Their results are
-  **not** represented by the passing transaction-double unit tests.
+Those PostgreSQL tests and full Docker image/stack execution **could not run in
+this sandbox**: Docker is unavailable and the environment has no non-root
+PostgreSQL runtime. They are included in root `make test` and must pass on the
+Docker-capable checkout before merge. The reviewer's previous full run applies
+to the earlier revision, not automatically to these new changes.
 
-Before merging, run `make test` and build/start Compose in a Docker-capable
-checkout. See README.md for all reproduction commands, migration and API notes.
-No Elo rating or claim of defeating a particular player strength was measured.
+## Existing C++ validation
 
-## Cleanup follow-up
+The unchanged C++ implementation previously passed **112 bot checks**, including
+all difficulties, legal special moves/check evasions, mates in one, a forced mate
+in two, deterministic search, deadlines and fallback behavior. The real bot/rules
+transport suite also previously passed. The live adapter checks above exercise
+the same unchanged daemons again in this follow-up.
 
-The cleanup continues the original six commits on `feat/bot`.
+AddressSanitizer/UndefinedBehaviorSanitizer passed the initial 112 checks with
+`ASAN_OPTIONS=detect_leaks=0`; no new sanitizer run or leak-check claim is made
+for this backend-only follow-up. No Elo rating has been measured.
 
-Revalidated after splitting declarations/implementations and changing the build:
+## Test entry points
 
-- 112 native bot checks pass with the object-based Makefile.
-- Real bot/rules WebSocket integration and compiled NestJS adapter checks pass.
-- NestJS build, lint and all 194 unit tests pass after tab formatting.
-- C++ clang-format check and Python syntax check pass.
-- Source/test `.cpp` files contain no class, struct or enum declarations.
-- A subsequent `make all` has nothing to rebuild; generated dependency files
-  track headers for the separate object files.
-- `make -n test-bot` resolves to the Docker test-stage build and container run.
-
-The Dockerfile now has explicit `build`, `test` and `runtime` stages. `test`
-executes `make check`; `runtime` copies the tested binary from that stage.
-Root `make test` also invokes `make test-bot` before the existing backend stack.
-Docker and the real PostgreSQL integration stack still could not be executed
-in this environment; the earlier limitation remains. Sanitizer results above
-refer to the initial implementation, not a new sanitizer run after the cleanup.
+- `make test-bot`: C++ and real-daemon transport checks inside the bot Docker test stage.
+- Root `make test`: the above, then backend unit/PostgreSQL/HTTP tests and the
+  compiled NestJS adapter smoke test. `test:all` explicitly includes that script.
+- `npm run test:bot-http`: isolated controller HTTP contract without PostgreSQL.
+- See README.md for configuration, migration, retry and lease semantics.
