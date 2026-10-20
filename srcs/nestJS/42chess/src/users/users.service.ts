@@ -49,6 +49,43 @@ export class UsersService {
     return user;
   }
 
+  async publicById(
+    id: string,
+  ): Promise<
+    Pick<User, 'id' | 'username' | 'avatarUrl' | 'elo' | 'gamesPlayed'>
+  > {
+    const user = await this.users.findOne({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        avatarUrl: true,
+        elo: true,
+        gamesPlayed: true,
+      },
+    });
+    if (!user)
+      throw new NotFoundException({
+        statusCode: 404,
+        code: 'USER_NOT_FOUND',
+        message: 'User not found.',
+      });
+    return user;
+  }
+
+  searchByUsername(q: string): Promise<User[]> {
+    return this.users
+      .createQueryBuilder('user')
+      .select(['user.id', 'user.username', 'user.elo'])
+      .where('user.username ILIKE :q', {
+        q: `%${q.replace(/[\\%_]/g, '\\$&')}%`,
+      })
+      .orderBy('LOWER(user.username)', 'ASC')
+      .addOrderBy('user.id', 'ASC')
+      .take(20)
+      .getMany();
+  }
+
   async updateProfile(
     id: string,
     input: { username?: string; avatarUrl?: string | null },
