@@ -23,7 +23,7 @@
     "test:db": "npm run build && vitest run --config ./vitest.config.database.ts",
     "test:db:up": "docker compose -f test/docker-compose.yml up -d --wait",
     "test:db:down": "docker compose -f test/docker-compose.yml down",
-    "test:all": "npm test && npm run test:db && npm run test:e2e && npm run test:bot-adapter",
+    "test:all": "npm run test:contracts && npm test && npm run test:db && npm run test:e2e && npm run test:bot-adapter",
     "test:docker": "docker compose -f test/docker-compose.yml run --rm --build tests; status=$?; docker compose -f test/docker-compose.yml down; exit $status",
     "migration:create": "typeorm migration:create",
     "migration:generate": "npm run build && typeorm migration:generate -d dist/database/data-source.js",
@@ -31,7 +31,9 @@
     "migration:run": "npm run build && typeorm migration:run -d dist/database/data-source.js",
     "migration:revert": "npm run build && typeorm migration:revert -d dist/database/data-source.js",
     "test:bot-adapter": "node ../../bot/tests/nest_adapter_test.mjs",
-    "test:bot-http": "npm run build && vitest run --config vitest.config.bot-http.ts"
+    "test:bot-http": "npm run build && vitest run --config vitest.config.bot-http.ts",
+    "seed:dev": "npm run build && node dist/database/seeds/run-development-seed.js",
+    "test:contracts": "tsc --project tsconfig.contracts.json"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
