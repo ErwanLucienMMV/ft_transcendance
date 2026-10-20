@@ -14,6 +14,7 @@ import { GamesController } from './games.controller.js';
 import { GamePresenterService } from './game-presenter.service.js';
 import { GameActorGuard } from './game-actor.guard.js';
 import { RatingModule } from '../rating/rating.module.js';
+import { PresenceModule } from '../presence/presence.module.js';
 
 /**
  * Core of the application: game lifecycle (WAITING → ACTIVE → FINISHED),
@@ -24,7 +25,11 @@ import { RatingModule } from '../rating/rating.module.js';
  * from the client (see spec §6–§20 and §28).
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([Game, GamePlayer, Move]), RatingModule],
+  imports: [
+    TypeOrmModule.forFeature([Game, GamePlayer, Move]),
+    RatingModule,
+    PresenceModule,
+  ],
   providers: [
     GamePresenterService,
     GameActorGuard,

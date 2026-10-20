@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { Game } from './game.entity.js';
 import { GamePlayer } from './game-player.entity.js';
@@ -6,12 +6,14 @@ import { Move } from './move.entity.js';
 import { GameError } from './game-error.js';
 import type { GameState } from './game-state.js';
 import { RatingService } from '../rating/rating.service.js';
+import { PresenceService } from '../presence/presence.service.js';
 
 @Injectable()
 export class GameStoreService {
   constructor(
     private readonly source: DataSource,
     private readonly ratings: RatingService = new RatingService(),
+    @Optional() private readonly presence?: PresenceService,
   ) {}
 
   transaction<T>(action: (manager: EntityManager) => Promise<T>): Promise<T> {
@@ -47,7 +49,9 @@ export class GameStoreService {
     skipBusy: boolean,
   ): Promise<T | undefined> {
     try {
-      return await this.source.transaction(async (manager) => {
+      const changes: { gameId: string; userIds: string[]; active: boolean }[] =
+        [];
+      const response = await this.source.transaction(async (manager) => {
         await manager.query(`SET LOCAL lock_timeout = '12s'`);
         const game = await manager.findOne(Game, {
           where: { id },
@@ -60,6 +64,7 @@ export class GameStoreService {
         if (!game)
           throw new GameError('GAME_NOT_FOUND', 'Game does not exist.');
         const state = await this.state(manager, game);
+        const before = game.status;
         const wasActive = game.status === 'ACTIVE';
         const result = await action(manager, state);
         // All terminal actions, including background clocks, finalize here.
@@ -67,8 +72,23 @@ export class GameStoreService {
         if (wasActive && game.status === 'FINISHED') {
           await this.ratings.applyFinishedGame(manager, game, state.players);
         }
+        if (before !== game.status) {
+          const seats = await manager.findBy(GamePlayer, { gameId: game.id });
+          changes.push({
+            gameId: game.id,
+            userIds: seats.map((player) => player.userId),
+            active: game.status === 'ACTIVE',
+          });
+        }
         return result;
       });
+      for (const change of changes)
+        this.presence?.setGameStatus(
+          change.gameId,
+          change.userIds,
+          change.active,
+        );
+      return response;
     } catch (error: unknown) {
       if (
         error instanceof QueryFailedError &&
