@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { NativeBotAdapter } from '../dist/bots/native-bot.adapter.js';
+import type { BotEngine } from '../dist/bots/bot-engine.js';
 import { DataSource } from 'typeorm';
 import cliDataSource from '../dist/database/data-source.js';
 import { GamesService } from '../dist/games/games.service.js';
@@ -18,7 +20,7 @@ export const AFTER_E4 =
   'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
 
 /** Real PostgreSQL and C++ rules service; no chess-rule or repository doubles. */
-export function gameFixture() {
+export function gameFixture(bot: BotEngine = new NativeBotAdapter()) {
   const schema = `lifecycle_${randomUUID().replaceAll('-', '')}`;
   let source: DataSource;
   let service: GamesService;
@@ -28,6 +30,8 @@ export function gameFixture() {
   let outsider: string;
 
   beforeAll(async () => {
+    process.env.BOT_ENGINE_URL =
+      process.env.TEST_BOT_ENGINE_URL ?? 'ws://127.0.0.1:55434';
     process.env.CHESS_ENGINE_URL =
       process.env.TEST_CHESS_ENGINE_URL ?? 'ws://127.0.0.1:55433';
     const options = cliDataSource.options;
@@ -55,7 +59,7 @@ export function gameFixture() {
         new GameClocksService(),
       ),
       new GameClocksService(),
-      new GameAgreementsService(new GameStoreService(source)),
+      bot,
     );
   });
 
@@ -109,6 +113,8 @@ export function gameFixture() {
         const player = state.players.find(
           (player) => player.color === state.game.turn,
         )!;
+        if (player.userId === null)
+          throw new Error('playLine expects human seats');
         await service.play(player.userId, id, uci);
       }
       return service.get(id);
