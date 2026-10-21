@@ -33,7 +33,9 @@
     "test:bot-adapter": "node ../../bot/tests/nest_adapter_test.mjs",
     "test:bot-http": "npm run build && vitest run --config vitest.config.bot-http.ts",
     "seed:dev": "npm run build && node dist/database/seeds/run-development-seed.js",
-    "test:contracts": "tsc --project tsconfig.contracts.json"
+    "test:contracts": "tsc --project tsconfig.contracts.json",
+    "puzzle:import": "npm run build && node dist/puzzles/run-puzzle-import.js",
+    "test:puzzles": "npm run build && vitest run src/puzzles src/auth/access-token.guard.spec.ts && vitest run --config vitest.config.database.ts test/puzzles.integration-spec.ts && vitest run --config vitest.config.e2e.ts test/puzzles.e2e-spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

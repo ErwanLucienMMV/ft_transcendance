@@ -6,6 +6,7 @@ on:
       - main
       - dev_test
       - workflow
+      - feat/puzzle
   pull_request:
     branches:
       - main
@@ -35,7 +36,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Backend unit, PostgreSQL and HTTP tests, run inside Docker.
+      # Backend unit, PostgreSQL and HTTP tests (including puzzles), run inside Docker.
       - name: Backend tests
         run: make test
 
