@@ -155,19 +155,24 @@ describe('DB ticket schema on PostgreSQL', () => {
     );
     expect((await q('SELECT * FROM @.puzzle_attempts')).length).toBe(2);
   });
-  it('rolls back and reapplies all thirteen feature migrations', async () => {
+  it('rolls back and reapplies all feature migrations', async () => {
     // Fixture rows live only in this random schema; remove dependencies first.
     await q(
       'TRUNCATE @.puzzle_attempts, @.daily_puzzles, @.puzzles, @.matchmaking_queue, @.friendships, @.friend_requests, @.oauth_accounts',
     );
-    for (let i = 0; i < 13; i++) {
-		await source.undoLastMigration();
-		}
+    const featureCount = source.migrations.filter(
+      (migration) =>
+        Number((migration.name ?? migration.constructor.name).slice(-13)) >=
+        1792000000000,
+    ).length;
+    for (let index = 0; index < featureCount; index++) {
+      await source.undoLastMigration();
+    }
     const [row] = await source.query('SELECT to_regclass($1) AS name', [
       `${schema}.oauth_accounts`,
     ]);
     expect(row.name).toBeNull();
-    expect(await source.runMigrations()).toHaveLength(13);
+    expect(await source.runMigrations()).toHaveLength(featureCount);
     expect(await source.runMigrations()).toHaveLength(0);
     expect((await q('SELECT id FROM @.users')).length).toBe(2);
   });
