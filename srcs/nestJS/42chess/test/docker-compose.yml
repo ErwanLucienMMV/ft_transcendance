@@ -1,6 +1,13 @@
 name: transcendence-backend-tests
 
 services:
+  bot-test:
+    build:
+      context: ../../..
+      dockerfile: bot/Dockerfile
+    ports:
+      - '127.0.0.1:${TEST_BOT_ENGINE_PORT:-55434}:8082'
+
   # Real rules engine for Games integration tests; separate from the app stack.
   chess-engine-test:
     build:
@@ -29,14 +36,17 @@ services:
   tests:
     profiles: ['tests']
     build:
-      context: ../..
-      dockerfile: Dockerfile.test
+      context: ../../..
+      dockerfile: nestJS/Dockerfile.test
     environment:
       TEST_DATABASE_HOST: postgres-test
       TEST_DATABASE_PORT: '5432'
+      TEST_BOT_ENGINE_URL: 'ws://bot-test:8082'
       TEST_CHESS_ENGINE_URL: 'ws://chess-engine-test:8081'
     depends_on:
       postgres-test:
         condition: service_healthy
+      bot-test:
+        condition: service_started
       chess-engine-test:
         condition: service_started
