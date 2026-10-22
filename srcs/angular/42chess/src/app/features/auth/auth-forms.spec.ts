@@ -126,6 +126,80 @@ describe('Authentication forms', () => {
     expect(fixture.nativeElement.querySelector('[aria-invalid="true"]')).not.toBeNull();
   });
 
+  // Lengths follow the backend's class-validator count, not UTF-16 code units.
+  const emoji = (count: number) => '😀'.repeat(count);
+  const heart = (count: number) => '\u2764\uFE0F'.repeat(count);
+
+  it.each([
+    { label: '8 ASCII', password: 'a'.repeat(8), accepted: true },
+    { label: '128 ASCII', password: 'a'.repeat(128), accepted: true },
+    { label: '7 ASCII', password: 'a'.repeat(7), accepted: false },
+    { label: '129 ASCII', password: 'a'.repeat(129), accepted: false },
+    { label: '4 emoji', password: emoji(4), accepted: false },
+    { label: '8 emoji', password: emoji(8), accepted: true },
+    { label: '65 emoji', password: emoji(65), accepted: true },
+    { label: '128 emoji', password: emoji(128), accepted: true },
+    { label: '129 emoji', password: emoji(129), accepted: false },
+    { label: '4 variation sequences', password: heart(4), accepted: false },
+    { label: '8 variation sequences', password: heart(8), accepted: true },
+    { label: 'a leading space and 7 emoji', password: ' ' + emoji(7), accepted: true },
+  ])('counts a registration password of $label like the backend', ({ password, accepted }) => {
+    const fixture = TestBed.createComponent(RegisterForm);
+    fixture.componentRef.setInput('submissionEnabled', true);
+    fixture.detectChanges();
+    const received = vi.fn();
+    fixture.componentInstance.submitted.subscribe(received);
+    enter(fixture, {
+      username: 'Ta2b',
+      email: 'player@example.com',
+      password,
+      confirmPassword: password,
+    });
+    submit(fixture);
+    if (accepted)
+      expect(received).toHaveBeenCalledExactlyOnceWith({
+        username: 'Ta2b',
+        email: 'player@example.com',
+        password,
+      });
+    else expect(received).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: '65 emoji', password: emoji(65), accepted: true },
+    { label: '128 emoji', password: emoji(128), accepted: true },
+    { label: '128 variation sequences', password: heart(128), accepted: true },
+    { label: '129 emoji', password: emoji(129), accepted: false },
+    { label: '129 ASCII', password: 'a'.repeat(129), accepted: false },
+  ])('counts a login password of $label like the backend', ({ password, accepted }) => {
+    const fixture = TestBed.createComponent(LoginForm);
+    fixture.componentRef.setInput('submissionEnabled', true);
+    fixture.detectChanges();
+    const received = vi.fn();
+    fixture.componentInstance.submitted.subscribe(received);
+    enter(fixture, { login: 'Ta2b', password });
+    submit(fixture);
+    if (accepted) expect(received).toHaveBeenCalledExactlyOnceWith({ login: 'Ta2b', password });
+    else expect(received).not.toHaveBeenCalled();
+  });
+
+  it('leaves password lengths to the backend-compatible validator, not native limits', () => {
+    // Native limits count UTF-16 code units, and Chromium truncates replacements in masked fields.
+    const login = TestBed.createComponent(LoginForm);
+    const register = TestBed.createComponent(RegisterForm);
+    login.detectChanges();
+    register.detectChanges();
+    const inputs = [
+      login.nativeElement.querySelector('#login-password'),
+      register.nativeElement.querySelector('#register-password'),
+      register.nativeElement.querySelector('#register-confirm-password'),
+    ] as HTMLInputElement[];
+    for (const input of inputs) {
+      expect(input.maxLength).toBe(-1);
+      expect(input.minLength).toBe(-1);
+    }
+  });
+
   it('also prevents registration submissions when unavailable or pending', () => {
     const fixture = TestBed.createComponent(RegisterForm);
     fixture.detectChanges();

@@ -8,14 +8,7 @@ import { authFeedback } from './auth-feedback';
 @Component({
   selector: 'app-verify-email-page',
   imports: [RouterLink, ResendVerification],
-  template: `
-    <h2>Verify your email</h2>
-    <p role="status">{{ message() }}</p>
-    @if (verified()) {
-      <a routerLink="/login">Sign in</a>
-    }
-    <app-resend-verification />
-  `,
+  templateUrl: './verify-email-page.html',
 })
 export class VerifyEmailPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
