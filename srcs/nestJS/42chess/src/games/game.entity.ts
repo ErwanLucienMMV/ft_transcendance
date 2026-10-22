@@ -64,6 +64,10 @@ export const INITIAL_FEN =
   'CHK_games_end_reason',
   `"endReason" IS NULL OR ("status" = 'FINISHED' AND "endReason" IN ('CHECKMATE', 'RESIGNATION', 'TIMEOUT', 'DRAW_AGREEMENT', 'STALEMATE', 'INSUFFICIENT_MATERIAL', 'THREEFOLD_REPETITION', 'FIFTY_MOVE_RULE'))`,
 )
+@Check(
+  'CHK_games_bot_lease',
+  `("botLeaseToken" IS NULL AND "botLeaseUntil" IS NULL) OR ("botLeaseToken" IS NOT NULL AND "botLeaseUntil" IS NOT NULL AND status = 'ACTIVE')`,
+)
 export class Game {
   @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_games' })
   id: UUID;
@@ -113,6 +117,16 @@ export class Game {
 
   @Column({ type: 'timestamptz', nullable: true })
   clockDeadline: Date | null;
+
+  // A short transaction claims work; no connection is held during search.
+  @Column({ type: 'uuid', nullable: true })
+  botLeaseToken: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  botLeaseUntil: Date | null;
+
+  @Column({ type: 'varchar', length: 24, nullable: true })
+  botError: 'BOT_UNAVAILABLE' | 'INVALID_BOT_RESPONSE' | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   startedAt: Date | null;

@@ -37,6 +37,9 @@ export function finishGame(
   result: GameResult,
   reason: GameEndReason,
 ): void {
+  game.botLeaseToken = null;
+  game.botLeaseUntil = null;
+  game.botError = null;
   game.status = 'FINISHED';
   game.result = result;
   game.endReason = reason;
