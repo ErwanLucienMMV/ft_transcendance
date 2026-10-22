@@ -25,7 +25,6 @@
       formControlName="password"
       autocomplete="current-password"
       required
-      [maxLength]="limits.passwordMax"
       [attr.aria-invalid]="invalid('password')"
       [attr.aria-describedby]="invalid('password') ? 'login-password-error' : null"
     />

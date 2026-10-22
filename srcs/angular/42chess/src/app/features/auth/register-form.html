@@ -43,8 +43,6 @@
       formControlName="password"
       autocomplete="new-password"
       required
-      [minLength]="limits.passwordMin"
-      [maxLength]="limits.passwordMax"
       [attr.aria-invalid]="invalid('password')"
       aria-describedby="password-help password-error"
     />
@@ -61,7 +59,6 @@
       formControlName="confirmPassword"
       autocomplete="new-password"
       required
-      [maxLength]="limits.passwordMax"
       [attr.aria-invalid]="invalid('confirmPassword') || passwordMismatch()"
       [attr.aria-describedby]="
         invalid('confirmPassword') || passwordMismatch() ? 'confirm-password-error' : null
