@@ -10,11 +10,15 @@ export interface PlayerRef {
   id: UUID;
   username: string;
   avatarUrl: string | null;
-  elo: number;
+  elo: number | null;
   color: PlayerColor;
+  botDifficulty?: import('../bots/bot-engine.js').BotDifficulty;
 }
 export type PromotionPiece = 'QUEEN' | 'ROOK' | 'BISHOP' | 'KNIGHT';
 export interface GameResponse {
+  botPending: boolean;
+  botThinking: boolean;
+  botError: 'BOT_UNAVAILABLE' | 'INVALID_BOT_RESPONSE' | null;
   id: UUID;
   status: GameStatus;
   whitePlayer: PlayerRef | null;

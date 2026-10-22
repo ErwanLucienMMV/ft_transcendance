@@ -9,18 +9,7 @@ import { AuthFrame } from '../../shared/auth-frame';
 @Component({
   selector: 'app-verify-email-page',
   imports: [RouterLink, ResendVerification, AuthFrame],
-  template: `
-    <app-auth-frame>
-      <h2>Verify your email</h2>
-      <p class="auth-intro">One last step before your first move.</p>
-      <p role="status">{{ message() }}</p>
-      @if (verified()) {
-        <a class="button" routerLink="/login">Sign in <span aria-hidden="true">→</span></a>
-      }
-      <app-resend-verification />
-      <p class="auth-switch"><a routerLink="/login">Back to sign in</a></p>
-    </app-auth-frame>
-  `,
+  templateUrl: './verify-email-page.html',
 })
 export class VerifyEmailPage implements OnInit {
   private readonly route = inject(ActivatedRoute);

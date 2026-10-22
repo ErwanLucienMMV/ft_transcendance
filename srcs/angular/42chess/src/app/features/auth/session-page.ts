@@ -7,17 +7,7 @@ import { RouterLink } from '@angular/router';
 @Component({
   selector: 'app-session-page',
   imports: [AuthFrame, RouterLink],
-  template: `
-    <app-auth-frame>
-      <h2>Signed in</h2>
-      <p class="auth-intro">Good to have you at the board.</p>
-      <p role="status">Welcome, {{ session.user()?.username }}.</p>
-      <p class="auth-intro">
-        Your session is kept in this tab until it expires or the page is refreshed.
-      </p>
-      <a class="button secondary" routerLink="/">Return home <span aria-hidden="true">→</span></a>
-    </app-auth-frame>
-  `,
+  templateUrl: './session-page.html',
 })
 export class SessionPage {
   readonly session = inject(AuthSession);

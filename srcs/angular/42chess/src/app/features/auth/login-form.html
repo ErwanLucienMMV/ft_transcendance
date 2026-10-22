@@ -27,7 +27,6 @@
       autocomplete="current-password"
       placeholder="Your password"
       required
-      [maxLength]="limits.passwordMax"
       [attr.aria-invalid]="invalid('password')"
       [attr.aria-describedby]="invalid('password') ? 'login-password-error' : null"
     />

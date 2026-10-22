@@ -1,6 +1,6 @@
 import { Component, inject, input, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
-import { AUTH_FIELD_LIMITS, RegisterCredentials } from './auth-form.models';
+import { AUTH_FIELD_LIMITS, backendLengthValidator, RegisterCredentials } from './auth-form.models';
 
 const passwordsMatch: ValidatorFn = (group) =>
   group.get('password')?.value === group.get('confirmPassword')?.value
@@ -36,8 +36,7 @@ export class RegisterForm {
         '',
         [
           Validators.required,
-          Validators.minLength(AUTH_FIELD_LIMITS.passwordMin),
-          Validators.maxLength(AUTH_FIELD_LIMITS.passwordMax),
+          backendLengthValidator(AUTH_FIELD_LIMITS.passwordMin, AUTH_FIELD_LIMITS.passwordMax),
         ],
       ],
       confirmPassword: ['', [Validators.required]],
