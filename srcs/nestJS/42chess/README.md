@@ -213,6 +213,8 @@ legal move broadcasts and SAN persistence, wrong-turn/illegal/forged input,
 outsider refusal, leave/rejoin, reconnect after an unseen move and draw offer,
 draw refusal/acceptance, resignation and a real clock timeout. Reconnect verifies
 persisted history and preserves two seats instead of creating duplicates.
+Bot games use the test compose bot service: a move and its bot reply, sent over
+WS or committed through REST, produce two ordered `MOVE_PLAYED` events.
 The existing `make test` includes this file without changing test discovery or
 CI. Its only substituted boundary is `RealtimeAuthenticator`, via Nest's test
 module override; production still rejects authentication until SCRUM-178 lands.
