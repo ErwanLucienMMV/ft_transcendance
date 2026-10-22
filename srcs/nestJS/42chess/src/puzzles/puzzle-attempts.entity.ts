@@ -15,6 +15,7 @@ import { User } from '../users/user.entity.js';
 @Check('CHK_puzzle_attempts_0', `array_position("moves", NULL) IS NULL`)
 @Index('IDX_puzzle_attempts_user', ['userId', 'puzzleId', 'createdAt'])
 @Check('CHK_puzzle_attempts_metrics', `"attempts" >= 0 AND "duration" >= 0`)
+@Check('CHK_puzzle_attempts_version', `"version" >= 0`)
 @Entity('puzzle_attempts')
 export class PuzzleAttempt {
   @PrimaryGeneratedColumn('uuid')
@@ -25,6 +26,11 @@ export class PuzzleAttempt {
   userId: string;
   @Column({ type: 'uuid' })
   puzzleId: string;
+  /** NULL identifies attempts created before resumable puzzle training. */
+  @Column({ type: 'text', nullable: true })
+  currentFen: string | null;
+  @Column({ type: 'integer', default: 0 })
+  version: number;
   @Column({ type: 'boolean', default: false })
   solved: boolean;
   @Column({ type: 'text', array: true, default: [] })
