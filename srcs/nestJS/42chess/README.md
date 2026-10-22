@@ -148,3 +148,59 @@ Session changes close the socket and clear memberships, even when `connect()`
 observes the new token before Angular runs the session effect. Auth refusal stops
 retries. Tests use actual sockets and a test-only verifier; those passing tests
 do not establish production JWT integration.
+
+# Lot 5 game event contract
+
+SCRUM-182..193. After authentication:
+
+| Client event | Data | Server response |
+| --- | --- | --- |
+| `JOIN_GAME` | `{ gameId }` | `GAME_STATE` full snapshot to room |
+| `LEAVE_GAME` | `{ gameId }` | `GAME_LEFT { gameId }` to requester |
+| `MAKE_MOVE` | `{ gameId, from, to, promotion? }` | `MOVE_PLAYED` per new ply, then `GAME_STATE` |
+| `RESIGN` | `{ gameId }` | `GAME_STATE`, `GAME_ENDED` |
+| `OFFER_DRAW` | `{ gameId }` | `DRAW_OFFERED`, `GAME_STATE` |
+| `ACCEPT_DRAW` | `{ gameId }` | `GAME_STATE`, `GAME_ENDED` |
+| `DECLINE_DRAW` | `{ gameId }` | `DRAW_DECLINED`, `GAME_STATE` |
+
+`gameId` is a UUID, squares use lowercase algebraic coordinates, and promotion
+is null/omitted or `QUEEN`, `ROOK`, `BISHOP`, `KNIGHT`. Extra fields, including
+actor IDs, FEN or client clocks, are rejected. All legality, turn, agreement and
+terminal-state checks use the existing transactional `GamesService` and C++
+engine. Domain errors preserve REST codes (`NOT_YOUR_TURN`, `INVALID_MOVE`, etc.)
+and `ERROR { statusCode, code, message }` goes only to the requesting socket.
+
+Joining takes the second seat in a waiting open/invited game through the domain
+service. Seated players can rejoin active or finished games idempotently; other
+users cannot spectate through this transport. Eight subscriptions per connection
+are allowed. Leaving/disconnecting only removes the subscription, never resigns
+or pauses the game. Multiple tabs are independent subscriptions.
+
+`GAME_STATE.data` is the existing REST `GameResponse`, plus `gameId` (equal to
+`id`) and the full `moves` list from `GamePresenterService`. Reconnect obtains
+this durable snapshot, including board, history, clocks, draw offer and result.
+`MOVE_PLAYED.data` has `{ gameId, move, board, clocks, turn }` with the existing
+`MoveResponse`; an action that instead settles a timeout emits no fictitious move.
+Each ply not yet announced to a room gets its own `MOVE_PLAYED`, in order, with
+the board after that ply: plies committed together (a bot reply) or through REST
+(at the next refresh) are not skipped. `clocks` is the current server clock,
+since per-ply clocks are not stored. Joining sends the snapshot, not past moves.
+`DRAW_OFFERED`/`DRAW_DECLINED` have `{ gameId, playerId }`.
+
+For subscribed active games, `CLOCK_UPDATE` is emitted once per second with
+`{ gameId, clocks: { white, black }, turn, serverTime }`; balances are milliseconds
+and serverTime is ISO UTC. The durable clock is settled before publication.
+Clock/REST changes trigger a fresh snapshot; terminal results emit
+`GAME_ENDED { gameId, result: { winner, reason } }` once per live room and stop
+clock refreshes. A reconnecting finished-game client reads the snapshot result.
+Commands and broadcasts are ordered per game with a bounded queue. PostgreSQL
+locks remain authoritative across REST and WS. Room fanout currently targets one
+NestJS process, matching the existing deployment; a multi-instance deployment
+would require shared fanout before use.
+
+Angular `GameRealtime` exposes a snapshot, clock updates, errors and typed
+move/resign/draw methods without any board rendering or image assets. It ignores
+unrelated game snapshots, clears state on logout, expiry or account change, and
+relies on the transport for reconnection. A renewed token for the same user keeps
+the watched game and sends `JOIN_GAME` again on the new connection. It never
+applies optimistic chess moves.

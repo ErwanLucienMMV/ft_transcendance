@@ -6,12 +6,14 @@ import {
   UnavailableRealtimeAuthenticator,
 } from './realtime-authenticator.js';
 import { RealtimeMessages } from './realtime-messages.js';
+import { GamesModule } from '../games/games.module.js';
+import { GameRealtimeService } from './game-realtime.service.js';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, GamesModule],
   providers: [
     RealtimeGateway,
-    RealtimeMessages,
+    { provide: RealtimeMessages, useClass: GameRealtimeService },
     {
       provide: RealtimeAuthenticator,
       useClass: UnavailableRealtimeAuthenticator,

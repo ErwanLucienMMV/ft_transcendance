@@ -7,6 +7,7 @@ export interface RealtimeMessage {
 export interface RealtimeClient {
   readonly userId: string;
   readonly connectionId: string;
+  connected(): boolean;
   send(event: string, data: unknown): void;
 }
 

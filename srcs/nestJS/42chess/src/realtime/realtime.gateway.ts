@@ -190,6 +190,9 @@ export class RealtimeGateway
                 {
                   userId: principal.userId,
                   connectionId,
+                  connected: () =>
+                    socket.readyState === WebSocket.OPEN &&
+                    principal!.expiresAt > Date.now(),
                   send: (event, data) => this.send(socket, event, data),
                 },
                 message,
