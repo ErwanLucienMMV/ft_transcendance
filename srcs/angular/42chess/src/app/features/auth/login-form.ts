@@ -1,6 +1,6 @@
 import { Component, inject, input, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AUTH_FIELD_LIMITS, LoginCredentials } from './auth-form.models';
+import { AUTH_FIELD_LIMITS, backendLengthValidator, LoginCredentials } from './auth-form.models';
 
 @Component({
   selector: 'app-login-form',
@@ -15,7 +15,7 @@ export class LoginForm {
   readonly form = inject(FormBuilder).nonNullable.group({
     login: ['', [Validators.required, Validators.maxLength(AUTH_FIELD_LIMITS.emailMax)]],
     // Login must accept existing passwords; registration strength rules do not apply here.
-    password: ['', [Validators.required, Validators.maxLength(AUTH_FIELD_LIMITS.passwordMax)]],
+    password: ['', [Validators.required, backendLengthValidator(1, AUTH_FIELD_LIMITS.passwordMax)]],
   });
 
   invalid(name: keyof typeof this.form.controls): boolean {
