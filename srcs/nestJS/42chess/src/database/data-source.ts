@@ -3,12 +3,16 @@ import { ConfigModule } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import {
   configurationOptions,
-  validateEnvironment,
+  validateDatabaseEnvironment,
 } from '../config/environment.js';
 import { databaseOptions } from './database.options.js';
 
-await ConfigModule.forRoot(configurationOptions);
+// Migrations only need the database settings, not the app secrets.
+await ConfigModule.forRoot({
+  ...configurationOptions,
+  validate: validateDatabaseEnvironment,
+});
 
 export default new DataSource(
-  databaseOptions(validateEnvironment(process.env)),
+  databaseOptions(validateDatabaseEnvironment(process.env)),
 );

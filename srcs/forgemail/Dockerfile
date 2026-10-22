@@ -1,4 +1,4 @@
-FROM node:22-slim
+FROM docker.io/library/node:22-slim
 
 WORKDIR /app
 
