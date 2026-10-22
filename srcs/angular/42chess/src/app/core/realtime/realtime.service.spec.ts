@@ -142,6 +142,68 @@ describe('Realtime transport', () => {
     sockets[0].onmessage?.({ data: 'invalid JSON' });
     expect(sockets[0].close).toHaveBeenCalledWith(4000, 'Invalid response');
   });
+  describe('session replacement', () => {
+    function establish(userId: string) {
+      session.establish({
+        user: { id: userId, username: userId, elo: 1000 },
+        accessToken: `x.${btoa(JSON.stringify({ sub: userId, exp: Math.floor(Date.now() / 1000) + 3600 }))}.x`,
+      });
+    }
+    function sent(socket: FakeSocket) {
+      return socket.send.mock.calls.map(([value]) => JSON.parse(value));
+    }
+    function alice(state: 'connected' | 'retrying' | 'connecting') {
+      establish('alice');
+      TestBed.tick();
+      service.connect();
+      if (state === 'connecting') return;
+      sockets[0].open();
+      sockets[0].packet('AUTHENTICATED', { userId: 'alice' });
+      service.joinGame('alice-game');
+      if (state === 'retrying') sockets[0].drop();
+    }
+    function expectOnlyBob(previous: 'connected' | 'retrying' | 'connecting') {
+      vi.advanceTimersByTime(10000);
+      expect(sockets).toHaveLength(2);
+      if (previous !== 'retrying')
+        expect(sockets[0].close).toHaveBeenCalledWith(1000, 'Client disconnected');
+      sockets[1].open();
+      expect(sent(sockets[1])).toEqual([
+        { event: 'AUTHENTICATE', data: { accessToken: session.token() } },
+      ]);
+      expect(session.user()?.id).toBe('bob');
+      sockets[1].packet('AUTHENTICATED', { userId: 'bob' });
+      expect(service.state()).toBe('connected');
+      expect(sent(sockets[1]).map((packet) => packet.event)).toEqual(['AUTHENTICATE']);
+    }
+
+    it.each(['connected', 'retrying', 'connecting'] as const)(
+      'closes the %s Alice connection when Bob connects before the session effect runs',
+      (previous) => {
+        alice(previous);
+        establish('bob');
+        service.connect();
+        TestBed.tick();
+        expectOnlyBob(previous);
+      },
+    );
+    it('replaces the connection when the session is cleared and established in one turn', () => {
+      alice('connected');
+      session.clear();
+      establish('bob');
+      TestBed.tick();
+      expectOnlyBob('connected');
+    });
+    it('keeps the connection when connect() is repeated for the same session', () => {
+      login();
+      ready();
+      service.connect();
+      TestBed.tick();
+      expect(sockets).toHaveLength(1);
+      expect(sockets[0].close).not.toHaveBeenCalled();
+      expect(service.state()).toBe('connected');
+    });
+  });
   it('does not create browser sockets during SSR', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({

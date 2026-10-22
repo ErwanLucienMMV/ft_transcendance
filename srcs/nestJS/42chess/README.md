@@ -144,6 +144,7 @@ when realtime is needed, `joinGame(id)`/`leaveGame(id)` for room subscriptions,
 and `send(event, data)` for commands. Sending before acknowledgement returns
 false. Network loss triggers up to five bounded exponential retries; successful
 reauthentication rejoins rooms for a fresh state. Mutations are never replayed.
-Session changes close the socket and clear memberships. Auth refusal stops
+Session changes close the socket and clear memberships, even when `connect()`
+observes the new token before Angular runs the session effect. Auth refusal stops
 retries. Tests use actual sockets and a test-only verifier; those passing tests
 do not establish production JWT integration.
