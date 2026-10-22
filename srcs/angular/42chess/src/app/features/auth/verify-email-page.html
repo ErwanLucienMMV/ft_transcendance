@@ -1,0 +1,6 @@
+<h2>Verify your email</h2>
+<p role="status">{{ message() }}</p>
+@if (verified()) {
+  <a routerLink="/login">Sign in</a>
+}
+<app-resend-verification />

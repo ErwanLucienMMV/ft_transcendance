@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './core/auth/auth.guard';
 
 export const routes: Routes = [
   {
@@ -16,6 +17,22 @@ export const routes: Routes = [
     path: 'register',
     title: 'Create an account | 42 Chess',
     loadComponent: () => import('./features/auth/register-page').then((m) => m.RegisterPage),
+  },
+  {
+    path: 'verify-email',
+    title: 'Verify email | 42 Chess',
+    loadComponent: () => import('./features/auth/verify-email-page').then((m) => m.VerifyEmailPage),
+  },
+  {
+    path: 'two-factor',
+    title: 'Two-factor authentication | 42 Chess',
+    loadComponent: () => import('./features/auth/two-factor-page').then((m) => m.TwoFactorPage),
+  },
+  {
+    path: 'session',
+    title: 'Session | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/auth/session-page').then((m) => m.SessionPage),
   },
   {
     path: '**',

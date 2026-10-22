@@ -109,3 +109,53 @@ npm run build
 
 No dependency, lockfile, test configuration or CI workflow change is required
 for this lot. CI execution of the Angular test suite is tracked in lot 2.
+
+## Lot 2 browser tests and CI
+
+Adds Playwright 1.64.0 as a development dependency, without changing existing
+locked package versions or the Angular unit test configuration. The separate
+`Frontend validation` workflow runs all Angular tests, the production build and
+browser E2E. The original CI workflow remains unchanged.
+
+```bash
+# Repo root: isolated PostgreSQL, API, test-only mail capture and Chromium.
+docker compose -f srcs/angular/compose.e2e.yml run --rm --build browser-tests
+docker compose -f srcs/angular/compose.e2e.yml down
+```
+
+The test project publishes no host ports and uses an ephemeral database. The
+mail capture is test infrastructure, never a production mail endpoint. Browser
+tests exercise actual page navigation and form validation; registration/login
+against the real API are added in lot 3. Screenshots, traces and reports are
+ignored by Git. Locally, after installing Playwright's Chromium, `npm run
+test:e2e` starts its own Angular server and runs the same browser tests.
+The browser runner authorizes only `localhost` and `127.0.0.1` for Angular's
+Node SSR handler. Development build configuration has the same explicit host
+allowlist; production host restrictions are unchanged.
+
+## Lot 3 local authentication
+
+SCRUM-328, 329, 322, 333, 334, 456 and 467: forms now call the existing
+registration/login API. Registration requires the emailed verification link
+before login; `/verify-email` handles the mail service's existing URL and offers
+resending with a neutral response. `/two-factor` accepts the six-digit TOTP
+after a password challenge; the challenge is kept in memory, never in a URL.
+These routes and `/session` use client rendering to avoid authentication requests
+during prerendering. `/session` is a minimal guarded session view, not the profile
+feature. Business errors stay local, pending submissions cannot be duplicated,
+and subscriptions are cancelled when the page is destroyed.
+
+The access token and public user stay in memory. Reloading requires login again
+until Nicolas's `/users/me` and session integration are available. The client
+decodes only `exp` for expiry UX; server JWT verification remains mandatory.
+The interceptor attaches a bearer only to this API's private routes. A protected
+401 clears the corresponding session and redirects to a validated local URL;
+wrong login/2FA credentials do not trigger that redirect. Old requests cannot
+clear a newer session. No password or token is persisted or logged.
+
+Development requests to `/api/v1` are proxied to NestJS `/v1`. Set
+`API_PROXY_TARGET` when the API is elsewhere (development Compose supplies its
+internal service address). Production uses the existing Nginx proxy.
+The isolated browser suite exercises real registration, unverified refusal,
+email verification, wrong-password refusal, login and anonymous route protection.
+JWT guard, server logout, OAuth and `/users/me` are still server dependencies.

@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
 import { Title } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -9,7 +10,9 @@ import { HomePage } from './features/home/home-page';
 import { NotFoundPage } from './features/home/not-found-page';
 
 describe('Application navigation', () => {
-  beforeEach(() => TestBed.configureTestingModule({ providers: [provideRouter(routes)] }));
+  beforeEach(() =>
+    TestBed.configureTestingModule({ providers: [provideRouter(routes), provideHttpClient()] }),
+  );
 
   it('opens each public page and updates its document title', async () => {
     const harness = await RouterTestingHarness.create();
