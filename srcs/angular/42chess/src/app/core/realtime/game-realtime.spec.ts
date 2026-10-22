@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { AuthSession } from '../auth/auth-session';
 import { GameRealtime } from './game-realtime';
-import { RealtimeService, ServerEvent } from './realtime.service';
+import { RealtimeService, ServerEvent, SOCKET_FACTORY, SOCKET_URL } from './realtime.service';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const other = '00000000-0000-4000-8000-000000000002';
@@ -128,5 +128,144 @@ describe('View-independent game adapter', () => {
     TestBed.tick();
     expect(service.game()).toBeNull();
     expect(service.watch(id)).toBe(false);
+  });
+});
+
+class FakeSocket {
+  readyState = 0;
+  onopen?: () => void;
+  onmessage?: (message: { data: string }) => void;
+  onclose?: (event: { code: number }) => void;
+  send = vi.fn();
+  close = vi.fn();
+  open() {
+    this.readyState = 1;
+    this.onopen?.();
+  }
+  packet(event: string, data: Record<string, unknown>) {
+    this.onmessage?.({ data: JSON.stringify({ event, data }) });
+  }
+  drop() {
+    this.readyState = 3;
+    this.onclose?.({ code: 1006 });
+  }
+  events() {
+    return this.send.mock.calls.map(([value]) => JSON.parse(value));
+  }
+}
+
+describe('Game adapter across session changes', () => {
+  let service: GameRealtime;
+  let session: AuthSession;
+  let sockets: FakeSocket[];
+  let renewals = 0;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    sockets = [];
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: SOCKET_URL, useValue: () => 'wss://example.com/ws' },
+        {
+          provide: SOCKET_FACTORY,
+          useValue: () => {
+            const socket = new FakeSocket();
+            sockets.push(socket);
+            return socket;
+          },
+        },
+      ],
+    });
+    session = TestBed.inject(AuthSession);
+    service = TestBed.inject(GameRealtime);
+  });
+  afterEach(() => {
+    session.clear();
+    TestBed.tick();
+    vi.useRealTimers();
+  });
+  function establish(userId: string) {
+    session.establish({
+      user: { id: userId, username: userId, elo: 1000 },
+      accessToken: `x.${btoa(
+        JSON.stringify({ sub: userId, jti: ++renewals, exp: Math.floor(Date.now() / 1000) + 3600 }),
+      )}.x`,
+    });
+  }
+  function authenticate(userId: string) {
+    sockets.at(-1)!.open();
+    sockets.at(-1)!.packet('AUTHENTICATED', { userId });
+    TestBed.tick();
+  }
+  function aliceWatching() {
+    establish('alice');
+    TestBed.tick();
+    expect(service.watch(id)).toBe(true);
+    TestBed.tick();
+    authenticate('alice');
+    sockets[0].packet('GAME_STATE', {
+      id,
+      gameId: id,
+      status: 'ACTIVE',
+      board: { fen: 'alice-fen', turn: 'WHITE' },
+      moves: [],
+    });
+    expect(service.game()?.board.fen).toBe('alice-fen');
+    expect(sockets[0].events().map((packet) => packet.event)).toEqual([
+      'AUTHENTICATE',
+      'JOIN_GAME',
+    ]);
+  }
+
+  it('rejoins the watched game after the same user renews the token', () => {
+    aliceWatching();
+    establish('alice');
+    TestBed.tick();
+    expect(sockets[0].close).toHaveBeenCalled();
+    authenticate('alice');
+    expect(sockets[1].events()).toEqual([
+      { event: 'AUTHENTICATE', data: { accessToken: session.token() } },
+      { event: 'JOIN_GAME', data: { gameId: id } },
+    ]);
+  });
+  it('discards the previous account game when another account replaces the session', () => {
+    aliceWatching();
+    establish('bob');
+    TestBed.tick();
+    expect(service.game()).toBeNull();
+    authenticate('bob');
+    expect(sockets[1].events().map((packet) => packet.event)).toEqual(['AUTHENTICATE']);
+    expect(service.move('e2', 'e4')).toBe(false);
+  });
+  it('subscribes the new account when it watches before the session effect runs', () => {
+    aliceWatching();
+    establish('bob');
+    expect(service.watch(id)).toBe(true);
+    expect(service.game()).toBeNull();
+    TestBed.tick();
+    authenticate('bob');
+    expect(sockets).toHaveLength(2);
+    expect(sockets[1].events().map((packet) => packet.event)).toEqual([
+      'AUTHENTICATE',
+      'JOIN_GAME',
+    ]);
+  });
+  it('clears game data on logout or expiry', () => {
+    aliceWatching();
+    session.clear('Your session expired. Please sign in again.');
+    TestBed.tick();
+    vi.advanceTimersByTime(10000);
+    expect(service.game()).toBeNull();
+    expect(sockets).toHaveLength(1);
+  });
+  it('sends one subscription after an ordinary reconnect with the same token', () => {
+    aliceWatching();
+    sockets[0].drop();
+    TestBed.tick();
+    vi.advanceTimersByTime(500);
+    authenticate('alice');
+    expect(sockets[1].events().map((packet) => packet.event)).toEqual([
+      'AUTHENTICATE',
+      'JOIN_GAME',
+    ]);
   });
 });

@@ -156,7 +156,7 @@ SCRUM-182..193. After authentication:
 | --- | --- | --- |
 | `JOIN_GAME` | `{ gameId }` | `GAME_STATE` full snapshot to room |
 | `LEAVE_GAME` | `{ gameId }` | `GAME_LEFT { gameId }` to requester |
-| `MAKE_MOVE` | `{ gameId, from, to, promotion? }` | `MOVE_PLAYED`, then `GAME_STATE` |
+| `MAKE_MOVE` | `{ gameId, from, to, promotion? }` | `MOVE_PLAYED` per new ply, then `GAME_STATE` |
 | `RESIGN` | `{ gameId }` | `GAME_STATE`, `GAME_ENDED` |
 | `OFFER_DRAW` | `{ gameId }` | `DRAW_OFFERED`, `GAME_STATE` |
 | `ACCEPT_DRAW` | `{ gameId }` | `GAME_STATE`, `GAME_ENDED` |
@@ -180,6 +180,10 @@ or pauses the game. Multiple tabs are independent subscriptions.
 this durable snapshot, including board, history, clocks, draw offer and result.
 `MOVE_PLAYED.data` has `{ gameId, move, board, clocks, turn }` with the existing
 `MoveResponse`; an action that instead settles a timeout emits no fictitious move.
+Each ply not yet announced to a room gets its own `MOVE_PLAYED`, in order, with
+the board after that ply: plies committed together (a bot reply) or through REST
+(at the next refresh) are not skipped. `clocks` is the current server clock,
+since per-ply clocks are not stored. Joining sends the snapshot, not past moves.
 `DRAW_OFFERED`/`DRAW_DECLINED` have `{ gameId, playerId }`.
 
 For subscribed active games, `CLOCK_UPDATE` is emitted once per second with
@@ -195,5 +199,7 @@ would require shared fanout before use.
 
 Angular `GameRealtime` exposes a snapshot, clock updates, errors and typed
 move/resign/draw methods without any board rendering or image assets. It ignores
-unrelated game snapshots, clears state on session expiry and relies on the
-transport for reconnection. It never applies optimistic chess moves.
+unrelated game snapshots, clears state on logout, expiry or account change, and
+relies on the transport for reconnection. A renewed token for the same user keeps
+the watched game and sends `JOIN_GAME` again on the new connection. It never
+applies optimistic chess moves.
