@@ -109,26 +109,3 @@ npm run build
 
 No dependency, lockfile, test configuration or CI workflow change is required
 for this lot. CI execution of the Angular test suite is tracked in lot 2.
-
-## Lot 2 browser tests and CI
-
-Adds Playwright 1.64.0 as a development dependency, without changing existing
-locked package versions or the Angular unit test configuration. The separate
-`Frontend validation` workflow runs all Angular tests, the production build and
-browser E2E. The original CI workflow remains unchanged.
-
-```bash
-# Repo root: isolated PostgreSQL, API, test-only mail capture and Chromium.
-docker compose -f srcs/angular/compose.e2e.yml run --rm --build browser-tests
-docker compose -f srcs/angular/compose.e2e.yml down
-```
-
-The test project publishes no host ports and uses an ephemeral database. The
-mail capture is test infrastructure, never a production mail endpoint. Browser
-tests exercise actual page navigation and form validation; registration/login
-against the real API are added in lot 3. Screenshots, traces and reports are
-ignored by Git. Locally, after installing Playwright's Chromium, `npm run
-test:e2e` starts its own Angular server and runs the same browser tests.
-The browser runner authorizes only `localhost` and `127.0.0.1` for Angular's
-Node SSR handler. Development build configuration has the same explicit host
-allowlist; production host restrictions are unchanged.

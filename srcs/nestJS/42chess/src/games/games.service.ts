@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { BotTurnRunner } from '../bots/bot-turn-runner.js';
+import type { ChessSnapshot } from '../chess/chess-engine.service.js';
+import type { EntityManager } from 'typeorm';
+import { BotEngine, BOT_DIFFICULTIES } from '../bots/bot-engine.js';
+import type { BotDifficulty } from '../bots/bot-engine.js';
 import { User } from '../users/user.entity.js';
 import { Game } from './game.entity.js';
 import { GamePlayer } from './game-player.entity.js';
@@ -7,7 +12,12 @@ import { GameRulesService } from './game-rules.service.js';
 import { GameStoreService } from './game-store.service.js';
 import { GameError } from './game-error.js';
 import { creationInput, identifier, moveInput } from './game-input.js';
-import { activePlayer, automaticResult, finishGame } from './game-actions.js';
+import {
+  activePlayer,
+  participatingPlayer,
+  automaticResult,
+  finishGame,
+} from './game-actions.js';
 import { GameAgreementsService } from './game-agreements.service.js';
 import { GameClocksService } from './clock/game-clocks.service.js';
 import { algebraicMove } from './game-notation.js';
@@ -21,6 +31,7 @@ export class GamesService {
     private readonly rules: GameRulesService,
     private readonly agreements: GameAgreementsService,
     private readonly clocks: GameClocksService,
+    @Optional() private readonly bot?: BotEngine,
   ) {}
 
   async create(actor: string, input: CreateGameInput): Promise<GameState> {
@@ -130,45 +141,146 @@ export class GamesService {
   }
 
   async play(actor: string, id: string, input: string): Promise<GameState> {
+    const userId = identifier(actor),
+      gameId = identifier(id),
+      uci = moveInput(input);
+    const observed = await this.store.get(gameId);
+    const botGame = observed.players.some((seat) => seat.botDifficulty);
+    const state = await this.store.locked(
+      gameId,
+      async (manager, state) => {
+        participatingPlayer(state, userId);
+        if (state.game.botLeaseToken)
+          throw new GameError('GAME_BUSY', 'The bot is calculating its turn.');
+        const player = activePlayer(state, userId);
+        return this.persistMove(manager, state, player, uci);
+      },
+      botGame,
+    );
+    // A bot failure never converts an already accepted human move into an API error.
+    return botGame ? this.resumeBot(userId, gameId) : state;
+  }
+
+  async createBot(
+    actor: string,
+    input: CreateGameInput,
+    difficulty: BotDifficulty,
+  ): Promise<GameState> {
     const userId = identifier(actor);
-    const uci = moveInput(input);
-    return this.store.locked(identifier(id), async (manager, state) => {
-      const player = activePlayer(state, userId);
-      if (await this.clocks.settle(manager, state.game)) {
-        await manager.save(Game, state.game);
-        return this.store.state(manager, state.game);
-      }
-      const before = await this.rules.current(state);
-      const snapshot = await this.rules.move(state, uci);
-      const { game, moves } = state;
-      await manager.save(
-        Move,
-        manager.create(Move, {
-          gameId: game.id,
-          color: player.color,
-          ply: moves.length + 1,
-          uci,
-          notation: algebraicMove(before, snapshot, uci),
-          fenAfter: snapshot.fen,
-        }),
+    if (!BOT_DIFFICULTIES.includes(difficulty))
+      throw new GameError('INVALID_GAME_INPUT', 'Unsupported bot difficulty.');
+    const { initialTime, increment, color, initialFen, opponentId } =
+      creationInput(input);
+    if (opponentId !== null)
+      throw new GameError(
+        'INVALID_GAME_INPUT',
+        'Bot games cannot invite another user.',
       );
-      await this.clocks.move(manager, game, player.color);
-      game.currentFen = snapshot.fen;
-      game.turn = snapshot.turn === 'white' ? 'WHITE' : 'BLACK';
-      game.drawOffer = null;
-      const result = automaticResult(snapshot);
-      if (result !== null) {
-        const reason = snapshot.checkmate
-          ? 'CHECKMATE'
-          : snapshot.stalemate
-            ? 'STALEMATE'
-            : 'INSUFFICIENT_MATERIAL';
-        finishGame(game, result, reason);
-        this.clocks.stop(game);
+    const snapshot = await this.rules.analyze({ fen: initialFen });
+    if (snapshot.status !== 'ongoing')
+      throw new GameError(
+        'INVALID_GAME_INPUT',
+        'An ongoing position is required.',
+      );
+    const state = await this.store.transaction(async (manager) => {
+      // Serializes concurrent creates from the same account across replicas.
+      const user = await manager.findOne(User, {
+        where: { id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user)
+        throw new GameError('USER_NOT_FOUND', 'Player account does not exist.');
+      if ((await this.store.activeBotGames(manager, userId)) >= 1) {
+        throw new GameError(
+          'BOT_GAME_LIMIT',
+          'Finish or resign your active bot game before creating another.',
+        );
       }
+      const game = manager.create(Game, {
+        initialTime,
+        increment,
+        initialFen: snapshot.fen,
+        currentFen: snapshot.fen,
+        turn: snapshot.turn.toUpperCase() as 'WHITE' | 'BLACK',
+        status: 'ACTIVE',
+        startedAt: new Date(),
+      });
+      this.clocks.initialize(game);
+      await manager.save(Game, game);
+      await manager.save(GamePlayer, [
+        manager.create(GamePlayer, { gameId: game.id, userId, color }),
+        manager.create(GamePlayer, {
+          gameId: game.id,
+          userId: null,
+          color: color === 'WHITE' ? 'BLACK' : 'WHITE',
+          botDifficulty: difficulty,
+        }),
+      ]);
+      await this.clocks.start(manager, game);
+      game.startedAt = new Date(game.clock!.updatedAt);
       await manager.save(Game, game);
       return this.store.state(manager, game);
     });
+    // This also computes White's opening move when the human chooses Black.
+    return this.resumeBot(userId, state.game.id);
+  }
+
+  resumeBot(actor: string, id: string): Promise<GameState> {
+    const runner = new BotTurnRunner(
+      this.store,
+      this.rules,
+      this.clocks,
+      this.bot,
+    );
+    return runner.run(
+      identifier(actor),
+      identifier(id),
+      (manager, state, seat, uci, validated) =>
+        this.persistMove(manager, state, seat, uci, validated),
+    );
+  }
+
+  private async persistMove(
+    manager: EntityManager,
+    state: GameState,
+    player: GamePlayer,
+    uci: string,
+    validated?: { before: ChessSnapshot; after: ChessSnapshot },
+  ): Promise<GameState> {
+    if (await this.clocks.settle(manager, state.game)) {
+      await manager.save(Game, state.game);
+      return this.store.state(manager, state.game);
+    }
+    const before = validated?.before ?? (await this.rules.current(state));
+    const snapshot = validated?.after ?? (await this.rules.move(state, uci));
+    const { game, moves } = state;
+    await manager.save(
+      Move,
+      manager.create(Move, {
+        gameId: game.id,
+        color: player.color,
+        ply: moves.length + 1,
+        uci,
+        notation: algebraicMove(before, snapshot, uci),
+        fenAfter: snapshot.fen,
+      }),
+    );
+    await this.clocks.move(manager, game, player.color);
+    game.currentFen = snapshot.fen;
+    game.turn = snapshot.turn === 'white' ? 'WHITE' : 'BLACK';
+    game.drawOffer = null;
+    const result = automaticResult(snapshot);
+    if (result !== null) {
+      const reason = snapshot.checkmate
+        ? 'CHECKMATE'
+        : snapshot.stalemate
+          ? 'STALEMATE'
+          : 'INSUFFICIENT_MATERIAL';
+      finishGame(game, result, reason);
+      this.clocks.stop(game);
+    }
+    await manager.save(Game, game);
+    return this.store.state(manager, game);
   }
 
   /** A legal intended move is examined without becoming part of the stored history. */
