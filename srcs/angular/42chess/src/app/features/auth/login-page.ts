@@ -8,10 +8,11 @@ import { LoginCredentials } from './auth-form.models';
 import { authFeedback } from './auth-feedback';
 import { ResendVerification } from './resend-verification';
 import { LoginForm } from './login-form';
+import { AuthFrame } from '../../shared/auth-frame';
 
 @Component({
   selector: 'app-login-page',
-  imports: [LoginForm, RouterLink, ResendVerification],
+  imports: [LoginForm, RouterLink, ResendVerification, AuthFrame],
   templateUrl: './login-page.html',
 })
 export class LoginPage {

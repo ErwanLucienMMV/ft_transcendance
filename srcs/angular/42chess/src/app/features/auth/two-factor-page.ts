@@ -6,10 +6,11 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { safeReturnUrl } from '../../core/auth/auth.interceptor';
 import { authFeedback } from './auth-feedback';
+import { AuthFrame } from '../../shared/auth-frame';
 
 @Component({
   selector: 'app-two-factor-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, AuthFrame],
   templateUrl: './two-factor-page.html',
 })
 export class TwoFactorPage implements OnInit {

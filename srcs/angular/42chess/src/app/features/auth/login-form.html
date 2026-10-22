@@ -6,6 +6,7 @@
       type="text"
       formControlName="login"
       autocomplete="username"
+      placeholder="you@example.com or your username"
       required
       [maxLength]="limits.emailMax"
       [attr.aria-invalid]="invalid('login')"
@@ -24,6 +25,7 @@
       type="password"
       formControlName="password"
       autocomplete="current-password"
+      placeholder="Your password"
       required
       [attr.aria-invalid]="invalid('password')"
       [attr.aria-describedby]="invalid('password') ? 'login-password-error' : null"

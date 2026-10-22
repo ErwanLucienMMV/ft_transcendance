@@ -1,9 +1,12 @@
 import { Component, effect, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthSession } from '../../core/auth/auth-session';
+import { AuthFrame } from '../../shared/auth-frame';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-session-page',
+  imports: [AuthFrame, RouterLink],
   templateUrl: './session-page.html',
 })
 export class SessionPage {

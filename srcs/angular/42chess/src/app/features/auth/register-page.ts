@@ -6,10 +6,11 @@ import { RegisterCredentials } from './auth-form.models';
 import { authFeedback } from './auth-feedback';
 import { RouterLink } from '@angular/router';
 import { RegisterForm } from './register-form';
+import { AuthFrame } from '../../shared/auth-frame';
 
 @Component({
   selector: 'app-register-page',
-  imports: [RegisterForm, RouterLink],
+  imports: [RegisterForm, RouterLink, AuthFrame],
   templateUrl: './register-page.html',
 })
 export class RegisterPage {

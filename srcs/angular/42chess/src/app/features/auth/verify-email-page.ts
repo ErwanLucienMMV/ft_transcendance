@@ -4,10 +4,11 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { ResendVerification } from './resend-verification';
 import { authFeedback } from './auth-feedback';
+import { AuthFrame } from '../../shared/auth-frame';
 
 @Component({
   selector: 'app-verify-email-page',
-  imports: [RouterLink, ResendVerification],
+  imports: [RouterLink, ResendVerification, AuthFrame],
   templateUrl: './verify-email-page.html',
 })
 export class VerifyEmailPage implements OnInit {
