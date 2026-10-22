@@ -46,8 +46,6 @@
       autocomplete="new-password"
       placeholder="Create a strong password"
       required
-      [minLength]="limits.passwordMin"
-      [maxLength]="limits.passwordMax"
       [attr.aria-invalid]="invalid('password')"
       aria-describedby="password-help password-error"
     />
@@ -65,7 +63,6 @@
       autocomplete="new-password"
       placeholder="Repeat your password"
       required
-      [maxLength]="limits.passwordMax"
       [attr.aria-invalid]="invalid('confirmPassword') || passwordMismatch()"
       [attr.aria-describedby]="
         invalid('confirmPassword') || passwordMismatch() ? 'confirm-password-error' : null

@@ -140,6 +140,77 @@ describe('Game realtime routing and rooms', () => {
         }),
       );
   });
+  const e4 = {
+    from: 'e2',
+    to: 'e4',
+    notation: 'e4',
+    fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+  };
+  const e5 = {
+    from: 'e7',
+    to: 'e5',
+    notation: 'e5',
+    fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2',
+  };
+  function events(client: RealtimeClient) {
+    return vi.mocked(client.send).mock.calls.map(([event]) => event);
+  }
+  function played(client: RealtimeClient) {
+    return vi
+      .mocked(client.send)
+      .mock.calls.filter(([event]) => event === 'MOVE_PLAYED')
+      .map(([, data]) => data);
+  }
+  it('announces every ply committed by one move, in order, before the snapshot', async () => {
+    await join();
+    await join(b);
+    vi.mocked(a.send).mockClear();
+    games.play.mockImplementation(async () => {
+      // A bot game commits the human move and the bot reply together.
+      const next = structuredClone(state);
+      next.moves.push(e4, e5);
+      next.game.currentFen = e5.fen;
+      return next;
+    });
+    await command('MAKE_MOVE', a, { from: 'e2', to: 'e4' });
+    for (const client of [a, b])
+      expect(played(client)).toEqual([
+        expect.objectContaining({
+          gameId: id,
+          move: e4,
+          board: expect.objectContaining({ fen: e4.fen, turn: 'BLACK' }),
+          turn: 'BLACK',
+        }),
+        expect.objectContaining({
+          gameId: id,
+          move: e5,
+          board: expect.objectContaining({ fen: e5.fen }),
+          turn: 'WHITE',
+        }),
+      ]);
+    expect(events(a)).toEqual(['MOVE_PLAYED', 'MOVE_PLAYED', 'GAME_STATE']);
+  });
+  it('announces moves committed outside the socket at the next refresh', async () => {
+    await join();
+    state.moves.push(e4);
+    state.game.currentFen = e4.fen;
+    state.game.turn = 'BLACK';
+    vi.mocked(a.send).mockClear();
+    await service.tick();
+    expect(played(a)).toEqual([
+      expect.objectContaining({ move: e4, turn: 'BLACK' }),
+    ]);
+    expect(events(a).slice(0, 2)).toEqual(['MOVE_PLAYED', 'GAME_STATE']);
+    await service.tick();
+    expect(played(a)).toHaveLength(1);
+  });
+  it('does not replay earlier moves to a player joining the room', async () => {
+    state.moves.push(e4, e5);
+    await join();
+    await join(b);
+    expect(played(a)).toEqual([]);
+    expect(played(b)).toEqual([]);
+  });
   it('preserves domain errors without notifying the other player', async () => {
     await join();
     await join(b);

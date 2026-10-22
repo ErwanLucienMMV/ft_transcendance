@@ -1,4 +1,4 @@
-import { effect, inject, Injectable, signal } from '@angular/core';
+import { effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthSession } from '../auth/auth-session';
 import { RealtimeService } from './realtime.service';
@@ -51,6 +51,8 @@ export class GameRealtime {
   private readonly session = inject(AuthSession);
   private readonly watched = signal<string | null>(null);
   private subscribed: string | null = null;
+  // Session that selected the watched game; the transport drops its rooms when the token changes.
+  private owner: { token: string; userId: string } | null = null;
   readonly game = signal<GameSnapshot | null>(null);
   readonly error = signal<{ code: string; message: string } | null>(null);
 
@@ -62,7 +64,9 @@ export class GameRealtime {
       }
     });
     effect(() => {
-      if (!this.session.authenticated()) this.leave();
+      const token = this.session.token();
+      const userId = this.session.user()?.id ?? null;
+      untracked(() => this.follow(token, userId));
     });
     this.transport.events.pipe(takeUntilDestroyed()).subscribe((packet) => {
       if (packet.event === 'ERROR') {
@@ -94,15 +98,16 @@ export class GameRealtime {
   }
 
   watch(gameId: string): boolean {
-    if (
-      !this.session.authenticated() ||
-      !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(gameId)
-    )
+    const token = this.session.token();
+    const userId = this.session.user()?.id ?? null;
+    if (!token || !userId || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(gameId))
       return false;
+    this.follow(token, userId);
     const id = gameId.toLowerCase();
     if (id === this.watched()) return true;
     this.leave();
     this.watched.set(id);
+    this.owner = { token, userId };
     this.transport.connect();
     return true;
   }
@@ -111,6 +116,7 @@ export class GameRealtime {
     if (id) this.transport.leaveGame(id);
     this.watched.set(null);
     this.subscribed = null;
+    this.owner = null;
     this.game.set(null);
     this.error.set(null);
   }
@@ -128,6 +134,18 @@ export class GameRealtime {
   }
   declineDraw(): boolean {
     return this.command('DECLINE_DRAW');
+  }
+  /**
+   * Another account, or no account, discards the previous game data. A renewed token for the
+   * same user keeps the watched game and sends JOIN_GAME again on the new connection.
+   */
+  private follow(token: string | null, userId: string | null): void {
+    if (!token || !userId || (this.owner && this.owner.userId !== userId)) {
+      this.leave();
+    } else if (this.owner && this.owner.token !== token) {
+      this.owner = { token, userId };
+      this.subscribed = null;
+    }
   }
   private command(event: string, data: Record<string, unknown> = {}): boolean {
     const gameId = this.watched();

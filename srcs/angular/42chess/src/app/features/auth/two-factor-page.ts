@@ -11,35 +11,7 @@ import { AuthFrame } from '../../shared/auth-frame';
 @Component({
   selector: 'app-two-factor-page',
   imports: [ReactiveFormsModule, RouterLink, AuthFrame],
-  template: `
-    <app-auth-frame>
-      <h2>Two-factor authentication</h2>
-      <p class="auth-intro">
-        Enter the six-digit code from your authenticator to keep your next move yours.
-      </p>
-      <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()">
-        <label for="totp-code">Authenticator code</label>
-        <input
-          id="totp-code"
-          formControlName="code"
-          inputmode="numeric"
-          autocomplete="one-time-code"
-          maxlength="6"
-          required
-        />
-        @if (form.invalid && form.touched) {
-          <p role="alert">Enter the six-digit code.</p>
-        }
-        <button type="submit" [disabled]="pending()">Verify code</button>
-      </form>
-      @if (error()) {
-        <p role="alert">{{ error() }}</p>
-      }
-      <p class="auth-switch">
-        <a routerLink="/login" (click)="auth.cancelChallenge()">Start sign-in again</a>
-      </p>
-    </app-auth-frame>
-  `,
+  templateUrl: './two-factor-page.html',
 })
 export class TwoFactorPage implements OnInit {
   readonly auth = inject(AuthService);
