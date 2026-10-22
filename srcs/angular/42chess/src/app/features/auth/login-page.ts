@@ -12,18 +12,7 @@ import { LoginForm } from './login-form';
 @Component({
   selector: 'app-login-page',
   imports: [LoginForm, RouterLink, ResendVerification],
-  template: `
-    <h2>Sign in</h2>
-    @if (auth.session.notice()) {
-      <p role="status">{{ auth.session.notice() }}</p>
-    }
-    <app-login-form [submissionEnabled]="true" [pending]="pending()" (submitted)="submit($event)" />
-    @if (error()) {
-      <p role="alert">{{ error() }}</p>
-    }
-    <app-resend-verification />
-    <p>New to 42 Chess? <a routerLink="/register">Create an account</a></p>
-  `,
+  templateUrl: './login-page.html',
 })
 export class LoginPage {
   readonly auth = inject(AuthService);

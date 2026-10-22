@@ -72,6 +72,23 @@ describe('RegisterDto', () => {
     ]);
   });
 
+  // The Angular forms mirror this count: one emoji is one character, not two.
+  it.each([
+    ['4 emoji', '😀'.repeat(4), ['password']],
+    ['8 emoji', '😀'.repeat(8), []],
+    ['65 emoji', '😀'.repeat(65), []],
+    ['128 emoji', '😀'.repeat(128), []],
+    ['129 emoji', '😀'.repeat(129), ['password']],
+    ['8 emoji with variation selectors', '\u2764\uFE0F'.repeat(8), []],
+  ])(
+    'counts a password of %s by character',
+    async (_case, password, invalid) => {
+      await expect(invalidFields({ ...VALID, password })).resolves.toEqual(
+        invalid,
+      );
+    },
+  );
+
   it('rejects missing fields and non-string values', async () => {
     await expect(invalidFields({ username: 42 })).resolves.toEqual([
       'username',

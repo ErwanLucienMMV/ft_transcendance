@@ -47,7 +47,9 @@ describe('Game persistence migrations', () => {
   });
 
   beforeEach(async () => {
-    await source.query(`TRUNCATE "moves", "game_players", "games"`);
+    await source.query(
+      `TRUNCATE "game_messages", "rating_history", "moves", "game_players", "games"`,
+    );
   });
 
   async function createGame() {

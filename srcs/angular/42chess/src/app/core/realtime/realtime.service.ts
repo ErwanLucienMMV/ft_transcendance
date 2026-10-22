@@ -47,13 +47,7 @@ export class RealtimeService {
 
   constructor() {
     effect(() => {
-      const token = this.session.token();
-      if (token === this.token) return;
-      this.stop();
-      this.rooms.clear();
-      this.token = token;
-      this.attempts = 0;
-      if (token && this.wanted) this.open();
+      if (this.adopt(this.session.token()) && this.token && this.wanted) this.open();
     });
     inject(DestroyRef).onDestroy(() => {
       this.wanted = false;
@@ -64,7 +58,7 @@ export class RealtimeService {
 
   connect(): void {
     this.wanted = true;
-    this.token = this.session.token();
+    this.adopt(this.session.token());
     if (!this.browser || !this.token || this.socket || this.retry) return;
     this.attempts = 0;
     this.error.set(null);
@@ -91,6 +85,19 @@ export class RealtimeService {
   leaveGame(gameId: string): boolean {
     this.rooms.delete(gameId);
     return this.send('LEAVE_GAME', { gameId });
+  }
+
+  /**
+   * The cached token records which session owns the socket. A different token first closes
+   * that socket and forgets its rooms, whichever of connect() or the effect sees it first.
+   */
+  private adopt(token: string | null): boolean {
+    if (token === this.token) return false;
+    this.stop();
+    this.rooms.clear();
+    this.token = token;
+    this.attempts = 0;
+    return true;
   }
 
   private open(): void {

@@ -65,6 +65,8 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
   beforeAll(async () => {
     process.env.CHESS_ENGINE_URL =
       process.env.TEST_CHESS_ENGINE_URL ?? 'ws://127.0.0.1:55433';
+    process.env.BOT_ENGINE_URL =
+      process.env.TEST_BOT_ENGINE_URL ?? 'ws://127.0.0.1:55434';
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(RealtimeAuthenticator)
       .useValue({
@@ -155,6 +157,54 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
     );
     expect(snapshot.data.board.fen).toBe((await games.get(id)).game.currentFen);
     expect(snapshot.data.moves).toHaveLength(1);
+  });
+  async function botGame(color: 'WHITE' | 'BLACK' = 'WHITE') {
+    const state = await games.createBot(
+      white.id,
+      { initialTime: 300000, color },
+      'EASY',
+    );
+    owned.push(state.game.id);
+    const a = await connect('fixture-white');
+    a.send('JOIN_GAME', { gameId: state.game.id });
+    const snapshot = await a.take('GAME_STATE');
+    return { id: state.game.id, a, snapshot };
+  }
+  function expectPlies(human: Packet, bot: Packet, snapshot: Packet) {
+    expect(human.data).toMatchObject({
+      move: { from: 'e2', to: 'e4', number: 1 },
+      turn: 'BLACK',
+    });
+    expect(human.data.board.fen).toBe(snapshot.data.moves[0].fen);
+    expect(bot.data).toMatchObject({ move: { number: 2 }, turn: 'WHITE' });
+    expect(bot.data.board.fen).toBe(snapshot.data.board.fen);
+  }
+  it('announces the human move and the bot reply committed together, in order', async () => {
+    const { id, a } = await botGame();
+    a.send('MAKE_MOVE', { gameId: id, from: 'e2', to: 'e4' });
+    const human = await a.take('MOVE_PLAYED'),
+      bot = await a.take('MOVE_PLAYED');
+    expectPlies(
+      human,
+      bot,
+      await a.take('GAME_STATE', (data) => data.moves.length === 2),
+    );
+  });
+  it('announces moves committed through REST at the next refresh', async () => {
+    const { id, a } = await botGame();
+    await games.play(white.id, id, 'e2e4');
+    const human = await a.take('MOVE_PLAYED'),
+      bot = await a.take('MOVE_PLAYED');
+    expectPlies(
+      human,
+      bot,
+      await a.take('GAME_STATE', (data) => data.moves.length === 2),
+    );
+  });
+  it('sends a bot opening in the snapshot without replaying it', async () => {
+    const { a, snapshot } = await botGame('BLACK');
+    expect(snapshot.data.moves).toHaveLength(1);
+    expect(a.packets.filter((p) => p.event === 'MOVE_PLAYED')).toHaveLength(0);
   });
   it('unicasts wrong-turn, illegal-move and forged-actor refusals without changing history', async () => {
     const { id, a, b } = await active();

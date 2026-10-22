@@ -2,7 +2,7 @@
 
 This foundation covers SCRUM-33, SCRUM-34, SCRUM-35 and SCRUM-443. It uses
 Nest ConfigModule, TypeORM 0.3 and the `pg` driver. TypeORM is shared by Nest
-and the migration CLI. Authentication and business entities are separate work.
+and the migration CLI. Business entities and their migrations are documented in [DATABASE-MODEL.md](DATABASE-MODEL.md).
 
 ## Configuration
 
@@ -37,8 +37,6 @@ published PostgreSQL port instead of the Compose service hostname.
 Add entities as `src/<feature>/*.entity.ts`. Register them with
 `TypeOrmModule.forFeature([YourEntity])` in their feature module to inject
 repositories. Both the application and CLI discover compiled `*.entity.js`.
-`synchronize` and automatic schema dropping are disabled in every environment.
-Pending migrations run automatically when the API starts.
 `synchronize`, automatic migrations on startup and automatic schema dropping
 are disabled in every environment.
 
@@ -64,10 +62,10 @@ npm run migration:revert
 
 These commands rebuild the backend and use `dist/database/data-source.js`.
 They connect using the same configuration as Nest. Migration history is stored
-in `typeorm_migrations`, and pending migrations run in a transaction. No users
-or games tables are created by this foundation. The first business migration
-should accompany its entity; changing PostgreSQL's initialization script is
-unnecessary.
+in `typeorm_migrations`, and pending migrations run in a transaction. Existing
+migrations create users, games and the feature tables documented in the model.
+Apply them explicitly before API startup. New business migrations should
+accompany their entities; changing PostgreSQL's initialization script is unnecessary.
 
 ## Isolated database tests
 
@@ -108,3 +106,13 @@ podman rm --force transcendence-backend-tests
 Reference: [Nest configuration](https://docs.nestjs.com/techniques/configuration),
 [Nest database integration](https://docs.nestjs.com/techniques/database),
 [TypeORM migration commands](https://github.com/typeorm/typeorm/blob/0.3.31/docs/migrations.md).
+
+## Model, diagram and development data
+
+- [Complete database model](DATABASE-MODEL.md) (DOC-07).
+- [Entity relationship diagram](../../../docs/database-diagram.md) (DOC-16).
+- [Guarded development fixtures](DEVELOPMENT-DATA.md) (DB-22..25).
+
+The additive spec-contract migration preserves legacy data; required metadata
+that was never recorded remains NULL until an explicit backfill. See
+[PUZZLES.md](PUZZLES.md) for FEN references, fixture provenance and legacy handling.

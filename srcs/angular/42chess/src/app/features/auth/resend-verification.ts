@@ -8,29 +8,7 @@ import { authFeedback } from './auth-feedback';
 @Component({
   selector: 'app-resend-verification',
   imports: [ReactiveFormsModule],
-  template: `
-    <details>
-      <summary>Request another verification email</summary>
-      <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()">
-        <label for="resend-email">Verification email address</label>
-        <input
-          id="resend-email"
-          type="email"
-          autocomplete="email"
-          formControlName="email"
-          required
-          maxlength="254"
-        />
-        @if (form.invalid && form.touched) {
-          <p role="alert">Enter a valid email address.</p>
-        }
-        <button type="submit" [disabled]="pending()">Send verification email</button>
-      </form>
-      @if (message()) {
-        <p role="status">{{ message() }}</p>
-      }
-    </details>
-  `,
+  templateUrl: './resend-verification.html',
 })
 export class ResendVerification {
   private readonly auth = inject(AuthService);
