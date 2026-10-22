@@ -1,4 +1,15 @@
 services:
+    bot:
+      build:
+        context: .
+        dockerfile: bot/Dockerfile
+      init: true
+      restart: unless-stopped
+      expose:
+        - "8082"
+      networks:
+        - transcendence
+
 
     chess-engine:
       build:
@@ -68,6 +79,7 @@ services:
         context: ./nestJS
         dockerfile: Dockerfile
       environment:
+        BOT_ENGINE_URL: ws://bot:8082
         CHESS_ENGINE_URL: ws://chess-engine:8081
         MAIL_SERVICE_URL: http://forgemail:3002
         APIPORT: ${APIPORT}
