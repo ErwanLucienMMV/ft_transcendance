@@ -10,28 +10,7 @@ import { authFeedback } from './auth-feedback';
 @Component({
   selector: 'app-two-factor-page',
   imports: [ReactiveFormsModule, RouterLink],
-  template: `
-    <h2>Two-factor authentication</h2>
-    <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()">
-      <label for="totp-code">Authenticator code</label>
-      <input
-        id="totp-code"
-        formControlName="code"
-        inputmode="numeric"
-        autocomplete="one-time-code"
-        maxlength="6"
-        required
-      />
-      @if (form.invalid && form.touched) {
-        <p role="alert">Enter the six-digit code.</p>
-      }
-      <button type="submit" [disabled]="pending()">Verify code</button>
-    </form>
-    @if (error()) {
-      <p role="alert">{{ error() }}</p>
-    }
-    <a routerLink="/login" (click)="auth.cancelChallenge()">Start sign-in again</a>
-  `,
+  templateUrl: './two-factor-page.html',
 })
 export class TwoFactorPage implements OnInit {
   readonly auth = inject(AuthService);

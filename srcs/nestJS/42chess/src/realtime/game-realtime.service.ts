@@ -20,6 +20,8 @@ interface Room {
   clients: Map<string, RealtimeClient>;
   signature: string;
   ended: boolean;
+  // Moves already announced to this room with MOVE_PLAYED.
+  plies: number;
 }
 interface GameQueue {
   tail: Promise<void>;
@@ -99,7 +101,6 @@ export class GameRealtimeService
         client.send('GAME_LEFT', { gameId: id });
         return;
       }
-      const before = await this.games.get(id);
       let state: GameState;
       switch (message.event) {
         case 'MAKE_MOVE':
@@ -125,19 +126,7 @@ export class GameRealtimeService
           throw new BadRequestException('Unsupported command.');
       }
       const view = await this.presenter.state(state);
-      if (
-        message.event === 'MAKE_MOVE' &&
-        state.moves.length > before.moves.length
-      ) {
-        const move = this.presenter.moves(state).moves.at(-1)!;
-        this.broadcast(room, 'MOVE_PLAYED', {
-          gameId: id,
-          move,
-          board: view.board,
-          clocks: view.clocks,
-          turn: view.board.turn,
-        });
-      }
+      this.announce(room, state, view);
       if (message.event === 'OFFER_DRAW' && view.drawOffer) {
         this.broadcast(room, 'DRAW_OFFERED', {
           gameId: id,
@@ -221,6 +210,7 @@ export class GameRealtimeService
       clients: new Map(),
       signature: '',
       ended: false,
+      plies: state.moves.length,
     };
     this.rooms.set(id, room);
     room.clients.set(client.connectionId, client);
@@ -229,7 +219,39 @@ export class GameRealtimeService
     this.publish(room, state, view);
   }
 
+  /**
+   * One MOVE_PLAYED per new ply, in order: a bot game commits the human move and the bot reply
+   * together, and REST moves reach the room through tick(). Clocks are the current server
+   * clocks, because per-ply clocks are not persisted.
+   */
+  private announce(room: Room, state: GameState, view: GameResponse): void {
+    const moves = this.presenter.moves(state).moves;
+    for (let index = room.plies; index < moves.length; index++) {
+      const last = index === moves.length - 1;
+      const board = last ? view.board : this.board(moves[index].fen);
+      this.broadcast(room, 'MOVE_PLAYED', {
+        gameId: view.id,
+        move: moves[index],
+        board,
+        clocks: view.clocks,
+        turn: board.turn,
+      });
+    }
+    room.plies = moves.length;
+  }
+
+  private board(fen: string): GameResponse['board'] {
+    const [, side, , , halfmoveClock, fullmoveNumber] = fen.split(' ');
+    return {
+      fen,
+      turn: side === 'b' ? 'BLACK' : 'WHITE',
+      halfmoveClock: Number(halfmoveClock),
+      fullmoveNumber: Number(fullmoveNumber),
+    };
+  }
+
   private publish(room: Room, state: GameState, view: GameResponse): void {
+    this.announce(room, state, view);
     room.signature = this.signature(state);
     this.broadcast(room, 'GAME_STATE', {
       ...view,

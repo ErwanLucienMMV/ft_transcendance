@@ -18,7 +18,11 @@ export type GameErrorCode =
   | 'ENGINE_UNAVAILABLE'
   | 'INVALID_ENGINE_RESPONSE'
   | 'INVALID_GAME_HISTORY'
-  | 'GAME_BUSY';
+  | 'GAME_BUSY'
+  | 'BOT_UNAVAILABLE'
+  | 'INVALID_BOT_RESPONSE'
+  | 'BOT_GAME_LIMIT'
+  | 'BOT_DRAW_UNSUPPORTED';
 
 /** Domain errors; future authenticated transports map these to their API contract. */
 export class GameError extends Error {

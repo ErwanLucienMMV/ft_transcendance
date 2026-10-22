@@ -10,25 +10,7 @@ import { RegisterForm } from './register-form';
 @Component({
   selector: 'app-register-page',
   imports: [RegisterForm, RouterLink],
-  template: `
-    <h2>Create an account</h2>
-    @if (registered()) {
-      <p role="status">
-        Account created. Check your email for the verification link before signing in.
-      </p>
-      <a routerLink="/verify-email">Verification help</a>
-    } @else {
-      <app-register-form
-        [submissionEnabled]="true"
-        [pending]="pending()"
-        (submitted)="submit($event)"
-      />
-    }
-    @if (error()) {
-      <p role="alert">{{ error() }}</p>
-    }
-    <p>Already have an account? <a routerLink="/login">Sign in</a></p>
-  `,
+  templateUrl: './register-page.html',
 })
 export class RegisterPage {
   private readonly auth = inject(AuthService);

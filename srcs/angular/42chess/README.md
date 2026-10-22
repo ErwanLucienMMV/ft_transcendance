@@ -84,6 +84,10 @@ Covers FRONT-02, FRONT-04, FRONT-07, FRONT-08 and FRONT-AUTH-01..02
 - Login and registration forms validate the existing DTO field limits. Login
   accepts either a username or email; passwords are never trimmed. Registration
   checks password confirmation locally and emits only the three API fields.
+  Password lengths are counted like the backend's class-validator `@Length` (an
+  emoji counts once). Password inputs have no native `minlength`/`maxlength`:
+  browsers count UTF-16 code units there, and Chromium truncates text replacing a
+  selection in a masked field. The form validator and the API bound the length.
 
 The forms are presentation components with `submissionEnabled`, `pending` and
 `submitted` inputs/output. The routed pages keep submission disabled until lot 3
