@@ -204,3 +204,20 @@ unrelated game snapshots, clears state on logout, expiry or account change, and
 relies on the transport for reconnection. A renewed token for the same user keeps
 the watched game and sends `JOIN_GAME` again on the new connection. It never
 applies optimistic chess moves.
+
+# Lot 6 realtime integration verification
+
+SCRUM-194/195: `test/game-realtime.e2e-spec.ts` boots the actual Nest application
+with PostgreSQL and the C++ engine. Two native WS clients exercise the same room,
+legal move broadcasts and SAN persistence, wrong-turn/illegal/forged input,
+outsider refusal, leave/rejoin, reconnect after an unseen move and draw offer,
+draw refusal/acceptance, resignation and a real clock timeout. Reconnect verifies
+persisted history and preserves two seats instead of creating duplicates.
+Bot games use the test compose bot service: a move and its bot reply, sent over
+WS or committed through REST, produce two ordered `MOVE_PLAYED` events.
+The existing `make test` includes this file without changing test discovery or
+CI. Its only substituted boundary is `RealtimeAuthenticator`, via Nest's test
+module override; production still rejects authentication until SCRUM-178 lands.
+Real JWT acceptance/refusal remains an integration dependency, not a passing
+claim made by these fixtures. The browser suite additionally checks the actual
+Angular WS proxy and its fail-closed response with an untrusted token.
