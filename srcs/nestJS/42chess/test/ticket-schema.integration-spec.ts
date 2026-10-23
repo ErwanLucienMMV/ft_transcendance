@@ -155,20 +155,32 @@ describe('DB ticket schema on PostgreSQL', () => {
     );
     expect((await q('SELECT * FROM @.puzzle_attempts')).length).toBe(2);
   });
-  it('rolls back and reapplies all thirteen feature migrations', async () => {
+  it('rolls back and reapplies all fifteen feature migrations, including sessions and OAuth flows', async () => {
     // Fixture rows live only in this random schema; remove dependencies first.
     await q(
       'TRUNCATE @.puzzle_attempts, @.daily_puzzles, @.puzzles, @.matchmaking_queue, @.friendships, @.friend_requests, @.oauth_accounts',
     );
-    for (let i = 0; i < 13; i++) {
-		await source.undoLastMigration();
-		}
+    for (let i = 0; i < 15; i++) {
+      await source.undoLastMigration();
+    }
     const [row] = await source.query('SELECT to_regclass($1) AS name', [
       `${schema}.oauth_accounts`,
     ]);
     expect(row.name).toBeNull();
-    expect(await source.runMigrations()).toHaveLength(13);
+    for (const table of ['auth_sessions', 'oauth_flows']) {
+      const [removed] = await source.query('SELECT to_regclass($1) AS name', [
+        `${schema}.${table}`,
+      ]);
+      expect(removed.name).toBeNull();
+    }
+    expect(await source.runMigrations()).toHaveLength(15);
     expect(await source.runMigrations()).toHaveLength(0);
+    for (const table of ['auth_sessions', 'oauth_flows']) {
+      const [restored] = await source.query('SELECT to_regclass($1) AS name', [
+        `${schema}.${table}`,
+      ]);
+      expect(restored.name).not.toBeNull();
+    }
     expect((await q('SELECT id FROM @.users')).length).toBe(2);
   });
 });

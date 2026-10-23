@@ -43,11 +43,63 @@ test('registers, refuses unverified login, verifies email and signs in against t
   await expect(page).toHaveURL(/\/login\?returnUrl=%2Fsession$/);
   await page.getByLabel('Username or email address').fill(username);
   await page.getByLabel('Password', { exact: true }).fill(password);
+  const signedIn = page.waitForResponse(
+    (r) => r.url().endsWith('/auth/login') && r.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/session$/);
-  const logout = page.waitForResponse(r => r.url().endsWith('/auth/logout') && r.request().method() === 'POST');
+  const identity = await (await signedIn).json();
+  const authenticated = await page.evaluate(
+    (token: string) =>
+      new Promise<string>((resolve, reject) => {
+        const socket = new WebSocket(`ws://${location.host}/ws`);
+        const testWindow = window as Window & { testSocketClosed?: Promise<number> };
+        testWindow.testSocketClosed = new Promise<number>(
+          (closed) => (socket.onclose = (event) => closed(event.code)),
+        );
+        const timeout = setTimeout(() => {
+          socket.close();
+          reject(new Error('JWT socket handshake timed out'));
+        }, 5000);
+        socket.onopen = () =>
+          socket.send(JSON.stringify({ event: 'AUTHENTICATE', data: { accessToken: token } }));
+        socket.onmessage = (message) => {
+          const packet = JSON.parse(message.data);
+          clearTimeout(timeout);
+          if (packet.event === 'AUTHENTICATED') {
+            socket.onmessage = null;
+            resolve(packet.data.userId);
+          } else {
+            socket.close();
+            reject(new Error('JWT socket authentication failed'));
+          }
+        };
+        socket.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error('JWT socket upgrade failed'));
+        };
+      }),
+    identity.accessToken,
+  );
+  expect(authenticated).toBe(identity.user.id);
+  const logout = page.waitForResponse(
+    (r) => r.url().endsWith('/auth/logout') && r.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   expect((await logout).status()).toBe(204);
+  expect(
+    await page.evaluate(() =>
+      Promise.race([
+        (window as Window & { testSocketClosed?: Promise<number> }).testSocketClosed,
+        new Promise<number>((_resolve, reject) =>
+          setTimeout(
+            () => reject(new Error('Logout did not close the authenticated socket')),
+            5000,
+          ),
+        ),
+      ]),
+    ),
+  ).toBe(4401);
   await expect(page).toHaveURL(/\/login$/);
   await page.goto('/session');
   await expect(page).toHaveURL(/\/login\?returnUrl=%2Fsession$/);

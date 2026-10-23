@@ -157,18 +157,14 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
       id: `linked_${suffix}`,
       email: `existing_${suffix}@example.com`,
     };
-    const user = await source
-      .getRepository(User)
-      .save(
-        source
-          .getRepository(User)
-          .create({
-            username: `existing_${suffix}`,
-            email: identity.email,
-            emailVerifiedAt: new Date(),
-            passwordHash: 'test-existing-local-hash',
-          }),
-      );
+    const user = await source.getRepository(User).save(
+      source.getRepository(User).create({
+        username: `existing_${suffix}`,
+        email: identity.email,
+        emailVerifiedAt: new Date(),
+        passwordHash: 'test-existing-local-hash',
+      }),
+    );
     owned.add(user.id);
     const agent = request.agent(app.getHttpServer());
     const state = await start(agent, 'google');
@@ -228,12 +224,10 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
       .delete('/v1/auth/oauth/google')
       .auth(response.body.accessToken, { type: 'bearer' })
       .expect(409);
-    await source
-      .getRepository(User)
-      .update(response.body.user.id, {
-        twoFactorEnabledAt: new Date(),
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
-      });
+    await source.getRepository(User).update(response.body.user.id, {
+      twoFactorEnabledAt: new Date(),
+      twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+    });
     await callback(agent, 'google', await start(agent, 'google'));
     const challenge = await exchange(agent).expect(200);
     expect(challenge.body).toMatchObject({
@@ -250,5 +244,85 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
     ).toContain('error=failed');
     await agent.post('/v1/auth/oauth/exchange').send({}).expect(401);
     await exchange(agent).expect(401);
+  });
+  it('binds the handoff to the originating browser and enforces its short expiry', async () => {
+    identity = {
+      id: `expiry_${suffix}`,
+      email: `expiry_${suffix}@example.com`,
+    };
+    const agent = request.agent(app.getHttpServer());
+    const state = await start(agent, 'google');
+    const response = await callback(agent, 'google', state);
+    const handoffCookie = response.headers['set-cookie']
+      .find((value: string) => value.startsWith('oauth_handoff='))
+      .split(';')[0];
+    await request(app.getHttpServer())
+      .post('/v1/auth/oauth/exchange')
+      .set('x-oauth-exchange', '1')
+      .set('Cookie', handoffCookie)
+      .send({})
+      .expect(401);
+    const account = await source
+      .getRepository(OauthAccount)
+      .findOneByOrFail({ provider: 'google', providerUserId: identity.id });
+    owned.add(account.userId);
+    const handoff = handoffCookie.slice('oauth_handoff='.length);
+    await source
+      .getRepository(OAuthFlow)
+      .update(createHash('sha256').update(handoff).digest('hex'), {
+        expiresAt: new Date(0),
+      });
+    await exchange(agent).expect(401);
+    expect(
+      await source.query('SELECT id FROM auth_sessions WHERE "userId" = $1', [
+        account.userId,
+      ]),
+    ).toEqual([]);
+  });
+  it('does not let a logged-in user take an identity already linked to another account', async () => {
+    identity = {
+      id: `ownership_${suffix}`,
+      email: `ownership_${suffix}@example.com`,
+    };
+    const owner = request.agent(app.getHttpServer());
+    await callback(owner, 'github', await start(owner, 'github'));
+    const first = await exchange(owner).expect(200);
+    owned.add(first.body.user.id);
+    const attacker = await source
+      .getRepository(User)
+      .save(
+        source
+          .getRepository(User)
+          .create({
+            username: `attacker_${suffix}`,
+            emailVerifiedAt: new Date(),
+          }),
+      );
+    owned.add(attacker.id);
+    const session = await sessions.issue(attacker);
+    const agent = request.agent(app.getHttpServer());
+    const started = await agent
+      .post('/v1/auth/oauth/github/link')
+      .auth(session.accessToken, { type: 'bearer' })
+      .expect(201);
+    expect(
+      (
+        await callback(
+          agent,
+          'github',
+          new URL(started.body.authorizationUrl).searchParams.get('state')!,
+        )
+      ).headers.location,
+    ).toContain('error=failed');
+    expect(
+      (
+        await source
+          .getRepository(OauthAccount)
+          .findOneByOrFail({ provider: 'github', providerUserId: identity.id })
+      ).userId,
+    ).toBe(first.body.user.id);
+    expect(
+      await source.getRepository(OauthAccount).countBy({ userId: attacker.id }),
+    ).toBe(0);
   });
 });

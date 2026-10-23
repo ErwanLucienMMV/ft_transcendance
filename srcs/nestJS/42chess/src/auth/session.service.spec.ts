@@ -53,7 +53,12 @@ describe('Revocable access sessions', () => {
       user,
       sessionId: jwt.decode(accessToken).jti,
     });
-    users.findOneBy.mockResolvedValue({ ...user, emailVerifiedAt: null });
+    users.findOneBy.mockResolvedValue({
+      id: user.id,
+      username: user.username,
+      elo: user.elo,
+      emailVerifiedAt: null,
+    });
     await expect(service.authenticate(accessToken)).rejects.toMatchObject({
       status: 401,
     });

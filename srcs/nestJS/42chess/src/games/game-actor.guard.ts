@@ -8,7 +8,7 @@ import type { UUID } from '../common/types/api.js';
 
 /** Authentication must populate request.user on the server after verifying the token.
  * This boundary does not decode tokens or take identities from client headers/body.
- * Until Auth supplies that principal, POST /games deliberately returns AUTH_REQUIRED.
+ * The guard verifies bearer sessions when no trusted server principal is installed.
  */
 export function gameActor(request: Request & { user?: unknown }): UUID {
   const user = request.user;
