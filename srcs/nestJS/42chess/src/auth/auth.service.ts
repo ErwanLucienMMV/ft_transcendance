@@ -179,6 +179,13 @@ export class AuthService {
       });
     }
 
+    return this.completeLogin(user);
+  }
+
+  /** OAuth and password sign-ins share the same second-factor requirement. */
+  async completeLogin(
+    user: User,
+  ): Promise<AuthTokenResponse | TwoFactorChallengeResponse> {
     if (user.twoFactorEnabledAt) {
       return {
         requires2fa: true,

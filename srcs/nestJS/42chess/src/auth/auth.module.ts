@@ -46,6 +46,6 @@ import { SessionModule } from './session.module.js';
     TotpService,
     TwoFactorChallengeService,
   ],
-  exports: [PasswordService],
+  exports: [PasswordService, AuthService],
 })
 export class AuthModule {}
