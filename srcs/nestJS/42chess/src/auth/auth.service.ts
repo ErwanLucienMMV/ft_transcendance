@@ -27,6 +27,7 @@ import {
 import { PasswordService } from './password.service.js';
 import { TotpService } from './totp.service.js';
 import { TwoFactorChallengeService } from './two-factor-challenge.service.js';
+import { SessionService } from './session.service.js';
 
 /** Public part of a user returned by the auth endpoints. */
 export interface AuthUser {
@@ -74,6 +75,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly totp: TotpService,
     private readonly challenges: TwoFactorChallengeService,
+    private readonly sessions: SessionService,
   ) {}
 
   // Verified when the login matches no password, so that an unknown account
@@ -222,12 +224,7 @@ export class AuthService {
   }
 
   private async issueAccessToken(user: User): Promise<AuthTokenResponse> {
-    const payload: AccessTokenPayload = {
-      sub: user.id,
-      username: user.username,
-    };
-    const accessToken = await this.jwt.signAsync(payload);
-    return { accessToken, ...toResponse(user) };
+    return this.sessions.issue(user);
   }
 
   private getDummyHash(): Promise<string> {
