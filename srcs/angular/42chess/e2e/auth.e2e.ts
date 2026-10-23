@@ -41,6 +41,16 @@ test('registers, refuses unverified login, verifies email and signs in against t
   ).toEqual({ local: 0, session: 0 });
   await page.reload();
   await expect(page).toHaveURL(/\/login\?returnUrl=%2Fsession$/);
+  await page.getByLabel('Username or email address').fill(username);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page).toHaveURL(/\/session$/);
+  const logout = page.waitForResponse(r => r.url().endsWith('/auth/logout') && r.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  expect((await logout).status()).toBe(204);
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goto('/session');
+  await expect(page).toHaveURL(/\/login\?returnUrl=%2Fsession$/);
 });
 
 test('redirects anonymous access to a protected page', async ({ page }) => {

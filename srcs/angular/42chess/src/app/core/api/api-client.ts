@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from './api-base-url';
 
 export interface ApiRequestOptions {
+  headers?: Record<string, string>;
   params?:
     HttpParams | Record<string, string | number | boolean | readonly (string | number | boolean)[]>;
   context?: HttpContext;
