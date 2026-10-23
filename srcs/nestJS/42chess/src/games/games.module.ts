@@ -14,6 +14,7 @@ import { GameTimeoutsService } from './clock/game-timeouts.service.js';
 import { GamesController } from './games.controller.js';
 import { GamePresenterService } from './game-presenter.service.js';
 import { GameActorGuard } from './game-actor.guard.js';
+import { SessionModule } from '../auth/session.module.js';
 
 /**
  * Core of the application: game lifecycle (WAITING → ACTIVE → FINISHED),
@@ -26,6 +27,7 @@ import { GameActorGuard } from './game-actor.guard.js';
 @Module({
   imports: [
     BotEngineModule,
+    SessionModule,
     TypeOrmModule.forFeature([Game, GamePlayer, Move]),
   ],
   providers: [

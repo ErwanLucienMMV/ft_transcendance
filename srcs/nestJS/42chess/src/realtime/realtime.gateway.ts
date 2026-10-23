@@ -99,6 +99,8 @@ export class RealtimeGateway
     const connectionId = randomUUID();
     let principal: RealtimePrincipal | undefined;
     let expiry: ReturnType<typeof setTimeout> | undefined;
+    let validation: ReturnType<typeof setInterval> | undefined;
+    let validating = false;
     let queued = 0,
       count = 0,
       windowStart = Date.now();
@@ -118,6 +120,7 @@ export class RealtimeGateway
     socket.on('close', () => {
       clearTimeout(authTimeout);
       clearTimeout(expiry);
+      clearInterval(validation);
       this.messages.disconnect(connectionId);
     });
     socket.on('message', (raw, binary) => {
@@ -171,6 +174,26 @@ export class RealtimeGateway
               }
               if (socket.readyState !== WebSocket.OPEN) return;
               principal = verified;
+              if (verified.validate) {
+                validation = setInterval(async () => {
+                  if (validating || socket.readyState !== WebSocket.OPEN)
+                    return;
+                  validating = true;
+                  try {
+                    await verified.validate!();
+                  } catch {
+                    this.send(socket, 'ERROR', {
+                      statusCode: 401,
+                      code: 'INVALID_TOKEN',
+                      message: 'The session is no longer valid.',
+                    });
+                    socket.close(4401, 'Session ended');
+                  } finally {
+                    validating = false;
+                  }
+                }, 1000);
+                validation.unref();
+              }
               clearTimeout(authTimeout);
               expiry = setTimeout(
                 () => socket.close(4401, 'Authentication expired'),
@@ -186,6 +209,8 @@ export class RealtimeGateway
                 throw new UnauthorizedException(
                   'Authenticate again on a new connection.',
                 );
+              await principal.validate?.();
+              if (socket.readyState !== WebSocket.OPEN) return;
               await this.messages.handle(
                 {
                   userId: principal.userId,
