@@ -4,6 +4,9 @@ import type { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
+import { SessionService } from '../dist/auth/session.service.js';
+import { User } from '../dist/users/user.entity.js';
+import { configurationOptions } from '../dist/config/environment.js';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
@@ -24,13 +27,14 @@ describe('Daily puzzle HTTP flow (E2E-14)', () => {
   let token: string;
   let otherToken: string;
   let puzzleId: string;
+  let sessions: SessionService;
   beforeAll(async () => {
     f = await createPuzzleFixture();
     await f.load();
     puzzleId = (await f.reference()).id;
     const module = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
+        ConfigModule.forRoot({ ...configurationOptions, ignoreEnvFile: true }),
         {
           module: PuzzleDatabaseModule,
           providers: [{ provide: DataSource, useValue: f.source }],
@@ -43,15 +47,17 @@ describe('Daily puzzle HTTP flow (E2E-14)', () => {
     app.useGlobalPipes(createValidationPipe());
     app.useGlobalFilters(new ApiExceptionFilter(app.get(HttpAdapterHost)));
     await app.init();
-    const jwt = new JwtService({ secret: process.env.JWT_SECRET });
-    token = await jwt.signAsync(
-      { sub: f.alice, username: 'puzzle_alice' },
-      { expiresIn: 300 },
-    );
-    otherToken = await jwt.signAsync(
-      { sub: f.bob, username: 'puzzle_bob' },
-      { expiresIn: 300 },
-    );
+    sessions = app.get(SessionService);
+    token = (
+      await sessions.issue(
+        await f.source.getRepository(User).findOneByOrFail({ id: f.alice }),
+      )
+    ).accessToken;
+    otherToken = (
+      await sessions.issue(
+        await f.source.getRepository(User).findOneByOrFail({ id: f.bob }),
+      )
+    ).accessToken;
   });
   afterAll(async () => {
     await app?.close();
@@ -155,13 +161,64 @@ describe('Daily puzzle HTTP flow (E2E-14)', () => {
   });
 
   it('uses actual bearer verification and rejects forged identity claims', async () => {
-    for (const bearer of [undefined, f.alice, 'invalid.jwt.token']) {
+    const jwt = new JwtService({ secret: process.env.JWT_SECRET });
+    for (const bearer of [
+      undefined,
+      f.alice,
+      'invalid.jwt.token',
+      await jwt.signAsync(
+        { sub: f.alice, username: 'puzzle_alice' },
+        { expiresIn: 300 },
+      ),
+      await jwt.signAsync(
+        { sub: f.alice, jti: randomUUID(), typ: '2fa-challenge' },
+        { expiresIn: 300 },
+      ),
+      await jwt.signAsync(
+        { sub: f.alice, jti: randomUUID(), typ: 'access' },
+        { expiresIn: -1 },
+      ),
+    ]) {
       const call = http()
         .post(`/v1/puzzles/${puzzleId}/attempts`)
         .send({ userId: f.alice });
       if (bearer) call.auth(bearer, { type: 'bearer' });
       expect((await call.expect(401)).body.code).toBe('AUTH_REQUIRED');
     }
+  });
+
+  it('revokes puzzle access after logout without changing progress or another session', async () => {
+    const user = await f.source
+      .getRepository(User)
+      .findOneByOrFail({ id: f.alice });
+    const revoked = (await sessions.issue(user)).accessToken;
+    const attempt = (
+      await http()
+        .post(`/v1/puzzles/${puzzleId}/attempts`)
+        .auth(revoked, { type: 'bearer' })
+        .expect(201)
+    ).body;
+    await http()
+      .post('/v1/auth/logout')
+      .auth(revoked, { type: 'bearer' })
+      .expect(204);
+    for (const call of [
+      () => http().post(`/v1/puzzles/${puzzleId}/attempts`),
+      () => http().get(`/v1/puzzles/attempts/${attempt.attemptId}`),
+      () =>
+        http()
+          .post(`/v1/puzzles/attempts/${attempt.attemptId}/moves`)
+          .send({ move: 'a2e6', version: 0 }),
+    ]) {
+      expect(
+        (await call().auth(revoked, { type: 'bearer' }).expect(401)).body.code,
+      ).toBe('AUTH_REQUIRED');
+    }
+    const state = await http()
+      .get(`/v1/puzzles/attempts/${attempt.attemptId}`)
+      .auth(token, { type: 'bearer' })
+      .expect(200);
+    expect(state.body).toEqual(attempt);
   });
 
   it('does not reveal or mutate another user attempt', async () => {

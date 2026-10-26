@@ -25,12 +25,7 @@ export class AuthService {
     this.session.clear();
     return this.api.post<AuthTokenResponse | TwoFactorChallenge>('auth/login', credentials).pipe(
       tap((response) => {
-        if ('requires2fa' in response && response.requires2fa) {
-          if (!response.challengeToken) throw new Error('Invalid authentication response.');
-          this.challenge.set(response.challengeToken);
-        } else {
-          this.session.establish(response as AuthTokenResponse);
-        }
+        this.acceptSignIn(response);
       }),
     );
   }
@@ -54,5 +49,14 @@ export class AuthService {
   }
   cancelChallenge(): void {
     this.challenge.set(null);
+  }
+
+  acceptSignIn(response: AuthTokenResponse | TwoFactorChallenge): void {
+    this.cancelChallenge();
+    this.session.clear();
+    if ('requires2fa' in response && response.requires2fa) {
+      if (!response.challengeToken) throw new Error('Invalid authentication response.');
+      this.challenge.set(response.challengeToken);
+    } else this.session.establish(response as AuthTokenResponse);
   }
 }

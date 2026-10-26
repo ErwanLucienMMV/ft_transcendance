@@ -35,6 +35,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/session-page').then((m) => m.SessionPage),
   },
   {
+    path: 'oauth/callback',
+    title: 'Completing sign-in | 42 Chess',
+    loadComponent: () =>
+      import('./features/auth/oauth-callback-page').then((m) => m.OAuthCallbackPage),
+  },
+  {
     path: '**',
     title: 'Page not found | 42 Chess',
     loadComponent: () => import('./features/home/not-found-page').then((m) => m.NotFoundPage),

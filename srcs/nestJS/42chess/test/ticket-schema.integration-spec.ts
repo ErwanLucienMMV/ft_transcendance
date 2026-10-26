@@ -172,8 +172,20 @@ describe('DB ticket schema on PostgreSQL', () => {
       `${schema}.oauth_accounts`,
     ]);
     expect(row.name).toBeNull();
+    for (const table of ['auth_sessions', 'oauth_flows']) {
+      const [removed] = await source.query('SELECT to_regclass($1) AS name', [
+        `${schema}.${table}`,
+      ]);
+      expect(removed.name).toBeNull();
+    }
     expect(await source.runMigrations()).toHaveLength(featureCount);
     expect(await source.runMigrations()).toHaveLength(0);
+    for (const table of ['auth_sessions', 'oauth_flows']) {
+      const [restored] = await source.query('SELECT to_regclass($1) AS name', [
+        `${schema}.${table}`,
+      ]);
+      expect(restored.name).not.toBeNull();
+    }
     expect((await q('SELECT id FROM @.users')).length).toBe(2);
   });
 });

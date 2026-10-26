@@ -9,10 +9,11 @@ import { authFeedback } from './auth-feedback';
 import { ResendVerification } from './resend-verification';
 import { LoginForm } from './login-form';
 import { AuthFrame } from '../../shared/auth-frame';
+import { OAuthSignIn } from './oauth-sign-in';
 
 @Component({
   selector: 'app-login-page',
-  imports: [LoginForm, RouterLink, ResendVerification, AuthFrame],
+  imports: [LoginForm, RouterLink, ResendVerification, AuthFrame, OAuthSignIn],
   templateUrl: './login-page.html',
 })
 export class LoginPage {

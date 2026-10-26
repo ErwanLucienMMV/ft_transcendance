@@ -2,12 +2,40 @@ import { randomUUID } from 'node:crypto';
 import { JwtService } from '@nestjs/jwt';
 import type { ExecutionContext } from '@nestjs/common';
 import { AccessTokenGuard } from './access-token.guard.js';
+import { AuthGuard } from './auth.guard.js';
+import { SessionService } from './session.service.js';
+import type { Repository } from 'typeorm';
+import type { AuthSession } from './auth-session.entity.js';
+import type { User } from '../users/user.entity.js';
 
 const secret = 'unit-test-jwt-secret-of-32-chars!';
 describe('AccessTokenGuard', () => {
   const jwt = new JwtService({ secret });
-  const guard = new AccessTokenGuard(jwt);
   const sub = randomUUID();
+  const user = {
+    id: sub,
+    username: 'alice',
+    elo: 1200,
+    emailVerifiedAt: new Date(),
+  } as User;
+  const rows = { insert: vi.fn(), findOneBy: vi.fn() };
+  const users = { findOneBy: vi.fn() };
+  const sessions = new SessionService(
+    new JwtService({
+      secret,
+      signOptions: { algorithm: 'HS256', expiresIn: 60 },
+    }),
+    rows as unknown as Repository<AuthSession>,
+    users as unknown as Repository<User>,
+  );
+  const guard = new AccessTokenGuard(new AuthGuard(sessions));
+  beforeEach(() => {
+    vi.resetAllMocks();
+    users.findOneBy.mockResolvedValue(user);
+    rows.insert.mockImplementation(async (row: AuthSession) => {
+      rows.findOneBy.mockResolvedValue(row);
+    });
+  });
   function context(authorization?: string) {
     const request = {
       headers: { authorization },
@@ -21,14 +49,11 @@ describe('AccessTokenGuard', () => {
     };
   }
 
-  it('binds only the subject of a verified access token', async () => {
-    const token = await jwt.signAsync(
-      { sub, username: 'alice' },
-      { expiresIn: 60 },
-    );
+  it('binds the user and live session of a verified access token', async () => {
+    const { accessToken: token } = await sessions.issue(user);
     const c = context(`Bearer ${token}`);
     expect(await guard.canActivate(c.execution)).toBe(true);
-    expect(c.request.user).toEqual({ id: sub });
+    expect(c.request.user).toEqual(user);
   });
 
   it.each([undefined, 'Bearer forged', 'Basic credentials'])(
@@ -55,11 +80,32 @@ describe('AccessTokenGuard', () => {
 
   it('rejects a token signed with another secret', async () => {
     const token = await jwt.signAsync(
-      { sub, username: 'alice' },
+      { sub, username: 'alice', jti: randomUUID(), typ: 'access' },
       { secret: 'another-secret', expiresIn: 60 },
     );
     await expect(
       guard.canActivate(context(`Bearer ${token}`).execution),
     ).rejects.toMatchObject({ status: 401 });
+  });
+
+  it('rejects a signed token whose session has been revoked or removed', async () => {
+    const { accessToken } = await sessions.issue(user);
+    rows.findOneBy.mockResolvedValue(null);
+    await expect(
+      guard.canActivate(context(`Bearer ${accessToken}`).execution),
+    ).rejects.toMatchObject({
+      response: { code: 'AUTH_REQUIRED' },
+      status: 401,
+    });
+  });
+
+  it('does not bind a principal after its user is deleted', async () => {
+    const { accessToken } = await sessions.issue(user);
+    users.findOneBy.mockResolvedValue(null);
+    const c = context(`Bearer ${accessToken}`);
+    await expect(guard.canActivate(c.execution)).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(c.request.user).toBeUndefined();
   });
 });

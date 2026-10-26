@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { MigrationExecutor } from 'typeorm';
 import { Puzzle } from '../dist/puzzles/puzzles.entity.js';
 import { PuzzlesService } from '../dist/puzzles/puzzles.service.js';
 import { PuzzleRulesService } from '../dist/puzzles/puzzle-rules.service.js';
@@ -182,11 +183,25 @@ describe('Puzzle training with PostgreSQL and the C++ rules daemon', () => {
   it('rolls back and reapplies training fields without losing existing puzzle rows', async () => {
     await f.load();
     const puzzle = await f.reference();
-    await f.source.undoLastMigration();
+    // Sessions and OAuth may follow training; roll back through the training
+    // migration in this disposable schema, rather than assuming it is last.
+    const affected = (
+      await new MigrationExecutor(f.source).getExecutedMigrations()
+    ).filter((migration) => migration.timestamp >= 1792600000000);
+    expect(
+      affected.some(
+        (migration) => migration.name === 'AddPuzzleTraining1792600000000',
+      ),
+    ).toBe(true);
+    for (const _migration of affected) await f.source.undoLastMigration();
     expect(
       await f.source.query('SELECT fen FROM puzzles WHERE id=$1', [puzzle.id]),
     ).toEqual([{ fen: puzzle.fen }]);
-    expect(await f.source.runMigrations()).toHaveLength(1);
+    expect(
+      (await f.source.runMigrations())
+        .map((migration) => migration.name)
+        .sort(),
+    ).toEqual(affected.map((migration) => migration.name).sort());
     const [row] = await f.source.query(
       'SELECT "validatedAt", "sourceId" FROM puzzles WHERE id=$1',
       [puzzle.id],

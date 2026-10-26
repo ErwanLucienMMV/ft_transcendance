@@ -48,6 +48,14 @@ export class AuthSession {
     this.notice.set(message);
   }
 
+  updateUser(user: AuthUser, expectedToken: string): boolean {
+    const current = this.current();
+    if (!current || current.accessToken !== expectedToken || user.id !== current.user.id)
+      return false;
+    this.current.set({ ...current, user: { id: user.id, username: user.username, elo: user.elo } });
+    return true;
+  }
+
   private expiry(token: string): number {
     try {
       const part = token.split('.')[1];

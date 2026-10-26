@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('upgrades through the development proxy and refuses unavailable production authentication', async ({
+test('upgrades through the development proxy and refuses an invalid access token', async ({
   page,
 }) => {
   await page.goto('/');
@@ -34,5 +34,5 @@ test('upgrades through the development proxy and refuses unavailable production 
         };
       }),
   );
-  expect(result).toEqual({ code: 'AUTH_UNAVAILABLE', close: 4401 });
+  expect(result).toEqual({ code: 'INVALID_TOKEN', close: 4401 });
 });

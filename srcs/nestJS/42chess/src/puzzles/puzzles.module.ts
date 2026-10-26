@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module.js';
+import { SessionModule } from '../auth/session.module.js';
 import { ChessEngineService } from '../chess/chess-engine.service.js';
 import { Puzzle } from './puzzles.entity.js';
 import { PuzzleAttempt } from './puzzle-attempts.entity.js';
@@ -12,6 +13,7 @@ import { PuzzleRulesService } from './puzzle-rules.service.js';
 @Module({
   imports: [
     AuthModule,
+    SessionModule,
     TypeOrmModule.forFeature([Puzzle, PuzzleAttempt, DailyPuzzle]),
   ],
   controllers: [PuzzlesController],

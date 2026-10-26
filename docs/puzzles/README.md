@@ -28,7 +28,7 @@ Only the supported public theme enum is projected. Every original Lichess tag is
 
 ## REST API
 
-All routes use the existing API error envelope `{statusCode, code, message}`. Authenticated routes verify an HS256 bearer access token issued by `/v1/auth/login`, including signature and expiry. A raw UUID, client-supplied user ID or 2FA challenge is not authentication.
+All routes use the existing API error envelope `{statusCode, code, message}`. Authenticated routes verify an HS256 bearer access token issued by the authentication service, including signature, expiry and its persisted, non-revoked session. The shared guard accepts `typ=access`; legacy stateless tokens, a raw UUID, client-supplied user ID or 2FA challenge are not authentication. Logout revokes access to puzzle creation, resume and moves for that session without deleting progress or invalidating another session. See the [auth/puzzle integration report](../review-fixes-2026-10-26.md).
 
 | Method | Route | Authentication | Result |
 | --- | --- | --- | --- |

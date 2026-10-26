@@ -10,6 +10,7 @@ import { PasswordService } from './password.service.js';
 import { TotpService } from './totp.service.js';
 import { TwoFactorChallengeService } from './two-factor-challenge.service.js';
 import { MailModule } from '../mail/mail.module.js';
+import { SessionModule } from './session.module.js';
 
 /**
  * Authentication: local accounts (register / login / logout), JWT issuing
@@ -26,6 +27,7 @@ import { MailModule } from '../mail/mail.module.js';
     ConfigModule,
     UsersModule,
     MailModule,
+    SessionModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -46,6 +48,6 @@ import { MailModule } from '../mail/mail.module.js';
     TotpService,
     TwoFactorChallengeService,
   ],
-  exports: [PasswordService, AccessTokenGuard, JwtModule],
+  exports: [PasswordService, AuthService, AccessTokenGuard, JwtModule],
 })
 export class AuthModule {}

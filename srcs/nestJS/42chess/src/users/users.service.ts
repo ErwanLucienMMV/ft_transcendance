@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, LessThan, QueryFailedError, Repository } from 'typeorm';
 import { User } from './user.entity.js';
@@ -33,6 +33,17 @@ export class UsersService {
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
   ) {}
+
+  async requireById(id: string): Promise<User> {
+    const user = await this.users.findOneBy({ id });
+    if (!user)
+      throw new NotFoundException({
+        statusCode: 404,
+        code: 'USER_NOT_FOUND',
+        message: 'User not found.',
+      });
+    return user;
+  }
 
   /**
    * Inserts the user directly and relies on the database unique constraints:

@@ -7,6 +7,7 @@ import { PuzzlesService } from '../dist/puzzles/puzzles.service.js';
 import { PuzzleAttempt } from '../dist/puzzles/puzzle-attempts.entity.js';
 import { DailyPuzzle } from '../dist/puzzles/daily-puzzles.entity.js';
 import { User } from '../dist/users/user.entity.js';
+import { AuthSession } from '../dist/auth/auth-session.entity.js';
 import { Puzzle } from '../dist/puzzles/puzzles.entity.js';
 import { importPuzzles } from '../dist/puzzles/puzzle-import.js';
 
@@ -26,7 +27,7 @@ export async function createPuzzleFixture() {
   const source = new DataSource({
     ...options,
     schema,
-    entities: [User, Puzzle, PuzzleAttempt, DailyPuzzle],
+    entities: [User, AuthSession, Puzzle, PuzzleAttempt, DailyPuzzle],
     extra: {
       ...options.extra,
       application_name: schema,
