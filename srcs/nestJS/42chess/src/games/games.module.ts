@@ -14,6 +14,7 @@ import { GameTimeoutsService } from './clock/game-timeouts.service.js';
 import { GamesController } from './games.controller.js';
 import { GamePresenterService } from './game-presenter.service.js';
 import { GameActorGuard } from './game-actor.guard.js';
+import { GamesMetricsService } from './games-metrics.service.js';
 
 /**
  * Core of the application: game lifecycle (WAITING → ACTIVE → FINISHED),
@@ -31,6 +32,7 @@ import { GameActorGuard } from './game-actor.guard.js';
   providers: [
     GamePresenterService,
     GameActorGuard,
+    GamesMetricsService,
     GamesService,
     GameStoreService,
     GameRulesService,
