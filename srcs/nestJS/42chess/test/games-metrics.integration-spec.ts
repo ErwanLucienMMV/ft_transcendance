@@ -46,14 +46,25 @@ describe('Durable active-game metrics', () => {
     }
   });
 
-  it('recovers the database count after rebuilding the collector', async () => {
+  it('rebinds an existing collector after rebuilding with a new database connection', async () => {
     await fixture.source.query(`INSERT INTO games
       (status, "initialTime", "startedAt") VALUES ('ACTIVE', 300000, now())`);
-    expect(await scrape()).toContain('\ngames_active 1\n');
+    const oldSource = new DataSource(fixture.source.options);
+    await oldSource.initialize();
+    try {
+      new GamesMetricsService(oldSource, metrics);
+      expect(await scrape()).toContain('\ngames_active 1\n');
+    } finally {
+      await oldSource.destroy();
+    }
 
-    metrics.registry.clear();
+    // Prom-client keeps its registry across Nest application rebuilds in a process.
+    const originalGauge = metrics.registry.getSingleMetric('games_active');
     const restarted = new MetricsService();
     new GamesMetricsService(fixture.source, restarted);
+    expect(restarted.registry.getSingleMetric('games_active')).toBe(
+      originalGauge,
+    );
     expect(await restarted.registry.metrics()).toContain('\ngames_active 1\n');
   });
 });

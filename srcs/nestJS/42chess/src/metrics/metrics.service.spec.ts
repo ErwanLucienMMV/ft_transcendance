@@ -45,4 +45,25 @@ describe('Shared metrics registry', () => {
       metrics.histogram({ name: 'test_conflict', help: 'Histogram' }),
     ).toThrow('different type');
   });
+
+  it('refreshes a reused gauge collector when its provider is rebuilt', async () => {
+    const original = metrics.gauge({
+      name: 'test_rebuilt',
+      help: 'Rebuilt provider',
+      collect() {
+        this.set(1);
+      },
+    });
+    expect(await metrics.registry.metrics()).toContain('test_rebuilt 1');
+
+    const replacement = new MetricsService().gauge({
+      name: 'test_rebuilt',
+      help: 'Rebuilt provider',
+      collect() {
+        this.set(2);
+      },
+    });
+    expect(replacement).toBe(original);
+    expect(await metrics.registry.metrics()).toContain('test_rebuilt 2');
+  });
 });

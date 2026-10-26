@@ -26,6 +26,8 @@ export class MetricsService {
     if (existing) {
       if (!(existing instanceof Gauge))
         throw new Error(`Metric ${config.name} is already a different type`);
+      // Rebuilt providers must not retain a collector bound to closed resources.
+      if (config.collect) Object.assign(existing, { collect: config.collect });
       return existing as Gauge<T>;
     }
     return new Gauge<T>({ ...config, registers: [this.registry] });
