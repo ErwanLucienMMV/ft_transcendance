@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import type { HttpAdapterHost } from '@nestjs/core';
 import WebSocket from 'ws';
 import { RealtimeGateway } from './realtime.gateway.js';
+import { MetricsService } from '../metrics/metrics.service.js';
 import {
   RealtimeAuthenticator,
   UnavailableRealtimeAuthenticator,
@@ -40,6 +41,7 @@ describe('Realtime gateway over actual sockets', () => {
       auth,
       messages,
       new ConfigService(),
+      new MetricsService(),
     );
     gateway.onApplicationBootstrap();
     http.listen(0, '127.0.0.1');
