@@ -4,16 +4,25 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, type EntityManager } from 'typeorm';
 import { isUUID } from 'class-validator';
 import { User } from '../users/user.entity.js';
 import type { TimeControl } from '../games/clock/game-clock.js';
 import { MatchmakingEntry } from './matchmaking-queue.entity.js';
 import type { JoinMatchmakingResponse } from './matchmaking.types.js';
+import { findCompatible } from './matchmaking-candidate.js';
 
 @Injectable()
 export class MatchmakingService {
   constructor(private readonly source: DataSource) {}
+
+  findCompatible(
+    manager: EntityManager,
+    seeker: MatchmakingEntry,
+    now: Date,
+  ): Promise<MatchmakingEntry | null> {
+    return findCompatible(manager, seeker, now);
+  }
 
   async join(
     userId: string,
