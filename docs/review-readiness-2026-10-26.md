@@ -1,5 +1,13 @@
 # Vérification finale des lots auth — 26 octobre 2026
 
+**Mise à jour après review :** le puzzle a depuis été fusionné dans `dev_test`.
+Les conflits et la protection du retrait OAuth sont traités dans le
+[rapport des corrections](review-fixes-2026-10-26.md), qui donne les résultats
+de validation combinée. Le présent document conserve le relevé historique
+antérieur à cette intégration ; ses mentions de conflits à venir ne décrivent
+plus l’état de la branche corrigée. L’utilisateur a confirmé que « These.md »
+désigne le document local **Proposition spec.md**.
+
 ## Publication après vérification
 
 [PR d’intégration #60](https://github.com/ErwanLucienMMV/ft_transcendance/pull/60)

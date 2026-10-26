@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import type { Environment } from '../config/environment.js';
 import { UsersModule } from '../users/users.module.js';
+import { AccessTokenGuard } from './access-token.guard.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { PasswordService } from './password.service.js';
@@ -42,10 +43,11 @@ import { SessionModule } from './session.module.js';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AccessTokenGuard,
     PasswordService,
     TotpService,
     TwoFactorChallengeService,
   ],
-  exports: [PasswordService, AuthService],
+  exports: [PasswordService, AuthService, AccessTokenGuard, JwtModule],
 })
 export class AuthModule {}

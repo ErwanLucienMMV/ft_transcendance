@@ -9,6 +9,7 @@ import { OAuthFlow } from '../dist/oauth/oauth-flow.entity.js';
 import { OauthAccount } from '../dist/oauth/oauth-accounts.entity.js';
 import { User } from '../dist/users/user.entity.js';
 import { SessionService } from '../dist/auth/session.service.js';
+import { ConfigService } from '@nestjs/config';
 
 describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () => {
   let app: INestApplication, source: DataSource, sessions: SessionService;
@@ -235,6 +236,107 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
       challengeToken: expect.any(String),
     });
     expect(challenge.body).not.toHaveProperty('accessToken');
+  });
+  async function linkedAccount() {
+    const key = randomUUID();
+    const user = await source.getRepository(User).save({
+      username: `unlink_${key.slice(0, 8)}`,
+      email: `unlink_${key}@example.com`,
+      emailVerifiedAt: new Date(),
+      passwordHash: null,
+    });
+    owned.add(user.id);
+    await source.getRepository(OauthAccount).insert(
+      ['google', 'github'].map((provider) => ({
+        userId: user.id,
+        provider,
+        providerUserId: `${provider}_${key}`,
+      })),
+    );
+    return { user, token: (await sessions.issue(user)).accessToken };
+  }
+
+  it.each(['google', 'github'] as const)(
+    'keeps the last usable login when %s is linked but disabled',
+    async (disabled) => {
+      const { user, token } = await linkedAccount();
+      const remove = disabled === 'google' ? 'github' : 'google';
+      const config = app.get(ConfigService);
+      const keys = [
+        `OAUTH_${disabled.toUpperCase()}_CLIENT_ID`,
+        `${disabled.toUpperCase()}_CLIENT_ID`,
+      ];
+      const previous = keys.map((key) => ({
+        key,
+        value: config.get(key),
+        env: process.env[key],
+      }));
+      try {
+        for (const key of keys) config.set(key, '');
+        const available = await request(app.getHttpServer())
+          .get('/v1/auth/oauth/providers')
+          .expect(200);
+        expect(available.body.providers).not.toContain(disabled);
+        expect(available.body.providers).toContain(remove);
+        const response = await request(app.getHttpServer())
+          .delete(`/v1/auth/oauth/${remove}`)
+          .auth(token, { type: 'bearer' })
+          .expect(409);
+        expect(response.body.code).toBe('OAUTH_LAST_LOGIN_METHOD');
+        expect(
+          await source.getRepository(OauthAccount).countBy({ userId: user.id }),
+        ).toBe(2);
+        // Removing the unavailable link remains safe while the usable one stays.
+        await request(app.getHttpServer())
+          .delete(`/v1/auth/oauth/${disabled}`)
+          .auth(token, { type: 'bearer' })
+          .expect(204);
+        expect(
+          await source.getRepository(OauthAccount).findBy({ userId: user.id }),
+        ).toMatchObject([{ provider: remove }]);
+      } finally {
+        for (const entry of previous) {
+          config.set(entry.key, entry.value);
+          if (entry.env === undefined) delete process.env[entry.key];
+          else process.env[entry.key] = entry.env;
+        }
+      }
+    },
+  );
+
+  it('allows unlinking when another configured provider remains and can sign in', async () => {
+    const { user, token } = await linkedAccount();
+    await request(app.getHttpServer())
+      .delete('/v1/auth/oauth/google')
+      .auth(token, { type: 'bearer' })
+      .expect(204);
+    const remaining = await source
+      .getRepository(OauthAccount)
+      .findOneByOrFail({ userId: user.id });
+    identity = { id: remaining.providerUserId, email: user.email! };
+    const agent = request.agent(app.getHttpServer());
+    await callback(agent, 'github', await start(agent, 'github'));
+    expect((await exchange(agent).expect(200)).body.user.id).toBe(user.id);
+  });
+
+  it('serializes concurrent unlink requests so one configured login remains', async () => {
+    const { user, token } = await linkedAccount();
+    const responses = await Promise.all(
+      ['google', 'github'].map((provider) =>
+        request(app.getHttpServer())
+          .delete(`/v1/auth/oauth/${provider}`)
+          .auth(token, { type: 'bearer' }),
+      ),
+    );
+    expect(responses.map((response) => response.status).sort((a, b) => a - b)).toEqual([
+      204, 409,
+    ]);
+    expect(
+      responses.find((response) => response.status === 409)!.body.code,
+    ).toBe('OAUTH_LAST_LOGIN_METHOD');
+    expect(
+      await source.getRepository(OauthAccount).countBy({ userId: user.id }),
+    ).toBe(1);
   });
   it('rejects provider errors and an exchange without the CSRF header', async () => {
     const agent = request.agent(app.getHttpServer()),

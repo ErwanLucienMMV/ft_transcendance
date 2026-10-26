@@ -106,6 +106,12 @@ Linking also checks the initiating session is still valid at callback time.
 Users with TOTP enabled must complete the existing second-factor step after
 OAuth. Removing a provider never removes the user or their games.
 
+Unlinking must leave a local password or another linked provider that is currently
+configured. A disabled linked provider does not count as a usable login method.
+Otherwise the API returns `409 OAUTH_LAST_LOGIN_METHOD` and keeps the link.
+The user row is locked while checking and deleting, so concurrent unlink requests
+cannot remove both remaining methods.
+
 Protocol references:
 [Google server-side authorization](https://developers.google.com/identity/protocols/oauth2/web-server)
 and [GitHub OAuth authorization](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps).
@@ -204,7 +210,14 @@ in PR #60 targeting dev_test, including all fixture and profile fixes, so the
 workflows restricted to main/dev_test PR bases execute. Do not assume a PR
 between feature branches triggers the full backend CI.
 
-Puzzle PR #58 and the parallel presence branches require coordinated integration:
-their stateless guards reject typ=access, and PresenceGateway must share the
-existing /ws transport rather than register a second upgrade owner. These branches
-were inspected and simulated, not merged or modified by the final verification.
+Puzzle PR #58 is now integrated from `dev_test` into PR #60. The shared
+`AccessTokenGuard` delegates to session verification and preserves `AUTH_REQUIRED`;
+`PuzzlesModule` imports the session module. Puzzle HTTP tests issue persisted
+sessions and verify logout revocation without changing progress or other sessions.
+See [the review corrections](review-fixes-2026-10-26.md) for conflict resolution,
+the OAuth regression and the combined validation results.
+
+The parallel presence branches still require coordinated integration:
+PresenceGateway must share the existing /ws transport rather than register a
+second upgrade owner, and use live sessions rather than its stateless guard.
+Those branches have not been modified by this correction.

@@ -121,7 +121,13 @@ export class OAuthService {
         .getRepository(OauthAccount)
         .findBy({ userId });
       if (!accounts.some((a) => a.provider === provider)) return;
-      if (!user.passwordHash && !accounts.some((a) => a.provider !== provider))
+      const enabled = new Set<string>(this.providers.enabled());
+      if (
+        !user.passwordHash &&
+        !accounts.some(
+          (a) => a.provider !== provider && enabled.has(a.provider),
+        )
+      )
         throw conflict(
           'OAUTH_LAST_LOGIN_METHOD',
           'Add another sign-in method before removing this provider.',
