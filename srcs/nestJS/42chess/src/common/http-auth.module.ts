@@ -7,6 +7,7 @@ import { HttpAuthGuard } from './http-auth.guard.js';
 @Module({
   imports: [ConfigModule, JwtModule.register({})],
   providers: [HttpAuthGuard],
-  exports: [HttpAuthGuard],
+  // Nest also instantiates class guards in each controller's module context.
+  exports: [HttpAuthGuard, JwtModule, ConfigModule],
 })
 export class HttpAuthModule {}
