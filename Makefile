@@ -66,6 +66,13 @@ test: test-bot
 test-bot:
 	$(MAKE) -C srcs/bot docker-test
 
+# Puzzle unit, database and HTTP tests in the same isolated Docker stack as CI.
+test-puzzles:
+	@docker compose -f $(TEST_COMPOSE) --profile tests run --rm --build tests npm run test:puzzles; \
+	status=$$?; \
+	docker compose -f $(TEST_COMPOSE) down; \
+	exit $$status
+
 re: clean
 	$(MAKE)
 
@@ -74,4 +81,4 @@ clean:
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down -v
 	docker compose -f ./backup/docker-compose.yml down -v
 
-.PHONY: all loud dev env down backup backup-down backup-logs full test test-bot re clean
+.PHONY: all loud dev env down backup backup-down backup-logs full test test-bot test-puzzles re clean
