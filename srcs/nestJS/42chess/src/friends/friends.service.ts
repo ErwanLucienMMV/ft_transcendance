@@ -101,6 +101,73 @@ export class FriendsService {
     });
   }
 
+  async acceptRequest(
+    actorId: UUID,
+    requestId: UUID,
+  ): Promise<FriendRequestResponse> {
+    actorId = actorId.toLowerCase();
+    return this.friendships.manager.transaction(async (manager) => {
+      const requests = manager.getRepository(FriendRequest);
+      const initial = await requests.findOneBy({ id: requestId });
+      if (!initial)
+        throw new NotFoundException({
+          statusCode: 404,
+          code: 'FRIEND_REQUEST_NOT_FOUND',
+          message: 'Friend request not found.',
+        });
+
+      const [userId, friendId] = [initial.senderId, initial.recipientId].sort();
+      // Match sendRequest's lock order before locking/re-reading the request.
+      const users = await manager
+        .getRepository(User)
+        .createQueryBuilder('user')
+        .where('user.id IN (:...ids)', { ids: [userId, friendId] })
+        .orderBy('user.id', 'ASC')
+        .setLock('pessimistic_write')
+        .getMany();
+      const pending = await requests.findOne({
+        where: { id: requestId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!pending)
+        throw new NotFoundException({
+          statusCode: 404,
+          code: 'FRIEND_REQUEST_NOT_FOUND',
+          message: 'Friend request not found.',
+        });
+      if (pending.recipientId !== actorId)
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'FRIEND_REQUEST_FORBIDDEN',
+          message: 'Only the recipient can accept this request.',
+        });
+      const actor = users.find((user) => user.id === actorId);
+      if (!actor?.emailVerifiedAt)
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: 'EMAIL_NOT_VERIFIED',
+          message: 'Verify your email before continuing.',
+        });
+      if (pending.status !== 'PENDING')
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'FRIEND_REQUEST_FINALIZED',
+          message: 'This friend request has already been resolved.',
+        });
+      if (await manager.existsBy(Friendship, { userId, friendId }))
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'ALREADY_FRIENDS',
+          message: 'You are already friends.',
+        });
+
+      pending.status = 'ACCEPTED';
+      await requests.save(pending);
+      await manager.getRepository(Friendship).save({ userId, friendId });
+      return toFriendRequest(pending);
+    });
+  }
+
   async list(actorId: UUID): Promise<FriendsResponse> {
     const relationships = await this.friendships.find({
       where: [{ userId: actorId }, { friendId: actorId }],

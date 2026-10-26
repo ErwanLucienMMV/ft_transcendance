@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { gameActor } from '../games/game-actor.guard.js';
 import { HttpAuthGuard } from '../common/http-auth.guard.js';
@@ -25,5 +35,14 @@ export class FriendsController {
     @Body() input: SendFriendRequestDto,
   ): Promise<FriendRequestResponse> {
     return this.friends.sendRequest(gameActor(request), input.recipientId);
+  }
+
+  @Post('requests/:requestId/accept')
+  @HttpCode(200)
+  acceptRequest(
+    @Req() request: Request,
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
+  ): Promise<FriendRequestResponse> {
+    return this.friends.acceptRequest(gameActor(request), requestId);
   }
 }
