@@ -29,3 +29,21 @@ Candidate selection can filter with `areCompatible` and sort with
 `compareQueueOrder`. Database selection must retain the same eligibility and
 order, then recheck and lock both entries transactionally before matching. This
 policy alone does not claim entries, create games, or provide concurrency safety.
+
+`findCompatible(manager, seeker, now)` in `matchmaking-candidate.ts` reserves one
+compatible opponent using `FOR UPDATE OF candidate SKIP LOCKED`. Callers must
+hold the current seeker's queue lock in an active transaction. Selection uses
+the same exact controls, symmetric Elo windows and FIFO order as the pure
+policy; an indexable rating range bounds the database search. Locked opponents
+are skipped so workers do not wait on each other's reservations. The selected
+row stays locked until the caller commits or rolls back. Selection changes no
+queue status and creates no game.
+
+Both players must still have a verified account and no ACTIVE game. These
+eligibility checks use a statement snapshot and intentionally do not lock user
+rows: join takes user locks before queue locks, so reversing that order during
+matching could deadlock. A matching transaction must revalidate eligibility
+before creating its game and apply the application's game-creation concurrency
+rules. Stale ineligible queue rows are skipped without modifying their status.
+PostgreSQL queue timestamps are truncated to milliseconds when computing Elo
+windows to agree with JavaScript Date and the pure policy at interval boundaries.

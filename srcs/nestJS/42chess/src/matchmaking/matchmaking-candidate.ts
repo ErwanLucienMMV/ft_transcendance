@@ -36,41 +36,43 @@ export async function findCompatible(
       WHERE p."userId" = ${userId} AND g.status = 'ACTIVE'
     )`;
 
-  return manager
-    .createQueryBuilder(MatchmakingEntry, 'candidate')
-    .where('candidate.status = :waiting', { waiting: 'WAITING' })
-    .andWhere('candidate.id != :seekerId', { seekerId: seeker.id })
-    .andWhere('candidate."userId" != :seekerUserId', {
-      seekerUserId: seeker.userId,
-    })
-    .andWhere('candidate."initialTime" = :initialTime', {
-      initialTime: seeker.initialTime,
-    })
-    .andWhere('candidate.increment = :increment', {
-      increment: seeker.increment,
-    })
-    // Indexable bounded search; each player's tolerance must accept the gap.
-    .andWhere('candidate.rating BETWEEN :minimumRating AND :maximumRating', {
-      minimumRating: Math.max(0, seeker.rating - window),
-      maximumRating: Math.min(2147483647, seeker.rating + window),
-    })
-    .andWhere(
-      `ABS(candidate.rating::bigint - CAST(:seekerRating AS bigint)) <= ${candidateWindow}`,
-      {
-        seekerRating: seeker.rating,
-        now,
-        maximumWindow: ELO_WINDOW.maximum,
-        initialWindow: ELO_WINDOW.initial,
-        windowStep: ELO_WINDOW.step,
-        windowInterval: ELO_WINDOW.intervalMs,
-      },
-    )
-    .andWhere(eligible('candidate."userId"'))
-    .andWhere(eligible(':seekerUserId'))
-    .orderBy('candidate."createdAt"', 'ASC')
-    .addOrderBy('candidate.id', 'ASC')
-    .take(1)
-    .setLock('pessimistic_write', undefined, ['candidate'])
-    .setOnLocked('skip_locked')
-    .getOne();
+  return (
+    manager
+      .createQueryBuilder(MatchmakingEntry, 'candidate')
+      .where('candidate.status = :waiting', { waiting: 'WAITING' })
+      .andWhere('candidate.id != :seekerId', { seekerId: seeker.id })
+      .andWhere('candidate."userId" != :seekerUserId', {
+        seekerUserId: seeker.userId,
+      })
+      .andWhere('candidate."initialTime" = :initialTime', {
+        initialTime: seeker.initialTime,
+      })
+      .andWhere('candidate.increment = :increment', {
+        increment: seeker.increment,
+      })
+      // Indexable bounded search; each player's tolerance must accept the gap.
+      .andWhere('candidate.rating BETWEEN :minimumRating AND :maximumRating', {
+        minimumRating: Math.max(0, seeker.rating - window),
+        maximumRating: Math.min(2147483647, seeker.rating + window),
+      })
+      .andWhere(
+        `ABS(candidate.rating::bigint - CAST(:seekerRating AS bigint)) <= ${candidateWindow}`,
+        {
+          seekerRating: seeker.rating,
+          now,
+          maximumWindow: ELO_WINDOW.maximum,
+          initialWindow: ELO_WINDOW.initial,
+          windowStep: ELO_WINDOW.step,
+          windowInterval: ELO_WINDOW.intervalMs,
+        },
+      )
+      .andWhere(eligible('candidate."userId"'))
+      .andWhere(eligible(':seekerUserId'))
+      .orderBy('candidate."createdAt"', 'ASC')
+      .addOrderBy('candidate.id', 'ASC')
+      .take(1)
+      .setLock('pessimistic_write', undefined, ['candidate'])
+      .setOnLocked('skip_locked')
+      .getOne()
+  );
 }
