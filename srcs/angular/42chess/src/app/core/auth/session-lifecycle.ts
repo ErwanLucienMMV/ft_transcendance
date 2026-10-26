@@ -6,7 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthUser } from './auth-session';
 
 export interface CurrentUser extends AuthUser {
-  email: string | null;
+  email?: string | null;
   avatarUrl: string | null;
   gamesPlayed: number;
   gamesWon: number;

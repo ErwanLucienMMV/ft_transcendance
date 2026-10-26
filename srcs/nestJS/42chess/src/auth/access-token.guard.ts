@@ -1,46 +1,19 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
-import { isUUID } from 'class-validator';
-import type { Request } from 'express';
-import type { Environment } from '../config/environment.js';
+import { AuthGuard } from './auth.guard.js';
 
-export type AuthenticatedRequest = Request & { user: { id: string } };
+export type { AuthenticatedRequest } from './auth.guard.js';
 
-/** Accept only signed, expiring access tokens, using the login signing key. */
+/** Profile routes share the session guard while preserving their error contract. */
 @Injectable()
 export class AccessTokenGuard implements CanActivate {
-  constructor(
-    private readonly jwt: JwtService,
-    private readonly config: ConfigService<Environment, true>,
-  ) {}
+  constructor(private readonly auth: AuthGuard) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const match = /^Bearer ([^\s]+)$/i.exec(
-      request.headers.authorization ?? '',
-    );
     try {
-      if (!match) throw new Error('Missing bearer token');
-      const payload = await this.jwt.verifyAsync<Record<string, unknown>>(
-        match[1],
-        {
-          secret: this.config.get('JWT_SECRET', { infer: true }),
-          algorithms: ['HS256'],
-        },
-      );
-      if (
-        typeof payload.sub !== 'string' ||
-        !isUUID(payload.sub) ||
-        typeof payload.exp !== 'number' ||
-        !Number.isFinite(payload.exp) ||
-        payload.typ !== undefined
-      )
-        throw new Error('Invalid access claims');
-      request.user = { id: payload.sub.toLowerCase() };
-      return true;
-    } catch {
+      return await this.auth.canActivate(context);
+    } catch (error) {
+      if (!(error instanceof UnauthorizedException)) throw error;
       throw new UnauthorizedException({
         statusCode: 401,
         code: 'AUTH_REQUIRED',

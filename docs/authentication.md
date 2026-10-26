@@ -8,8 +8,9 @@ Reloading a tab still requires a fresh sign-in; no refresh-token flow was added.
 ## Local branches
 
 These branches form a stack, starting from `origin/main` at `f055b79`. Each branch
-contains the preceding lot. Existing branches and commits are preserved. No push
-or pull request is part of this work.
+contains the preceding lot. Existing branches and commits are preserved. Lots
+10–15 are published; lot 16 completes profile integration. No pull request has
+been created.
 
 | Branch | Tickets and scope |
 | --- | --- |
@@ -19,18 +20,19 @@ or pull request is part of this work.
 | `feat/lot-13-oauth-providers` | SCRUM-81..88, 93, 94: Google/GitHub protocol, callbacks, identity ownership |
 | `feat/lot-14-oauth-client` | SCRUM-331, 332: provider buttons, callback screen, account linking controls |
 | `feat/lot-15-auth-regression-validation` | SCRUM-89, 90, 444 and cross-lot regressions; existing registration/login/2FA coverage retained |
+| `feat/lot-16-auth-profile-integration` | SCRUM-80, 534, 535: shared profile/session guard, preserved SCRUM-95 history, private local OAuth setup |
 
 The final branch contains the complete local implementation. The original 24
 remaining tickets are covered by these lots; real provider setup is tracked
-separately in SCRUM-534. Local implementation is not a production deployment or
-evidence that a provider application has been configured.
+separately in SCRUM-534. The user confirmed successful real Google and GitHub
+sign-ins on localhost on 2026-10-26. This is not production deployment validation.
 
 ## Session contract
 
 - Existing `POST /v1/auth/login` and `POST /v1/auth/2fa/verify` response shapes are
   unchanged. JWT claims additionally contain `jti` and `typ: access`.
 - `GET /v1/users/me` requires a verified, unexpired, non-revoked bearer session.
-  It returns public account/statistic fields and the current user's email. Secrets
+  It preserves SCRUM-95's public profile projection (without email). Secrets
   and persistence/session internals are never serialized.
 - `POST /v1/auth/logout` requires the bearer and returns 204. It revokes only that
   session; a replay returns 401, while another valid session remains usable.
@@ -129,15 +131,63 @@ routes, state consumption, session verification and TOTP challenge issuance are
 real. Browser OAuth tests exercise hidden/enabled controls, redirect initiation,
 callback errors and the second-factor handoff with test-scoped responses. No
 production test mode, fixture token switch or relaxed authentication exists.
-Real Google/GitHub account consent and provider-console configuration still need
-the manual acceptance tracked by SCRUM-534.
+The user confirmed real Google and GitHub sign-ins on localhost on 2026-10-26
+(SCRUM-534). Final-domain HTTPS callbacks and deployment credentials remain a
+project closeout check, deliberately deferred until deployment.
 
-## Pending integration with the profile branch
+Latest integration checks passed: 304 backend unit tests, 211 database tests,
+109 HTTP/WS tests, backend contracts and real bot adapter, 109 frontend unit tests,
+12 Chromium browser tests, and backend/frontend production builds.
 
-`origin/feat/s3-scrum-95-profile` contains Erwan's separate, unmerged implementation
-of `/v1/users/me` (commit `9582d0f`). Its `AccessTokenGuard` accepts the previous
-stateless JWT shape and rejects `typ: access`. Do not blindly combine the two
-controllers or register both routes. SCRUM-535 tracks reusing `UsersController`
-and its profile projection with the shared revocable-session guard while
-preserving that commit and its tests. This local branch stack has not merged or
-modified Erwan's branch. An explicit local-merge approval was requested.
+## Profile integration and review order
+
+Lot 16 merges Erwan's SCRUM-95 commit `9582d0f` without rewriting it. Only
+`UsersController` serves `/v1/users/me`. `AccessTokenGuard` delegates to the shared
+session guard, preserving `AUTH_REQUIRED` errors and the exact profile projection.
+Deleted users and revoked sessions are refused; an independent session remains
+usable. Existing invalid-token and second-factor rejection tests are retained.
+
+For incremental review, compare lot 10 against `main`, then each subsequent lot
+against the preceding lot (11 against 10, through 16 against 15). Lot 16 also
+includes the preserved SCRUM-95 implementation. Integrate in that same order;
+recheck the actual target branch and CI before merging. No history rewrite is
+needed. No pull requests or target-branch merges are performed by this work.
+
+## Private localhost provider setup
+
+After registering provider applications, run from the repository root:
+
+```sh
+bash srcs/configure-oauth-local.sh github
+bash srcs/configure-oauth-local.sh google
+```
+
+Enter the client ID and secret interactively. Secret input is hidden; values are
+never printed. The helper creates/appends only the requested provider in the
+Git-ignored `srcs/.env.oauth.local` with owner-only permissions and refuses to
+overwrite existing credentials. Never paste secrets into chat or commit them.
+The helper requires Bash and ripgrep (`rg`).
+
+Use these exact registered callback URLs:
+
+```text
+http://localhost:4200/api/v1/auth/oauth/google/callback
+http://localhost:4200/api/v1/auth/oauth/github/callback
+```
+
+With the normal development environment initialized using `sh srcs/init-env.sh`,
+start the local services (or update the API after configuring another provider):
+
+```sh
+docker compose --env-file srcs/.env --env-file srcs/.env.oauth.local \
+  -p ftchess-oauth-local -f srcs/docker-compose.dev.yml \
+  up -d --build angular nestjs postgres forgemail bot chess-engine
+# After adding credentials to an already running environment:
+docker compose --env-file srcs/.env --env-file srcs/.env.oauth.local \
+  -p ftchess-oauth-local -f srcs/docker-compose.dev.yml up -d nestjs
+```
+
+Open `http://localhost:4200/login`. Use localhost consistently for cookies and
+callbacks. Provider credentials are private to this machine, not supplied by a
+Git checkout. Configure the server separately for its final HTTPS origin and
+register matching provider callbacks before the final evaluation.
