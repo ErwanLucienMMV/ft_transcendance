@@ -1,5 +1,15 @@
 # Vérification finale des lots auth — 26 octobre 2026
 
+## Publication après vérification
+
+[PR d’intégration #60](https://github.com/ErwanLucienMMV/ft_transcendance/pull/60)
+ouverte après ce relevé, vers dev_test ; les 27 tickets sont reliés et restent
+In Review. Les sept lots sont des étapes de lecture dans cette PR unique : les
+fixtures du lot 15 sont nécessaires aux migrations précédentes. Le conseil de
+PR successives ci-dessous est remplacé par cette livraison complète. Aucun merge
+effectué. Les mentions « aucune PR » ci-dessous décrivent l’état au moment de
+la vérification, avant cette publication.
+
 ## Verdict et périmètre
 
 Révision applicative vérifiée : `4545500`, branche

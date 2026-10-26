@@ -9,8 +9,9 @@ Reloading a tab still requires a fresh sign-in; no refresh-token flow was added.
 
 These branches form a stack, starting from `origin/main` at `f055b79`. Each branch
 contains the preceding lot. Existing branches and commits are preserved. Lots
-10–15 are published; lot 16 completes profile integration. No pull request has
-been created.
+10–16 are published. [Integration PR #60](https://github.com/ErwanLucienMMV/ft_transcendance/pull/60)
+targets dev_test and delivers all seven lots together, including fixture fixes
+and profile integration.
 
 | Branch | Tickets and scope |
 | --- | --- |
@@ -149,9 +150,11 @@ usable. Existing invalid-token and second-factor rejection tests are retained.
 
 For incremental review, compare lot 10 against `main`, then each subsequent lot
 against the preceding lot (11 against 10, through 16 against 15). Lot 16 also
-includes the preserved SCRUM-95 implementation. Integrate in that same order;
-recheck the actual target branch and CI before merging. No history rewrite is
-needed. No pull requests or target-branch merges are performed by this work.
+includes the preserved SCRUM-95 implementation. PR #60 delivers the complete
+validated combination: fixture fixes in lot 15 are required by the earlier
+migrations, so intermediate lots are not independently merge-ready. Recheck the
+actual target branch and PR CI before merging. No history rewrite or target-branch
+merge has been performed.
 
 ## Private localhost provider setup
 
@@ -196,9 +199,9 @@ register matching provider callbacks before the final evaluation.
 
 See [the final review report](review-readiness-2026-10-26.md) for the checked
 These.md contracts, production image/startup checks, collaborator conflicts and
-next tickets. Compare lots incrementally for review; when opening PRs later,
-prefer sequential PRs targeting dev_test after the previous lot is integrated,
-so workflows restricted to main/dev_test PR bases execute. Do not assume a PR
+next tickets. Compare lots incrementally for review. They are delivered together
+in PR #60 targeting dev_test, including all fixture and profile fixes, so the
+workflows restricted to main/dev_test PR bases execute. Do not assume a PR
 between feature branches triggers the full backend CI.
 
 Puzzle PR #58 and the parallel presence branches require coordinated integration:
