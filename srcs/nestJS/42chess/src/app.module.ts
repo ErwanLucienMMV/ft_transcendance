@@ -3,8 +3,7 @@ import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { ChessEngineService } from './chess/chess-engine.service.js';
-import { PrometheusModule } from '@willsoto/nestjs-prometheus';
-import { MetricsController } from './metrics/metrics.controller.js';
+import { MetricsModule } from './metrics/metrics.module.js';
 import { ConfigModule } from '@nestjs/config';
 import { configurationOptions } from './config/environment.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -35,7 +34,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       appSecret: 'YOUR_APP_SECRET',
       serviceId: '42chess',
     }),
-    PrometheusModule.register(),
+    MetricsModule,
     AuthModule,
     UsersModule,
     FriendsModule,
@@ -47,7 +46,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     BotsModule,
     RealtimeModule,
   ],
-  controllers: [AppController, MetricsController],
+  controllers: [AppController],
   providers: [
     AppService,
     ChessEngineService,
