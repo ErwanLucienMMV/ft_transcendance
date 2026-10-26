@@ -1,10 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  Counter,
-  Gauge,
-  Histogram,
-  register,
-} from 'prom-client';
+import { Counter, Gauge, Histogram, register } from 'prom-client';
 import type {
   CounterConfiguration,
   GaugeConfiguration,

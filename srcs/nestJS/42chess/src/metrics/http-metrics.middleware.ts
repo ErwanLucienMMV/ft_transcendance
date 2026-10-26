@@ -5,7 +5,15 @@ import type { Histogram } from 'prom-client';
 import { MetricsService } from './metrics.service.js';
 
 const METHODS = new Set([
-  'GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'CONNECT', 'TRACE',
+  'GET',
+  'HEAD',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'OPTIONS',
+  'CONNECT',
+  'TRACE',
 ]);
 
 @Injectable()
@@ -36,7 +44,10 @@ export class HttpMetricsMiddleware implements NestMiddleware {
       this.duration.observe(
         {
           method: METHODS.has(request.method) ? request.method : 'OTHER',
-          route: typeof route === 'string' ? route : 'unmatched',
+          route:
+            typeof route === 'string' && route !== '/{*path}'
+              ? route
+              : 'unmatched',
           status_code: String(response.statusCode),
         },
         Number(process.hrtime.bigint() - started) / 1e9,
