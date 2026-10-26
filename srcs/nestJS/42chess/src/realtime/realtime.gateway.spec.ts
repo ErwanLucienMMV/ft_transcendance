@@ -19,7 +19,10 @@ describe('Realtime gateway over actual sockets', () => {
   let clients: WebSocket[];
   let auth: RealtimeAuthenticator;
   let messages: RealtimeMessages;
+  let metrics: MetricsService;
   beforeEach(async () => {
+    metrics = new MetricsService();
+    metrics.registry.clear();
     http = createServer();
     clients = [];
     auth = {
@@ -41,7 +44,7 @@ describe('Realtime gateway over actual sockets', () => {
       auth,
       messages,
       new ConfigService(),
-      new MetricsService(),
+      metrics,
     );
     gateway.onApplicationBootstrap();
     http.listen(0, '127.0.0.1');
@@ -52,6 +55,7 @@ describe('Realtime gateway over actual sockets', () => {
     for (const client of clients) client.terminate();
     gateway.onApplicationShutdown();
     await new Promise<void>((resolve) => http.close(() => resolve()));
+    metrics.registry.clear();
   });
   async function open() {
     const socket = new WebSocket(url);
@@ -65,6 +69,64 @@ describe('Realtime gateway over actual sockets', () => {
     const [raw] = await reply;
     return JSON.parse(raw.toString());
   }
+  async function expectConnections(
+    active: number,
+    opened: number,
+    closed: number,
+  ) {
+    await vi.waitFor(async () => {
+      const output = await metrics.registry.metrics();
+      expect(output).toContain(`\nwebsocket_connections_active ${active}\n`);
+      expect(output).toContain(
+        `\nwebsocket_connections_opened_total ${opened}\n`,
+      );
+      expect(output).toContain(
+        `\nwebsocket_connections_closed_total ${closed}\n`,
+      );
+      expect(output).not.toContain('verified-player');
+    });
+  }
+  it('tracks concurrent accepted sockets before authentication and balanced closes', async () => {
+    await expectConnections(0, 0, 0);
+    const first = await open();
+    const second = await open();
+    await expectConnections(2, 2, 0);
+    await request(first, 'AUTHENTICATE', { accessToken: 'test-token' });
+    await expectConnections(2, 2, 0);
+
+    const firstClosed = once(first, 'close');
+    first.close(1000, 'Done');
+    await firstClosed;
+    await expectConnections(1, 2, 1);
+
+    const secondClosed = once(second, 'close');
+    second.terminate();
+    await secondClosed;
+    await expectConnections(0, 2, 2);
+  });
+  it('counts failed authentication as an opened and closed connection', async () => {
+    vi.spyOn(auth, 'authenticate').mockRejectedValue(
+      new Error('Token rejected'),
+    );
+    const socket = await open();
+    const closed = once(socket, 'close');
+    await expectConnections(1, 1, 0);
+    await request(socket, 'AUTHENTICATE', { accessToken: 'invalid-token' });
+    await closed;
+    await expectConnections(0, 1, 1);
+  });
+  it('balances active connections when shutdown terminates sockets', async () => {
+    const first = await open();
+    const second = await open();
+    await request(first, 'AUTHENTICATE', { accessToken: 'valid-token' });
+    const closed = Promise.all([once(first, 'close'), once(second, 'close')]);
+    gateway.onApplicationShutdown();
+    await closed;
+    await expectConnections(0, 2, 2);
+    // Shutdown may be called again by the application without double counting.
+    gateway.onApplicationShutdown();
+    await expectConnections(0, 2, 2);
+  });
   it('passes only verified identity to message handlers and cleans disconnects', async () => {
     const socket = await open();
     expect(
@@ -178,6 +240,7 @@ describe('Realtime gateway over actual sockets', () => {
     );
     expect((await failure).message).toContain('403');
     expect(auth.authenticate).not.toHaveBeenCalled();
+    await expectConnections(0, 0, 0);
   });
 });
 
