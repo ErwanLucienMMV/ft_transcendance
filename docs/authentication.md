@@ -191,3 +191,17 @@ Open `http://localhost:4200/login`. Use localhost consistently for cookies and
 callbacks. Provider credentials are private to this machine, not supplied by a
 Git checkout. Configure the server separately for its final HTTPS origin and
 register matching provider callbacks before the final evaluation.
+
+## Final verification and parallel integration
+
+See [the final review report](review-readiness-2026-10-26.md) for the checked
+These.md contracts, production image/startup checks, collaborator conflicts and
+next tickets. Compare lots incrementally for review; when opening PRs later,
+prefer sequential PRs targeting dev_test after the previous lot is integrated,
+so workflows restricted to main/dev_test PR bases execute. Do not assume a PR
+between feature branches triggers the full backend CI.
+
+Puzzle PR #58 and the parallel presence branches require coordinated integration:
+their stateless guards reject typ=access, and PresenceGateway must share the
+existing /ws transport rather than register a second upgrade owner. These branches
+were inspected and simulated, not merged or modified by the final verification.
