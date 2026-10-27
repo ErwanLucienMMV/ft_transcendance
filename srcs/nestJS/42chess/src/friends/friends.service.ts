@@ -6,6 +6,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { PresenceService } from '../presence/presence.service.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { UUID } from '../common/types/api.js';
@@ -25,6 +26,7 @@ export class FriendsService {
   constructor(
     @InjectRepository(Friendship)
     private readonly friendships: Repository<Friendship>,
+    private readonly presence: PresenceService,
   ) {}
 
   async sendRequest(
@@ -169,6 +171,12 @@ export class FriendsService {
   }
 
   async list(actorId: UUID): Promise<FriendsResponse> {
+    if (!(await this.friendships.manager.existsBy(User, { id: actorId })))
+      throw new NotFoundException({
+        statusCode: 404,
+        code: 'USER_NOT_FOUND',
+        message: 'User not found.',
+      });
     const relationships = await this.friendships.find({
       where: [{ userId: actorId }, { friendId: actorId }],
       relations: { user: true, friend: true },
@@ -194,13 +202,22 @@ export class FriendsService {
       order: { createdAt: 'ASC', id: 'ASC' },
     });
     return {
-      friends: relationships.map((relationship) =>
-        toFriend(
-          relationship.userId === actorId
-            ? relationship.friend
-            : relationship.user,
+      friends: relationships
+        .map((relationship) => {
+          const user =
+            relationship.userId === actorId
+              ? relationship.friend
+              : relationship.user;
+          return {
+            ...toFriend(user),
+            status: this.presence.get(user.id).status,
+          };
+        })
+        .sort(
+          (a, b) =>
+            a.username.toLowerCase().localeCompare(b.username.toLowerCase()) ||
+            a.id.localeCompare(b.id),
         ),
-      ),
     };
   }
 }

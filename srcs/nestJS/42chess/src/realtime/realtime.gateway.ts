@@ -1,10 +1,12 @@
 import {
   Injectable,
   Logger,
+  Optional,
   OnApplicationBootstrap,
   OnApplicationShutdown,
   UnauthorizedException,
 } from '@nestjs/common';
+import { PresenceGateway } from '../presence/presence.gateway.js';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost } from '@nestjs/core';
 import { randomUUID } from 'node:crypto';
@@ -33,6 +35,7 @@ export class RealtimeGateway
     private readonly messages: RealtimeMessages,
     private readonly config: ConfigService,
     metrics: MetricsService,
+    @Optional() private readonly presence?: PresenceGateway,
   ) {
     this.connectionsActive = metrics.gauge({
       name: 'websocket_connections_active',
@@ -61,17 +64,19 @@ export class RealtimeGateway
     });
     this.server.on('connection', (socket) => this.connect(socket));
     this.http.on('upgrade', this.upgrade);
-    this.heartbeat = setInterval(() => {
-      for (const socket of this.server?.clients ?? []) {
-        if (!this.alive.has(socket)) {
-          socket.terminate();
-          continue;
-        }
-        this.alive.delete(socket);
-        socket.ping();
-      }
-    }, 30_000);
+    this.heartbeat = setInterval(() => this.checkConnections(), 30_000);
     this.heartbeat.unref();
+  }
+
+  checkConnections(): void {
+    for (const socket of this.server?.clients ?? []) {
+      if (!this.alive.has(socket)) {
+        socket.terminate();
+        continue;
+      }
+      this.alive.delete(socket);
+      socket.ping();
+    }
   }
 
   onApplicationShutdown(): void {
@@ -120,6 +125,8 @@ export class RealtimeGateway
     const connectionId = randomUUID();
     let principal: RealtimePrincipal | undefined;
     let expiry: ReturnType<typeof setTimeout> | undefined;
+    let validation: ReturnType<typeof setInterval> | undefined;
+    let validating = false;
     let queued = 0,
       count = 0,
       windowStart = Date.now();
@@ -141,6 +148,8 @@ export class RealtimeGateway
       this.connectionsClosed.inc();
       clearTimeout(authTimeout);
       clearTimeout(expiry);
+      clearInterval(validation);
+      this.presence?.disconnect(connectionId);
       this.messages.disconnect(connectionId);
     });
     socket.on('message', (raw, binary) => {
@@ -194,13 +203,47 @@ export class RealtimeGateway
               }
               if (socket.readyState !== WebSocket.OPEN) return;
               principal = verified;
+              if (verified.validate) {
+                validation = setInterval(async () => {
+                  if (validating || socket.readyState !== WebSocket.OPEN)
+                    return;
+                  validating = true;
+                  try {
+                    await verified.validate!();
+                  } catch {
+                    this.send(socket, 'ERROR', {
+                      statusCode: 401,
+                      code: 'INVALID_TOKEN',
+                      message: 'The session is no longer valid.',
+                    });
+                    this.presence?.disconnect(connectionId);
+                    socket.close(4401, 'Session ended');
+                  } finally {
+                    validating = false;
+                  }
+                }, 1000);
+                validation.unref();
+              }
               clearTimeout(authTimeout);
               expiry = setTimeout(
-                () => socket.close(4401, 'Authentication expired'),
+                () => {
+                  this.presence?.disconnect(connectionId);
+                  socket.close(4401, 'Authentication expired');
+                },
                 Math.min(verified.expiresAt - Date.now(), 2_147_483_647),
               );
               expiry.unref();
               this.send(socket, 'AUTHENTICATED', { userId: principal.userId });
+              this.presence?.connect(connectionId, {
+                userId: verified.userId,
+                connected: () =>
+                  socket.readyState === WebSocket.OPEN &&
+                  verified.expiresAt > Date.now(),
+                validate: async () => {
+                  await verified.validate?.();
+                },
+                send: (event, data) => this.send(socket, event, data),
+              });
             } else {
               if (
                 principal.expiresAt <= Date.now() ||
@@ -209,6 +252,8 @@ export class RealtimeGateway
                 throw new UnauthorizedException(
                   'Authenticate again on a new connection.',
                 );
+              await principal.validate?.();
+              if (socket.readyState !== WebSocket.OPEN) return;
               await this.messages.handle(
                 {
                   userId: principal.userId,
@@ -224,8 +269,10 @@ export class RealtimeGateway
           } catch (error: unknown) {
             const response = apiError(error);
             this.send(socket, 'ERROR', response);
-            if (!principal || response.statusCode === 401)
+            if (!principal || response.statusCode === 401) {
+              this.presence?.disconnect(connectionId);
               socket.close(4401, 'Authentication failed');
+            }
             if (response.statusCode >= 500)
               this.logger.warn(`Realtime request failed: ${response.code}`);
           }

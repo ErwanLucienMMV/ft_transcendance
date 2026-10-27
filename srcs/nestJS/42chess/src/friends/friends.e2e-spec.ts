@@ -1,3 +1,5 @@
+import { AuthSession } from '../../dist/auth/auth-session.entity.js';
+import { SessionService } from '../../dist/auth/session.service.js';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -20,14 +22,15 @@ describe('Friends list HTTP (real PostgreSQL and bearer authentication)', () => 
   let empty: User, unverified: User;
   const ids = Array.from({ length: 7 }, () => randomUUID()).sort();
   const jwt = new JwtService();
+  const tokens = new Map<string, string>();
   const lastSeenAt = new Date('2026-01-01T12:30:00.000Z');
   function token(id: string, extra: Record<string, unknown> = {}) {
     return jwt.sign(
-      { sub: id, ...extra },
+      { ...(jwt.decode(tokens.get(id) ?? '') ?? { sub: id }), ...extra },
       {
         secret: process.env.JWT_SECRET,
         algorithm: 'HS256',
-        expiresIn: 60,
+        ...(tokens.has(id) ? {} : { expiresIn: 60 }),
       },
     );
   }
@@ -40,10 +43,14 @@ describe('Friends list HTTP (real PostgreSQL and bearer authentication)', () => 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
+        ConfigModule.forRoot({
+          isGlobal: true,
+          ignoreEnvFile: true,
+          load: [() => ({ JWT_EXPIRES_IN: 3600 })],
+        }),
         TypeOrmModule.forRoot({
           ...cliDataSource.options,
-          entities: [User, Friendship, FriendRequest],
+          entities: [User, Friendship, FriendRequest, AuthSession],
           migrationsRun: true,
         }),
         FriendsModule,
@@ -67,6 +74,19 @@ describe('Friends list HTTP (real PostgreSQL and bearer authentication)', () => 
             lastSeenAt: index === 0 ? lastSeenAt : null,
           }),
         ),
+      );
+    for (const user of [
+      lower,
+      actor,
+      higher,
+      pending,
+      rejected,
+      empty,
+      unverified,
+    ])
+      tokens.set(
+        user.id,
+        (await app.get(SessionService).issue(user)).accessToken,
       );
     const friendships = source.getRepository(Friendship);
     await friendships.save([
@@ -118,6 +138,7 @@ describe('Friends list HTTP (real PostgreSQL and bearer authentication)', () => 
           avatarUrl: lower.avatarUrl,
           elo: lower.elo,
           lastSeenAt: lastSeenAt.toISOString(),
+          status: 'OFFLINE',
         },
         {
           id: higher.id,
@@ -125,6 +146,7 @@ describe('Friends list HTTP (real PostgreSQL and bearer authentication)', () => 
           avatarUrl: null,
           elo: higher.elo,
           lastSeenAt: null,
+          status: 'OFFLINE',
         },
       ],
     });
@@ -174,7 +196,23 @@ describe('Friends list HTTP (real PostgreSQL and bearer authentication)', () => 
   });
 
   it('rejects unverified accounts before returning friend information', async () => {
-    const response = await list(unverified.id).expect(403);
-    expect(response.body.code).toBe('EMAIL_NOT_VERIFIED');
+    const response = await list(unverified.id).expect(401);
+    expect(response.body.code).toBe('AUTH_REQUIRED');
+  });
+  it('rejects a revoked session immediately without returning the friend list', async () => {
+    const accessToken = (await app.get(SessionService).issue(actor))
+      .accessToken;
+    await request(app.getHttpServer())
+      .get('/v1/friends')
+      .set('Authorization', 'Bearer ' + accessToken)
+      .expect(200);
+    const claims = jwt.decode<{ jti: string }>(accessToken);
+    await app.get(SessionService).revoke(claims.jti, actor.id);
+    const response = await request(app.getHttpServer())
+      .get('/v1/friends')
+      .set('Authorization', 'Bearer ' + accessToken)
+      .expect(401);
+    expect(response.body.code).toBe('AUTH_REQUIRED');
+    expect(response.body.friends).toBeUndefined();
   });
 });

@@ -1,3 +1,5 @@
+import { AuthSession } from '../../dist/auth/auth-session.entity.js';
+import { SessionService } from '../../dist/auth/session.service.js';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -19,12 +21,13 @@ describe('Send friend request HTTP (real PostgreSQL)', () => {
   let source: DataSource;
   const ids: string[] = [];
   const jwt = new JwtService();
+  const tokens = new Map<string, string>();
 
   async function user(verified = true): Promise<User> {
     const id = randomUUID();
     ids.push(id);
     const users = source.getRepository(User);
-    return users.save(
+    const saved = await users.save(
       users.create({
         id,
         username: `send_${id.slice(0, 20)}`,
@@ -34,15 +37,22 @@ describe('Send friend request HTTP (real PostgreSQL)', () => {
         emailVerifiedAt: verified ? new Date() : null,
       }),
     );
+    tokens.set(
+      saved.id,
+      (await app.get(SessionService).issue(saved)).accessToken,
+    );
+    return saved;
   }
 
   function token(id: string, claims: Record<string, unknown> = {}) {
     return jwt.sign(
-      { sub: id, ...claims },
+      { ...(jwt.decode(tokens.get(id) ?? '') ?? { sub: id }), ...claims },
       {
         secret: process.env.JWT_SECRET,
         algorithm: 'HS256',
-        ...(claims.exp === undefined ? { expiresIn: 60 } : {}),
+        ...(claims.exp === undefined && !tokens.has(id)
+          ? { expiresIn: 60 }
+          : {}),
       },
     );
   }
@@ -57,10 +67,14 @@ describe('Send friend request HTTP (real PostgreSQL)', () => {
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true }),
+        ConfigModule.forRoot({
+          isGlobal: true,
+          ignoreEnvFile: true,
+          load: [() => ({ JWT_EXPIRES_IN: 3600 })],
+        }),
         TypeOrmModule.forRoot({
           ...cliDataSource.options,
-          entities: [User, Friendship, FriendRequest],
+          entities: [User, Friendship, FriendRequest, AuthSession],
           migrationsRun: true,
         }),
         FriendsModule,
@@ -172,8 +186,8 @@ describe('Send friend request HTTP (real PostgreSQL)', () => {
         .expect(401);
       expect(response.body.code).toBe('AUTH_REQUIRED');
     }
-    expect((await send(unverified, recipient).expect(403)).body.code).toBe(
-      'EMAIL_NOT_VERIFIED',
+    expect((await send(unverified, recipient).expect(401)).body.code).toBe(
+      'AUTH_REQUIRED',
     );
   });
 

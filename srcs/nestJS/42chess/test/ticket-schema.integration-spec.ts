@@ -155,20 +155,52 @@ describe('DB ticket schema on PostgreSQL', () => {
     );
     expect((await q('SELECT * FROM @.puzzle_attempts')).length).toBe(2);
   });
-  it('rolls back and reapplies all thirteen feature migrations', async () => {
+  it('rolls back and reapplies all feature migrations', async () => {
     // Fixture rows live only in this random schema; remove dependencies first.
     await q(
       'TRUNCATE @.puzzle_attempts, @.daily_puzzles, @.puzzles, @.matchmaking_queue, @.friendships, @.friend_requests, @.oauth_accounts',
     );
-    for (let i = 0; i < 13; i++) {
-		await source.undoLastMigration();
-		}
+    const featureCount = source.migrations.filter(
+      (migration) =>
+        Number((migration.name ?? migration.constructor.name).slice(-13)) >=
+        1792000000000,
+    ).length;
+    for (let index = 0; index < featureCount; index++) {
+      await source.undoLastMigration();
+    }
     const [row] = await source.query('SELECT to_regclass($1) AS name', [
       `${schema}.oauth_accounts`,
     ]);
     expect(row.name).toBeNull();
-    expect(await source.runMigrations()).toHaveLength(13);
+    const preferencesColumn = () =>
+      source.query(
+        'SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name=$2 AND column_name=$3',
+        [schema, 'users', 'preferences'],
+      );
+    expect(await preferencesColumn()).toHaveLength(0);
+    for (const table of ['auth_sessions', 'oauth_flows']) {
+      const [removed] = await source.query('SELECT to_regclass($1) AS name', [
+        `${schema}.${table}`,
+      ]);
+      expect(removed.name).toBeNull();
+    }
+    expect(await source.runMigrations()).toHaveLength(featureCount);
     expect(await source.runMigrations()).toHaveLength(0);
+    expect(await preferencesColumn()).toHaveLength(1);
+    const accounts = await q('SELECT preferences FROM @.users');
+    expect(accounts).toHaveLength(2);
+    for (const account of accounts)
+      expect(account.preferences).toEqual({
+        language: 'en',
+        theme: 'system',
+        soundEnabled: true,
+      });
+    for (const table of ['auth_sessions', 'oauth_flows']) {
+      const [restored] = await source.query('SELECT to_regclass($1) AS name', [
+        `${schema}.${table}`,
+      ]);
+      expect(restored.name).not.toBeNull();
+    }
     expect((await q('SELECT id FROM @.users')).length).toBe(2);
   });
 });

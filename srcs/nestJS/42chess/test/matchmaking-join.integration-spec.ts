@@ -1,3 +1,7 @@
+import { AuthSession } from '../dist/auth/auth-session.entity.js';
+import { SessionService } from '../dist/auth/session.service.js';
+import { AuthGuard } from '../dist/auth/auth.guard.js';
+import { AccessTokenGuard } from '../dist/auth/access-token.guard.js';
 import { randomUUID, createHmac } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { Test } from '@nestjs/testing';
@@ -40,7 +44,7 @@ describe('MATCH-01 queue join on PostgreSQL and Nest HTTP', () => {
     source = new DataSource({
       ...options,
       schema,
-      entities: [User, MatchmakingEntry],
+      entities: [User, MatchmakingEntry, AuthSession],
       extra: { ...options.extra, options: `-c search_path=${schema},public` },
     });
     await source.initialize();
@@ -50,6 +54,18 @@ describe('MATCH-01 queue join on PostgreSQL and Nest HTTP', () => {
       controllers: [MatchmakingController],
       providers: [
         HttpAuthGuard,
+        AccessTokenGuard,
+        {
+          provide: AuthGuard,
+          useFactory: () =>
+            new AuthGuard(
+              new SessionService(
+                jwt,
+                source.getRepository(AuthSession),
+                source.getRepository(User),
+              ),
+            ),
+        },
         { provide: DataSource, useValue: source },
         { provide: MatchmakingService, useValue: service },
         { provide: JwtService, useValue: jwt },
@@ -95,7 +111,14 @@ describe('MATCH-01 queue join on PostgreSQL and Nest HTTP', () => {
     if (token) call.set('Authorization', `Bearer ${token}`);
     return call.send(body);
   };
-  const token = () => jwt.signAsync({ sub: actor, username: 'queue_actor' });
+  const token = async () =>
+    (
+      await new SessionService(
+        jwt,
+        source.getRepository(AuthSession),
+        source.getRepository(User),
+      ).issue(await source.getRepository(User).findOneByOrFail({ id: actor }))
+    ).accessToken;
 
   it('accepts a real access token and persists server Elo with millisecond controls', async () => {
     const response = await post({ timeControl: control }, await token()).expect(
@@ -241,7 +264,7 @@ describe('MATCH-01 queue join on PostgreSQL and Nest HTTP', () => {
     await source.query('UPDATE users SET "emailVerifiedAt"=NULL WHERE id=$1', [
       actor,
     ]);
-    await post({ timeControl: control }, access).expect(403);
+    await post({ timeControl: control }, access).expect(401);
     expect(await queue()).toBeUndefined();
   });
 });

@@ -1,3 +1,4 @@
+import { PresenceModule } from '../presence/presence.module.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpAuthModule } from '../common/http-auth.module.js';
@@ -7,7 +8,11 @@ import { Friendship } from './friendships.entity.js';
 
 /** Friendships and friend requests (spec §5). */
 @Module({
-  imports: [HttpAuthModule, TypeOrmModule.forFeature([Friendship])],
+  imports: [
+    HttpAuthModule,
+    PresenceModule,
+    TypeOrmModule.forFeature([Friendship]),
+  ],
   controllers: [FriendsController],
   providers: [FriendsService],
   exports: [FriendsService],

@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { once } from 'node:events';
 import type { AddressInfo } from 'node:net';
 import { ConfigService } from '@nestjs/config';
+import { UnauthorizedException } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
 import WebSocket from 'ws';
 import { RealtimeGateway } from './realtime.gateway.js';
@@ -158,7 +159,7 @@ describe('Realtime gateway over actual sockets', () => {
     expect((await closed)[0]).toBe(4401);
     expect(messages.handle).not.toHaveBeenCalled();
   });
-  it('fails closed with the production authenticator until SCRUM-178 is integrated', async () => {
+  it('fails closed when authentication is unavailable', async () => {
     vi.spyOn(auth, 'authenticate').mockImplementation((token) =>
       new UnavailableRealtimeAuthenticator().authenticate(token),
     );
@@ -167,6 +168,25 @@ describe('Realtime gateway over actual sockets', () => {
     expect(
       await request(socket, 'AUTHENTICATE', { accessToken: 'anything' }),
     ).toMatchObject({ event: 'ERROR', data: { code: 'AUTH_UNAVAILABLE' } });
+    expect((await closed)[0]).toBe(4401);
+    expect(messages.handle).not.toHaveBeenCalled();
+  });
+  it('revalidates an authenticated session before accepting a private command', async () => {
+    vi.spyOn(auth, 'authenticate').mockResolvedValue({
+      userId: 'verified-player',
+      expiresAt: Date.now() + 60000,
+      validate: async () => {
+        throw new UnauthorizedException('Revoked session');
+      },
+    });
+    const socket = await open();
+    expect(
+      await request(socket, 'AUTHENTICATE', { accessToken: 'test-token' }),
+    ).toMatchObject({ event: 'AUTHENTICATED' });
+    const closed = once(socket, 'close');
+    expect(
+      await request(socket, 'JOIN_GAME', { gameId: 'game' }),
+    ).toMatchObject({ event: 'ERROR', data: { statusCode: 401 } });
     expect((await closed)[0]).toBe(4401);
     expect(messages.handle).not.toHaveBeenCalled();
   });

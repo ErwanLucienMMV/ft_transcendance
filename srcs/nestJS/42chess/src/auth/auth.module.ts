@@ -3,12 +3,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import type { Environment } from '../config/environment.js';
 import { UsersModule } from '../users/users.module.js';
+import { AccessTokenGuard } from './access-token.guard.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { PasswordService } from './password.service.js';
 import { TotpService } from './totp.service.js';
 import { TwoFactorChallengeService } from './two-factor-challenge.service.js';
 import { MailModule } from '../mail/mail.module.js';
+import { SessionModule } from './session.module.js';
 
 /**
  * Authentication: local accounts (register / login / logout), JWT issuing
@@ -25,6 +27,7 @@ import { MailModule } from '../mail/mail.module.js';
     ConfigModule,
     UsersModule,
     MailModule,
+    SessionModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -40,10 +43,11 @@ import { MailModule } from '../mail/mail.module.js';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AccessTokenGuard,
     PasswordService,
     TotpService,
     TwoFactorChallengeService,
   ],
-  exports: [PasswordService],
+  exports: [PasswordService, AuthService, AccessTokenGuard, JwtModule],
 })
 export class AuthModule {}

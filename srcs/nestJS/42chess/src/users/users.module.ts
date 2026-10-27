@@ -2,6 +2,10 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user.entity.js';
 import { UsersService } from './users.service.js';
+import { SessionModule } from '../auth/session.module.js';
+import { AccessTokenGuard } from '../auth/access-token.guard.js';
+import { UsersController } from './users.controller.js';
+import { PresenceModule } from '../presence/presence.module.js';
 
 /**
  * User profiles: current user (`/users/me`), public profiles and search.
@@ -12,8 +16,9 @@ import { UsersService } from './users.service.js';
  * Routes: `/users/*` (see spec §4).
  */
 @Module({
-  imports: [TypeOrmModule.forFeature([User])],
-  providers: [UsersService],
+  imports: [PresenceModule, TypeOrmModule.forFeature([User]), SessionModule],
+  controllers: [UsersController],
+  providers: [UsersService, AccessTokenGuard],
   exports: [UsersService],
 })
 export class UsersModule {}

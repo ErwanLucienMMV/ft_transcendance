@@ -24,6 +24,7 @@ import { hashVerificationToken } from './email-verification-token.js';
 import { PasswordService } from './password.service.js';
 import { TotpService } from './totp.service.js';
 import { TwoFactorChallengeService } from './two-factor-challenge.service.js';
+import { SessionService } from './session.service.js';
 
 const DTO = {
   username: 'alice',
@@ -86,6 +87,18 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: jwt },
         { provide: TotpService, useValue: totp },
         { provide: TwoFactorChallengeService, useValue: challenges },
+        {
+          provide: SessionService,
+          useValue: {
+            issue: async (user: typeof ALICE) => ({
+              accessToken: await jwt.signAsync({
+                sub: user.id,
+                username: user.username,
+              }),
+              user: { id: user.id, username: user.username, elo: user.elo },
+            }),
+          },
+        },
       ],
     }).compile();
 

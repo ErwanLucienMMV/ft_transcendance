@@ -5,6 +5,7 @@ import { GameRulesService } from '../dist/games/game-rules.service.js';
 import { GameAgreementsService } from '../dist/games/game-agreements.service.js';
 import { GameClocksService } from '../dist/games/clock/game-clocks.service.js';
 import { gameFixture, AFTER_E4 } from './game-service.fixture.js';
+import { RatingService } from '../dist/rating/rating.service.js';
 
 describe('Authorized and atomic game moves', () => {
   const f = gameFixture();
@@ -99,14 +100,13 @@ describe('Authorized and atomic game moves', () => {
   it('serializes competing moves across service instances', async () => {
     const { game } = await f.active();
     const other = new GamesService(
-      new GameStoreService(f.source),
+      new GameStoreService(f.source, new RatingService()),
       new GameRulesService(f.engine),
       new GameAgreementsService(
-        new GameStoreService(f.source),
+        new GameStoreService(f.source, new RatingService()),
         new GameClocksService(),
       ),
       new GameClocksService(),
-      new GameAgreementsService(new GameStoreService(f.source)),
     );
     const results = await Promise.allSettled([
       f.service.play(f.white, game.id, 'e2e4'),

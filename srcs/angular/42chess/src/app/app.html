@@ -14,20 +14,27 @@
         ariaCurrentWhenActive="page"
         >Play</a
       >
-      <a
-        class="nav-login"
-        routerLink="/login"
-        routerLinkActive="active"
-        ariaCurrentWhenActive="page"
-        >Sign in</a
-      >
-      <a
-        class="nav-register"
-        routerLink="/register"
-        routerLinkActive="active"
-        ariaCurrentWhenActive="page"
-        >Create an account</a
-      >
+      @if (session.user(); as user) {
+        <a routerLink="/session" routerLinkActive="active" ariaCurrentWhenActive="page">{{
+          user.username
+        }}</a>
+        <button class="nav-signout" type="button" (click)="signOut()">Sign out</button>
+      } @else {
+        <a
+          class="nav-login"
+          routerLink="/login"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          >Sign in</a
+        >
+        <a
+          class="nav-register"
+          routerLink="/register"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          >Create an account</a
+        >
+      }
     </nav>
   </div>
 </header>

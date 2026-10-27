@@ -13,6 +13,7 @@ export interface FriendResponse {
   avatarUrl: string | null;
   elo: number;
   lastSeenAt: ISODateString | null;
+  status: import('../presence/presence.service.js').PresenceStatus;
 }
 
 export type FriendsResponse = CollectionResponse<'friends', FriendResponse>;
@@ -37,7 +38,7 @@ export function toFriendRequest(request: FriendRequest): FriendRequestResponse {
 
 export function toFriend(
   user: Pick<User, 'id' | 'username' | 'avatarUrl' | 'elo' | 'lastSeenAt'>,
-): FriendResponse {
+): Omit<FriendResponse, 'status'> {
   return {
     id: user.id,
     username: user.username,
