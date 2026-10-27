@@ -19,6 +19,7 @@ import { applyMove, parseFen, toFen } from '../../shared/chess/chess-rules';
 import { GameClock } from './game-clock';
 import { GamesApi, GameView } from './games-api';
 
+const BOT_NAMES: Record<string, string> = { EASY: 'Easy', MEDIUM: 'Medium', HARD: 'Hard' };
 const PROMOTIONS = { QUEEN: 'q', ROOK: 'r', BISHOP: 'b', KNIGHT: 'n' } as const;
 const REASONS: Record<string, string> = {
   CHECKMATE: 'by checkmate',
@@ -68,6 +69,8 @@ export class GamePage {
   private readonly proposed = signal<{ base: string; move: BoardMove } | null>(null);
   private readonly now = signal(Date.now());
   readonly confirmingResign = signal(false);
+  readonly retryingBot = signal(false);
+  readonly retryError = signal<string | null>(null);
   readonly copied = signal(false);
 
   readonly game = computed<GameView | null>(() => this.realtime.game() ?? this.spectated());
@@ -136,6 +139,19 @@ export class GamePage {
     return rows;
   });
 
+  /** The bot owes a move: right after mine (still a preview) or once the turn is its own. */
+  readonly botThinking = computed(
+    () =>
+      !!this.bot() &&
+      this.active() &&
+      !!this.myColor() &&
+      !this.realtime.game()?.botError &&
+      (this.previewing() || !this.myTurn()),
+  );
+  readonly botFailed = computed(
+    () => !!this.bot() && this.active() && !!this.realtime.game()?.botError,
+  );
+
   readonly drawOfferedByOpponent = computed(() => {
     const offer = this.game()?.drawOffer;
     return !!offer && !!this.myColor() && offer.playerId !== this.me();
@@ -152,8 +168,10 @@ export class GamePage {
     if (game.status === 'WAITING') return 'Waiting for an opponent';
     if (game.status === 'FINISHED') return this.outcome();
     if (!this.myColor()) return `${game.board.turn === 'WHITE' ? 'White' : 'Black'} to move`;
+    if (this.botFailed()) return 'The bot could not play';
+    if (this.botThinking()) return 'The bot is thinking…';
     if (this.myTurn()) return this.previewing() ? 'Sending your move…' : 'Your turn';
-    return this.bot() ? 'The bot is thinking…' : "Opponent's turn";
+    return "Opponent's turn";
   });
 
   readonly link = computed(() =>
@@ -209,6 +227,20 @@ export class GamePage {
     this.realtime.resign();
   }
 
+  /** The server keeps a failed bot turn pending; this asks it to try again. */
+  retryBot(): void {
+    if (this.retryingBot()) return;
+    this.retryingBot.set(true);
+    this.retryError.set(null);
+    this.games.resumeBot(this.gameId()).subscribe({
+      next: () => this.retryingBot.set(false),
+      error: () => {
+        this.retryingBot.set(false);
+        this.retryError.set('The bot is still unavailable. Try again in a moment.');
+      },
+    });
+  }
+
   async copy(): Promise<void> {
     try {
       await navigator.clipboard.writeText(this.link());
@@ -220,6 +252,7 @@ export class GamePage {
 
   name(player: GamePlayer | null): string {
     if (!player) return 'Waiting for a player';
+    if (player.botDifficulty) return `Computer · ${BOT_NAMES[player.botDifficulty]}`;
     return player.id === this.me() ? `${player.username} (you)` : player.username;
   }
 
@@ -228,6 +261,7 @@ export class GamePage {
     this.proposed.set(null);
     this.confirmingResign.set(false);
     this.copied.set(false);
+    this.retryError.set(null);
     this.invalid.set(!this.realtime.watch(id));
   }
 

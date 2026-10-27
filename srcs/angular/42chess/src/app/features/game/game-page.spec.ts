@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { RealtimeService, ServerEvent } from '../../core/realtime/realtime.service';
 import { GamePage } from './game-page';
@@ -22,7 +22,7 @@ describe('Live game page', () => {
     leaveGame: ReturnType<typeof vi.fn>;
     send: ReturnType<typeof vi.fn>;
   };
-  let api: { get: ReturnType<typeof vi.fn> };
+  let api: { get: ReturnType<typeof vi.fn>; resumeBot: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
@@ -35,7 +35,7 @@ describe('Live game page', () => {
       leaveGame: vi.fn(() => true),
       send: vi.fn(() => true),
     };
-    api = { get: vi.fn() };
+    api = { get: vi.fn(), resumeBot: vi.fn() };
     TestBed.configureTestingModule({
       imports: [GamePage],
       providers: [
@@ -279,5 +279,113 @@ describe('Live game page', () => {
     const { fixture } = setup();
     fixture.destroy();
     expect(transport.leaveGame).toHaveBeenCalledWith(id);
+  });
+
+  describe('against the bot', () => {
+    const bot = {
+      id: 'seat',
+      username: 'Bot MEDIUM',
+      avatarUrl: null,
+      elo: null,
+      color: 'BLACK',
+      botDifficulty: 'MEDIUM',
+    };
+
+    it('names the bot, hides draw offers and shows it thinking after my move', () => {
+      const { element, click, state, button } = setup();
+      state({ blackPlayer: bot });
+      expect(text(element, '[data-seat="top"] .player')).toBe('Computer · Medium');
+      expect(button('Offer draw')).toBeUndefined();
+      expect(element.querySelector('.thinking')).toBeNull();
+      click('[data-square="g1"]');
+      click('[data-square="f3"]');
+      expect(text(element, '#game-title')).toBe('The bot is thinking…');
+      expect(element.querySelector('.thinking')).not.toBeNull();
+      events.next({
+        event: 'MOVE_PLAYED',
+        data: {
+          gameId: id,
+          move: { number: 1, playerId: 'me', from: 'g1', to: 'f3', notation: 'Nf3', fen: '' },
+          board: {
+            fen: 'rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 1 1',
+            turn: 'BLACK',
+            halfmoveClock: 1,
+            fullmoveNumber: 1,
+          },
+          clocks: { white: 300_000, black: 300_000 },
+        },
+      });
+      events.next({
+        event: 'MOVE_PLAYED',
+        data: {
+          gameId: id,
+          move: { number: 2, playerId: 'seat', from: 'd7', to: 'd5', notation: 'd5', fen: '' },
+          board: {
+            fen: 'rnbqkbnr/ppp1pppp/8/3p4/8/5N2/PPPPPPPP/RNBQKB1R w KQkq d6 0 2',
+            turn: 'WHITE',
+            halfmoveClock: 0,
+            fullmoveNumber: 2,
+          },
+          clocks: { white: 300_000, black: 299_000 },
+        },
+      });
+      state({
+        blackPlayer: bot,
+        board: {
+          fen: 'rnbqkbnr/ppp1pppp/8/3p4/8/5N2/PPPPPPPP/RNBQKB1R w KQkq d6 0 2',
+          turn: 'WHITE',
+          halfmoveClock: 0,
+          fullmoveNumber: 2,
+        },
+        moves: [
+          { number: 1, playerId: 'me', from: 'g1', to: 'f3', notation: 'Nf3', fen: '' },
+          { number: 2, playerId: 'seat', from: 'd7', to: 'd5', notation: 'd5', fen: '' },
+        ],
+      });
+      expect(text(element, '#game-title')).toBe('Your turn');
+      expect(element.querySelector('.thinking')).toBeNull();
+      expect(element.querySelector('[data-square="d5"]')?.classList).toContain('last-move');
+      expect(text(element, '.move-list li')).toBe('Nf3d5');
+    });
+
+    it('shows the bot thinking first when I play black', () => {
+      const { element, state } = setup();
+      state({
+        whitePlayer: { ...bot, color: 'WHITE' },
+        blackPlayer: { ...white, color: 'BLACK' },
+        botPending: true,
+        botThinking: true,
+      });
+      expect(text(element, '#game-title')).toBe('The bot is thinking…');
+      expect(element.querySelector('.square')?.getAttribute('data-square')).toBe('h1');
+    });
+
+    it('lets me ask the bot again after it failed', () => {
+      api.resumeBot.mockReturnValueOnce(throwError(() => new Error('offline')));
+      const { element, state, button, render } = setup();
+      state({
+        blackPlayer: bot,
+        board: {
+          fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+          turn: 'BLACK',
+          halfmoveClock: 0,
+          fullmoveNumber: 1,
+        },
+        botPending: true,
+        botError: 'BOT_UNAVAILABLE',
+      });
+      expect(text(element, '#game-title')).toBe('The bot could not play');
+      expect(element.querySelector('.thinking')).toBeNull();
+      button('Ask the bot to play')!.click();
+      render();
+      expect(api.resumeBot).toHaveBeenCalledWith(id);
+      expect(element.textContent).toContain('The bot is still unavailable.');
+      api.resumeBot.mockReturnValueOnce(of({}));
+      button('Ask the bot to play')!.click();
+      render();
+      expect(element.textContent).not.toContain('The bot is still unavailable.');
+      state({ blackPlayer: bot, botError: null });
+      expect(element.querySelector('.bot-failed')).toBeNull();
+    });
   });
 });

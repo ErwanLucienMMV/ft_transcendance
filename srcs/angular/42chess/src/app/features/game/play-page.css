@@ -20,6 +20,9 @@
 .play-card p {
   margin: 0;
 }
+.levels {
+  grid-template-columns: minmax(0, 1fr);
+}
 .play-card > p {
   color: var(--muted);
 }
@@ -36,12 +39,18 @@ legend {
   letter-spacing: 0.35px;
   text-transform: uppercase;
 }
-.controls {
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.choices {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 8px;
 }
-.control {
+.choice {
   position: relative;
   display: grid;
   gap: 2px;
@@ -51,21 +60,21 @@ legend {
   background: var(--field);
   cursor: pointer;
 }
-.control input {
+.choice input {
   position: absolute;
   opacity: 0;
   width: 1px;
   height: 1px;
   min-height: 0;
 }
-.control span {
+.choice span {
   color: var(--muted);
   font-size: 12px;
 }
-.control.chosen {
+.choice.chosen {
   border-color: var(--accent);
 }
-.control:has(input:focus-visible) {
+.choice:has(input:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

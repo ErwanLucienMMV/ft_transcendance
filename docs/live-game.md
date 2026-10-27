@@ -55,3 +55,30 @@ spectating (`START_SPECTATING`) belongs to the SPEC lot.
 
 `srcs/angular/compose.e2e.yml` now also starts the chess engine and the bot, because the
 API needs them to accept a move.
+
+# Bot games (lot 20)
+
+Jira: FRONT-BOT-01 to 07 (SCRUM-406 to 412).
+
+- `/play` has a second card, **Play the computer**: difficulty (Easy, Medium, Hard, with
+  the search depth from `srcs/bot/README.md`), colour (White, Black or Random, drawn in the
+  browser because the API takes `WHITE` or `BLACK`) and the shared time control.
+  `POST /api/v1/games/bot` creates the game, already `ACTIVE`, and the page opens it.
+- The game page is the same as for a human game. The bot is named "Computer · Medium",
+  draw buttons are hidden, and the bot seat shows a thinking indicator while it owes a
+  move: from the moment my move is sent until its reply arrives, or from the start when I
+  play Black.
+- The bot reply arrives over the WebSocket like any move: the server commits my move and
+  the bot reply together and announces two `MOVE_PLAYED` events.
+- If the bot engine fails, the server keeps the game waiting for the bot (`botError`).
+  The page says so and offers **Ask the bot to play**, which calls
+  `POST /api/v1/games/:id/bot-move`; the room then receives the move.
+- The server allows one active bot game per player; its message is shown as is.
+
+## Backend fix
+
+`POST /v1/games/bot` answered 401 to every signed-in player: `BotsModule` builds its own
+`GameActorGuard`, and without `SessionModule` in its imports the guard had no
+`SessionService` to check the bearer. The existing controller test hid this because it
+installs the user through a test middleware. `BotsModule` now imports `SessionModule`, and
+`test/bot-session.e2e-spec.ts` covers the route with a real session.

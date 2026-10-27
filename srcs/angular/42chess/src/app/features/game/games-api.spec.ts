@@ -18,6 +18,22 @@ describe('Games REST client', () => {
     expect(
       http.expectOne('/api/v1/games/00000000-0000-4000-8000-000000000001').request.method,
     ).toBe('GET');
+    api
+      .createBot({
+        difficulty: 'EASY',
+        color: 'WHITE',
+        timeControl: { initialTime: 600_000, increment: 0 },
+      })
+      .subscribe();
+    expect(http.expectOne('/api/v1/games/bot').request.body).toEqual({
+      difficulty: 'EASY',
+      color: 'WHITE',
+      timeControl: { initialTime: 600_000, increment: 0 },
+    });
+    api.resumeBot('00000000-0000-4000-8000-000000000001').subscribe();
+    expect(
+      http.expectOne('/api/v1/games/00000000-0000-4000-8000-000000000001/bot-move').request.method,
+    ).toBe('POST');
     http.verify();
   });
 });

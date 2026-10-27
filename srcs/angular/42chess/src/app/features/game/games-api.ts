@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiClient } from '../../core/api/api-client';
-import type { GameSnapshot } from '../../core/realtime/game-realtime';
+import type { BotDifficulty, GameSnapshot, PlayerColor } from '../../core/realtime/game-realtime';
 
 /** Milliseconds, as the server stores them. */
 export interface TimeControl {
@@ -20,6 +20,22 @@ export const TIME_CONTROLS: readonly TimeControlChoice[] = [
   { label: '30 + 0', category: 'Classical', initialTime: 1_800_000, increment: 0 },
 ];
 
+export interface BotChoice {
+  difficulty: BotDifficulty;
+  label: string;
+  description: string;
+}
+/** Search limits come from srcs/bot/README.md; the backend owns the real settings. */
+export const BOT_LEVELS: readonly BotChoice[] = [
+  { difficulty: 'EASY', label: 'Easy', description: 'Looks one move ahead. Good to learn.' },
+  { difficulty: 'MEDIUM', label: 'Medium', description: 'Looks three moves ahead.' },
+  {
+    difficulty: 'HARD',
+    label: 'Hard',
+    description: 'Looks five moves ahead and spots short mates.',
+  },
+];
+
 /** A REST game view has no move list; the realtime snapshot adds it. */
 export type GameView = Omit<GameSnapshot, 'gameId' | 'moves'>;
 
@@ -30,6 +46,19 @@ export class GamesApi {
 
   create(timeControl: TimeControl): Observable<{ gameId: string; status: 'WAITING' }> {
     return this.api.post('games', { timeControl });
+  }
+
+  createBot(game: {
+    difficulty: BotDifficulty;
+    color: PlayerColor;
+    timeControl: TimeControl;
+  }): Observable<GameView & { gameId: string }> {
+    return this.api.post('games/bot', game);
+  }
+
+  /** Asks the server to retry a bot turn that failed; the room then receives the move. */
+  resumeBot(id: string): Observable<GameView> {
+    return this.api.post(`games/${encodeURIComponent(id)}/bot-move`, {});
   }
 
   get(id: string): Observable<GameView> {

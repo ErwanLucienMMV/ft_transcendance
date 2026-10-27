@@ -18,7 +18,12 @@
       }
       @if (game(); as current) {
         <div class="seat top" data-seat="top">
-          <span class="player">{{ name(top().player) }}</span>
+          <span class="player">
+            {{ name(top().player) }}
+            @if (botThinking()) {
+              <span class="thinking" aria-hidden="true"><i></i><i></i><i></i></span>
+            }
+          </span>
           <app-game-clock
             [remaining]="top().remaining"
             [running]="top().running"
@@ -56,6 +61,17 @@
       }
 
       @if (game(); as current) {
+        @if (botFailed()) {
+          <div class="bot-failed" role="alert">
+            <p>The bot did not answer. Your move is kept; ask it to play again.</p>
+            @if (retryError(); as message) {
+              <p>{{ message }}</p>
+            }
+            <button type="button" [disabled]="retryingBot()" (click)="retryBot()">
+              {{ retryingBot() ? 'Asking the bot…' : 'Ask the bot to play' }}
+            </button>
+          </div>
+        }
         @if (current.status === 'WAITING') {
           <div class="invite">
             <p>Send this link to your opponent. The game starts as soon as they open it.</p>
