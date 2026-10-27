@@ -26,6 +26,11 @@ export const TIME_CONTROLS: readonly TimeControlChoice[] = [
   { label: '30 + 0', category: 'Classical', initialTime: 1_800_000, increment: 0 },
 ];
 
+/** "10 + 0": minutes plus increment seconds, as the time control buttons read. */
+export function timeControlLabel({ initialTime, increment }: TimeControl): string {
+  return `${initialTime / 60_000} + ${increment / 1000}`;
+}
+
 export interface BotChoice {
   difficulty: BotDifficulty;
   label: string;
@@ -56,6 +61,15 @@ export interface GameHistoryItem {
   moveCount: number;
   startedAt: string;
   endedAt: string;
+}
+/** A game in progress that anyone can watch (spec §28). */
+export interface LiveGame {
+  id: string;
+  whitePlayer: GamePlayer | null;
+  blackPlayer: GamePlayer | null;
+  spectatorCount: number;
+  timeControl: TimeControl;
+  startedAt: string;
 }
 /** The backend's PaginatedResponse. */
 export interface Page<T> {
@@ -93,6 +107,10 @@ export class GamesApi {
 
   moves(id: string): Observable<{ moves: GameMove[] }> {
     return this.api.get(`games/${encodeURIComponent(id)}/moves`);
+  }
+
+  live(): Observable<{ games: LiveGame[] }> {
+    return this.api.get('games/live');
   }
 
   /** Finished games of a player, newest first. */

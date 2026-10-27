@@ -5,7 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { botName, endReason } from '../../shared/chess/game-text';
-import { GameHistoryItem, GamesApi, Page, TIME_CONTROLS } from '../game/games-api';
+import { GameHistoryItem, GamesApi, Page, timeControlLabel } from '../game/games-api';
 
 export const HISTORY_PAGE_SIZE = 10;
 const OUTCOMES: Record<GameHistoryItem['outcome'], string> = {
@@ -62,17 +62,11 @@ export class HistoryPage {
 
   details(item: GameHistoryItem): string {
     const reason = endReason(item.reason);
-    const control =
-      TIME_CONTROLS.find(
-        (choice) =>
-          choice.initialTime === item.timeControl.initialTime &&
-          choice.increment === item.timeControl.increment,
-      )?.label ?? `${item.timeControl.initialTime / 60_000} + ${item.timeControl.increment / 1000}`;
     const moves = Math.ceil(item.moveCount / 2);
     return [
       `${item.color === 'WHITE' ? 'White' : 'Black'}`,
       reason,
-      control,
+      timeControlLabel(item.timeControl),
       `${moves} ${moves === 1 ? 'move' : 'moves'}`,
     ]
       .filter(Boolean)

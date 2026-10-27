@@ -17,6 +17,8 @@ describe('View-independent game adapter', () => {
     connect: ReturnType<typeof vi.fn>;
     joinGame: ReturnType<typeof vi.fn>;
     leaveGame: ReturnType<typeof vi.fn>;
+    spectateGame: ReturnType<typeof vi.fn>;
+    stopSpectating: ReturnType<typeof vi.fn>;
     send: ReturnType<typeof vi.fn>;
   };
   beforeEach(() => {
@@ -27,6 +29,8 @@ describe('View-independent game adapter', () => {
       connect: vi.fn(),
       joinGame: vi.fn(() => true),
       leaveGame: vi.fn(() => true),
+      spectateGame: vi.fn(() => true),
+      stopSpectating: vi.fn(() => true),
       send: vi.fn(() => true),
     };
     TestBed.configureTestingModule({
@@ -87,6 +91,32 @@ describe('View-independent game adapter', () => {
       expect(action()).toBe(true);
       expect(transport.send).toHaveBeenCalledWith(event, { gameId: id });
     }
+  });
+  it('watches as a spectator without ever sending a command, and switches modes cleanly', () => {
+    expect(service.watch(id, 'spectator')).toBe(true);
+    TestBed.tick();
+    expect(transport.spectateGame).toHaveBeenCalledWith(id);
+    expect(transport.joinGame).not.toHaveBeenCalled();
+    snapshot();
+    expect(service.game()?.status).toBe('ACTIVE');
+    for (const action of [
+      () => service.move('e2', 'e4'),
+      () => service.resign(),
+      () => service.offerDraw(),
+      () => service.acceptDraw(),
+      () => service.declineDraw(),
+    ])
+      expect(action()).toBe(false);
+    expect(transport.send).not.toHaveBeenCalled();
+    // Same game, same mode: nothing is sent again.
+    service.watch(id, 'spectator');
+    TestBed.tick();
+    expect(transport.spectateGame).toHaveBeenCalledTimes(1);
+    service.watch(id);
+    TestBed.tick();
+    expect(transport.stopSpectating).toHaveBeenCalledWith(id);
+    expect(transport.joinGame).toHaveBeenCalledWith(id);
+    expect(service.mode()).toBe('player');
   });
   it('does not repeat subscription commands when the transport reconnects itself', () => {
     service.watch(id);

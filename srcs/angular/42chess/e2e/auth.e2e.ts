@@ -59,8 +59,9 @@ test('registers, refuses unverified login, verifies email and signs in against t
     (r) => r.url().endsWith('/auth/login') && r.request().method() === 'POST',
   );
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page).toHaveURL(/\/session$/);
+  // Read the body before the redirect: Chromium drops it once the page navigates.
   const identity = await (await signedIn).json();
+  await expect(page).toHaveURL(/\/session$/);
   const authenticated = await page.evaluate(
     (token: string) =>
       new Promise<string>((resolve, reject) => {

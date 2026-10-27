@@ -106,6 +106,27 @@ describe('Realtime transport', () => {
     ready();
     expect(sockets[1].send.mock.calls).toHaveLength(1);
   });
+  it('restores a watched room as a spectator after a reconnect', () => {
+    login();
+    ready();
+    service.spectateGame('watched');
+    service.joinGame('played');
+    expect(sockets[0].send).toHaveBeenCalledWith(
+      JSON.stringify({ event: 'START_SPECTATING', data: { gameId: 'watched' } }),
+    );
+    sockets[0].drop();
+    vi.advanceTimersByTime(500);
+    ready();
+    const packets = sockets[1].send.mock.calls.map(([value]) => JSON.parse(value));
+    expect(packets.slice(1)).toEqual([
+      { event: 'START_SPECTATING', data: { gameId: 'watched' } },
+      { event: 'JOIN_GAME', data: { gameId: 'played' } },
+    ]);
+    service.stopSpectating('watched');
+    expect(sockets[1].send).toHaveBeenLastCalledWith(
+      JSON.stringify({ event: 'STOP_SPECTATING', data: { gameId: 'watched' } }),
+    );
+  });
   it('never resubscribes a room that was left while offline', () => {
     login();
     ready();

@@ -37,8 +37,15 @@
   display: grid;
   gap: 16px;
 }
-.game-panel h2 {
+.game-panel .eyebrow {
+  justify-self: start;
+}
+.game-panel h2,
+.watchers {
   margin: 0;
+}
+.watchers {
+  color: var(--muted);
 }
 .game-error {
   margin: 0;

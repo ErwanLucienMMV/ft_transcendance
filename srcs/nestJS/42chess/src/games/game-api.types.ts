@@ -63,3 +63,13 @@ export interface GameHistoryItem {
   startedAt: ISODateString;
   endedAt: ISODateString;
 }
+/** Spec §28; time control and start date help pick a game to watch. */
+export interface LiveGame {
+  id: UUID;
+  whitePlayer: PlayerRef | null;
+  blackPlayer: PlayerRef | null;
+  spectatorCount: number;
+  timeControl: TimeControl;
+  startedAt: ISODateString;
+}
+export type LiveGamesResponse = CollectionResponse<'games', LiveGame>;

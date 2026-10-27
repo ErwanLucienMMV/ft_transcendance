@@ -31,6 +31,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/puzzle/puzzle-page').then((m) => m.PuzzlePage),
   },
   {
+    path: 'live',
+    title: 'Live games | 42 Chess',
+    loadComponent: () => import('./features/live/live-page').then((m) => m.LivePage),
+  },
+  {
     path: 'history',
     title: 'Game history | 42 Chess',
     canActivate: [authGuard],

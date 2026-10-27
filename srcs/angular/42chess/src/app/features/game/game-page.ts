@@ -10,14 +10,14 @@ import {
   untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { GameMove, GamePlayer, GameRealtime, PlayerColor } from '../../core/realtime/game-realtime';
 import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
 import { botName, moveRows, resultText } from '../../shared/chess/game-text';
 import { GameClock } from './game-clock';
-import { GamesApi, GameView } from './games-api';
+import { GamesApi } from './games-api';
 
 interface Seat {
   color: PlayerColor;
@@ -40,14 +40,18 @@ export class GamePage {
   readonly realtime = inject(GameRealtime);
   private readonly session = inject(AuthSession);
   private readonly games = inject(GamesApi);
+  private readonly router = inject(Router);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
-  readonly gameId = toSignal(
-    inject(ActivatedRoute).paramMap.pipe(map((params) => params.get('id') ?? '')),
-    { initialValue: '' },
+  private readonly route = inject(ActivatedRoute);
+  readonly gameId = toSignal(this.route.paramMap.pipe(map((params) => params.get('id') ?? '')), {
+    initialValue: '',
+  });
+  /** `?watch=1` (from the live games list) opens the game as a spectator straight away. */
+  private readonly watchRequested = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.has('watch'))),
+    { initialValue: false },
   );
   readonly invalid = signal(false);
-  /** Read-only state for someone who is not seated: realtime rooms are for players only. */
-  private readonly spectated = signal<GameView | null>(null);
   private readonly proposed = signal<{ base: string; move: BoardMove } | null>(null);
   private readonly now = signal(Date.now());
   readonly confirmingResign = signal(false);
@@ -55,13 +59,16 @@ export class GamePage {
   readonly retryError = signal<string | null>(null);
   readonly copied = signal(false);
 
-  readonly game = computed<GameView | null>(() => this.realtime.game() ?? this.spectated());
-  readonly moves = computed<GameMove[]>(() => this.realtime.game()?.moves ?? []);
+  readonly game = this.realtime.game;
+  readonly moves = computed<GameMove[]>(() => this.game()?.moves ?? []);
   readonly me = computed(() => this.session.user()?.id ?? null);
+  readonly spectating = computed(() => this.realtime.mode() === 'spectator');
+  readonly spectators = computed(() => this.game()?.spectatorCount ?? 0);
+  /** The seat this page plays; a spectator plays none, even when signed in as a player. */
   readonly myColor = computed<PlayerColor | null>(() => {
     const game = this.game();
     const me = this.me();
-    if (!game || !me) return null;
+    if (!game || !me || this.spectating()) return null;
     if (game.whitePlayer?.id === me) return 'WHITE';
     return game.blackPlayer?.id === me ? 'BLACK' : null;
   });
@@ -160,14 +167,17 @@ export class GamePage {
   constructor() {
     effect(() => {
       const id = this.gameId();
-      untracked(() => this.open(id));
+      const watch = this.watchRequested();
+      untracked(() => this.open(id, watch));
     });
     effect(() => {
       // A rejected or replaced move must not linger as a preview.
       if (!this.realtime.pending()) untracked(() => this.proposed.set(null));
     });
     effect(() => {
-      if (this.realtime.error()?.code === 'NOT_A_PLAYER') untracked(() => this.spectate());
+      // Someone without a seat in a started game watches it instead.
+      if (this.realtime.error()?.code === 'NOT_A_PLAYER')
+        untracked(() => this.realtime.watch(this.gameId(), 'spectator'));
     });
     if (this.browser) {
       const timer = setInterval(() => this.now.set(Date.now()), 200);
@@ -221,20 +231,18 @@ export class GamePage {
     return player.id === this.me() ? `${player.username} (you)` : player.username;
   }
 
-  private open(id: string): void {
-    this.spectated.set(null);
+  /** Leaves the spectator room for the list of live games. */
+  stopWatching(): void {
+    this.realtime.leave();
+    void this.router.navigate(['/live']);
+  }
+
+  private open(id: string, watch: boolean): void {
     this.proposed.set(null);
     this.confirmingResign.set(false);
     this.copied.set(false);
     this.retryError.set(null);
-    this.invalid.set(!this.realtime.watch(id));
-  }
-
-  private spectate(): void {
-    this.games.get(this.gameId()).subscribe({
-      next: (view) => this.spectated.set(view),
-      error: () => this.spectated.set(null),
-    });
+    this.invalid.set(!this.realtime.watch(id, watch ? 'spectator' : 'player'));
   }
 
   private seat(color: PlayerColor): Seat {
@@ -245,8 +253,7 @@ export class GamePage {
     let remaining: number | null = null;
     if (clocks) {
       remaining = color === 'WHITE' ? clocks.white : clocks.black;
-      // Spectators get no clock updates, so only a live room counts the time down.
-      if (running && this.realtime.game()) remaining -= this.now() - this.realtime.clocksAt();
+      if (running) remaining -= this.now() - this.realtime.clocksAt();
       remaining = Math.max(0, remaining);
     }
     return { color, player, remaining, running };

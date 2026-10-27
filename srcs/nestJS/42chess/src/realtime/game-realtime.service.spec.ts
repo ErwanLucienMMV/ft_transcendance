@@ -4,6 +4,7 @@ import type { GamesService } from '../games/games.service.js';
 import type { GamePresenterService } from '../games/game-presenter.service.js';
 import { GameError } from '../games/game-error.js';
 import { apiError } from '../common/api-error.js';
+import { SpectatorRegistry } from '../games/spectator-registry.js';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const white = '00000000-0000-4000-8000-000000000002';
@@ -14,7 +15,9 @@ describe('Game realtime routing and rooms', () => {
   let games: Record<string, ReturnType<typeof vi.fn>>;
   let state: any;
   let a: RealtimeClient, b: RealtimeClient;
+  let registry: SpectatorRegistry;
   beforeEach(() => {
+    registry = new SpectatorRegistry();
     state = {
       game: {
         id,
@@ -52,6 +55,7 @@ describe('Game realtime routing and rooms', () => {
     service = new GameRealtimeService(
       games as unknown as GamesService,
       presenter as unknown as GamePresenterService,
+      registry,
     );
     a = {
       userId: white,
@@ -283,5 +287,167 @@ describe('Game realtime routing and rooms', () => {
     await join();
     await command(event);
     expect(games[method]).toHaveBeenCalledWith(white, id);
+  });
+
+  describe('spectators (SPEC-01..10)', () => {
+    const viewer = (name: string, userId = `user-${name}`): RealtimeClient => ({
+      userId,
+      connectionId: name,
+      connected: () => true,
+      send: vi.fn(),
+    });
+    const watch = (client: RealtimeClient) =>
+      service.handle(client, {
+        event: 'START_SPECTATING',
+        data: { gameId: id },
+      });
+    const counts = (client: RealtimeClient) =>
+      vi
+        .mocked(client.send)
+        .mock.calls.filter(([event]) => event === 'GAME_STATE')
+        .map(([, data]) => (data as { spectatorCount: number }).spectatorCount);
+
+    it('sends the current state to a new spectator without seating them', async () => {
+      const s1 = viewer('s1');
+      await watch(s1);
+      expect(games.join).not.toHaveBeenCalled();
+      expect(s1.send).toHaveBeenCalledWith(
+        'GAME_STATE',
+        expect.objectContaining({ gameId: id, moves: [], spectatorCount: 1 }),
+      );
+      expect(registry.count(id)).toBe(1);
+    });
+
+    it('refuses a game that has not started, and any extra field', async () => {
+      state.game.status = 'WAITING';
+      await expect(watch(viewer('s1'))).rejects.toMatchObject({
+        code: 'GAME_NOT_ACTIVE',
+      });
+      state.game.status = 'ACTIVE';
+      await expect(
+        service.handle(viewer('s2'), {
+          event: 'START_SPECTATING',
+          data: { gameId: id, color: 'WHITE' },
+        }),
+      ).rejects.toThrow();
+      expect(registry.count(id)).toBe(0);
+    });
+
+    it('broadcasts moves and the end of the game to every spectator', async () => {
+      const [s1, s2] = [viewer('s1'), viewer('s2')];
+      await join();
+      await watch(s1);
+      await watch(s2);
+      games.play.mockImplementation(async () => {
+        const next = structuredClone(state);
+        next.moves.push(e4);
+        next.game.currentFen = e4.fen;
+        return next;
+      });
+      await command('MAKE_MOVE', a, { from: 'e2', to: 'e4' });
+      for (const client of [s1, s2])
+        expect(played(client)).toEqual([expect.objectContaining({ move: e4 })]);
+      games.resign.mockImplementation(async () => {
+        const next = structuredClone(state);
+        next.game.status = 'FINISHED';
+        next.game.result = { winner: 'BLACK', reason: 'RESIGNATION' };
+        return next;
+      });
+      await command('RESIGN');
+      for (const client of [s1, s2])
+        expect(
+          events(client).filter((event) => event === 'GAME_ENDED'),
+        ).toHaveLength(1);
+    });
+
+    it.each([
+      'MAKE_MOVE',
+      'RESIGN',
+      'OFFER_DRAW',
+      'ACCEPT_DRAW',
+      'DECLINE_DRAW',
+    ])(
+      'refuses %s from a spectator, even a seated user who chose to watch',
+      async (event) => {
+        const seated = viewer('watching-white', white);
+        await watch(seated);
+        const extra = event === 'MAKE_MOVE' ? { from: 'e2', to: 'e4' } : {};
+        await expect(command(event, seated, extra)).rejects.toMatchObject({
+          response: { code: 'SPECTATOR_READ_ONLY' },
+        });
+        for (const method of [
+          'play',
+          'resign',
+          'offerDraw',
+          'acceptDraw',
+          'declineDraw',
+        ])
+          expect(games[method]).not.toHaveBeenCalled();
+      },
+    );
+
+    it('counts distinct users, tells the room, and stops on STOP_SPECTATING or disconnect', async () => {
+      await join();
+      const [s1, s1Again, s2] = [
+        viewer('s1'),
+        viewer('s1-tab', 'user-s1'),
+        viewer('s2'),
+      ];
+      await watch(s1);
+      await watch(s1Again);
+      expect(registry.count(id)).toBe(1);
+      await watch(s2);
+      expect(registry.count(id)).toBe(2);
+      expect(counts(a)).toEqual([0, 1, 2]);
+
+      await service.handle(s2, {
+        event: 'STOP_SPECTATING',
+        data: { gameId: id },
+      });
+      expect(s2.send).toHaveBeenLastCalledWith('GAME_LEFT', { gameId: id });
+      expect(registry.count(id)).toBe(1);
+      expect(counts(a).at(-1)).toBe(1);
+      service.disconnect('s1');
+      expect(registry.count(id)).toBe(1); // the other tab still watches
+      service.disconnect('s1-tab');
+      expect(registry.count(id)).toBe(0);
+      expect(counts(a).at(-1)).toBe(0);
+
+      vi.mocked(s2.send).mockClear();
+      await service.tick();
+      expect(s2.send).not.toHaveBeenCalled();
+    });
+
+    it('lets a seated player switch from watching to playing with JOIN_GAME', async () => {
+      const seated = viewer('white-tab', white);
+      await watch(seated);
+      expect(registry.count(id)).toBe(1);
+      await join(seated);
+      expect(registry.count(id)).toBe(0);
+      await command('RESIGN', seated);
+      expect(games.resign).toHaveBeenCalledWith(white, id);
+    });
+
+    it('answers STOP_SPECTATING from a player with an error, keeping the seat', async () => {
+      await join();
+      await expect(command('STOP_SPECTATING')).rejects.toMatchObject({
+        response: { code: 'NOT_SPECTATING' },
+      });
+      await command('RESIGN');
+      expect(games.resign).toHaveBeenCalled();
+    });
+
+    it('sends the end to a spectator who arrives after the game finished', async () => {
+      await join();
+      state.game.status = 'FINISHED';
+      state.game.result = { winner: 'WHITE', reason: 'CHECKMATE' };
+      await service.tick();
+      const late = viewer('late');
+      await watch(late);
+      expect(
+        events(late).filter((event) => event === 'GAME_ENDED'),
+      ).toHaveLength(1);
+      expect(events(late)).toEqual(['GAME_STATE', 'GAME_ENDED']);
+    });
   });
 });

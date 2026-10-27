@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { RealtimeService, ServerEvent } from '../../core/realtime/realtime.service';
@@ -20,8 +20,11 @@ describe('Live game page', () => {
     connect: ReturnType<typeof vi.fn>;
     joinGame: ReturnType<typeof vi.fn>;
     leaveGame: ReturnType<typeof vi.fn>;
+    spectateGame: ReturnType<typeof vi.fn>;
+    stopSpectating: ReturnType<typeof vi.fn>;
     send: ReturnType<typeof vi.fn>;
   };
+  let query: Record<string, string>;
   let api: { get: ReturnType<typeof vi.fn>; resumeBot: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
@@ -33,8 +36,11 @@ describe('Live game page', () => {
       connect: vi.fn(),
       joinGame: vi.fn(() => true),
       leaveGame: vi.fn(() => true),
+      spectateGame: vi.fn(() => true),
+      stopSpectating: vi.fn(() => true),
       send: vi.fn(() => true),
     };
+    query = {};
     api = { get: vi.fn(), resumeBot: vi.fn() };
     TestBed.configureTestingModule({
       imports: [GamePage],
@@ -42,7 +48,13 @@ describe('Live game page', () => {
         provideRouter([]),
         { provide: RealtimeService, useValue: transport },
         { provide: GamesApi, useValue: api },
-        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id })) } },
+        {
+          provide: ActivatedRoute,
+          useFactory: () => ({
+            paramMap: of(convertToParamMap({ id })),
+            queryParamMap: of(convertToParamMap(query)),
+          }),
+        },
       ],
     });
     TestBed.inject(AuthSession).establish({
@@ -253,26 +265,77 @@ describe('Live game page', () => {
     expect(element.querySelector('.connection')).toBeNull();
   });
 
-  it('falls back to a read-only board for someone who is not seated', () => {
-    api.get.mockReturnValue(
-      of({
-        id,
-        status: 'ACTIVE',
-        whitePlayer: black,
-        blackPlayer: { ...black, id: 'third', username: 'Third' },
-        board: { fen: START, turn: 'WHITE', halfmoveClock: 0, fullmoveNumber: 1 },
-        clocks: { white: 1000, black: 1000 },
-        result: null,
-        drawOffer: null,
-      }),
-    );
-    const { element, render } = setup();
-    events.next({ event: 'ERROR', data: { code: 'NOT_A_PLAYER' } });
-    render();
-    expect(api.get).toHaveBeenCalledWith(id);
-    expect(text(element, '#game-title')).toBe('White to move');
-    expect(element.querySelector('.actions')).toBeNull();
-    expect(element.querySelector('.square:not([disabled])')).toBeNull();
+  describe('as a spectator', () => {
+    const third = { ...black, id: 'third', username: 'Third', color: 'BLACK' };
+
+    it('watches instead when the server says this user has no seat', () => {
+      const { element, render, state } = setup();
+      events.next({ event: 'ERROR', data: { code: 'NOT_A_PLAYER' } });
+      render();
+      expect(transport.spectateGame).toHaveBeenCalledWith(id);
+      expect(element.querySelector('[role="alert"]')).toBeNull();
+      state({ whitePlayer: black, blackPlayer: third, spectatorCount: 1 });
+      expect(text(element, '.eyebrow')).toBe('Spectating');
+      expect(text(element, '#game-title')).toBe('White to move');
+      expect(text(element, '[data-watchers]')).toBe('1 spectator watching');
+      expect(element.querySelector('.square:not([disabled])')).toBeNull();
+    });
+
+    it('opens straight as a spectator from the live list and hides every player action', () => {
+      query = { watch: '1' };
+      const { element, state, button } = setup();
+      expect(transport.spectateGame).toHaveBeenCalledWith(id);
+      expect(transport.joinGame).not.toHaveBeenCalled();
+      // Even the seated user, if they chose to watch, gets no player controls.
+      state({ spectatorCount: 3 });
+      expect(text(element, '#game-title')).toBe('White to move');
+      expect(text(element, '[data-watchers]')).toBe('3 spectators watching');
+      for (const label of ['Resign', 'Offer draw']) expect(button(label)).toBeUndefined();
+      expect(element.querySelector('.square:not([disabled])')).toBeNull();
+      expect(text(element, '[data-seat="bottom"] .player')).toBe('Ta2b (you)');
+    });
+
+    it('follows the moves and the end of the game, then leaves for the live list', () => {
+      query = { watch: '1' };
+      const { element, render, state, button } = setup();
+      state({ whitePlayer: black, blackPlayer: third });
+      events.next({
+        event: 'MOVE_PLAYED',
+        data: {
+          gameId: id,
+          move: { number: 1, playerId: 'rival', from: 'e2', to: 'e4', notation: 'e4', fen: '' },
+          board: {
+            fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1',
+            turn: 'BLACK',
+            halfmoveClock: 0,
+            fullmoveNumber: 1,
+          },
+        },
+      });
+      render();
+      expect(text(element, '.move-list li')).toContain('e4');
+      expect(text(element, '#game-title')).toBe('Black to move');
+      events.next({
+        event: 'GAME_ENDED',
+        data: { gameId: id, result: { winner: 'WHITE', reason: 'RESIGNATION' } },
+      });
+      render();
+      expect(text(element, '#game-title')).toBe('White wins by resignation');
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      button('Stop watching')!.click();
+      render();
+      expect(transport.stopSpectating).toHaveBeenCalledWith(id);
+      expect(navigate).toHaveBeenCalledWith(['/live']);
+    });
+
+    it('shows how many people watch to the players too', () => {
+      const { element, state } = setup();
+      state();
+      expect(element.querySelector('[data-watchers]')).toBeNull();
+      state({ spectatorCount: 2 });
+      expect(text(element, '[data-watchers]')).toBe('2 spectators watching');
+      expect(text(element, '.eyebrow')).toBe('Live game');
+    });
   });
 
   it('leaves the game room when the page closes', () => {

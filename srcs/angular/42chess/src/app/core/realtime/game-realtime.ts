@@ -46,7 +46,10 @@ export interface GameSnapshot {
   botPending?: boolean;
   botThinking?: boolean;
   botError?: 'BOT_UNAVAILABLE' | 'INVALID_BOT_RESPONSE' | null;
+  /** Distinct users watching the game, sent by the server with every snapshot. */
+  spectatorCount?: number;
 }
+export type WatchMode = 'player' | 'spectator';
 
 /** Server codes the game page can explain; anything else gets the generic message. */
 const ERROR_MESSAGES: Record<string, string> = {
@@ -55,6 +58,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   GAME_NOT_ACTIVE: 'This game is not in progress.',
   GAME_ALREADY_FINISHED: 'This game has already finished.',
   NOT_A_PLAYER: 'Only the players of this game can join it.',
+  SPECTATOR_READ_ONLY: 'Spectators cannot play in this game.',
   GAME_NOT_FOUND: 'This game does not exist.',
   GAME_BUSY: 'The bot is still thinking. Try again in a moment.',
   DRAW_ALREADY_OFFERED: 'A draw offer is already pending.',
@@ -72,6 +76,8 @@ export class GameRealtime {
   readonly transport = inject(RealtimeService);
   private readonly session = inject(AuthSession);
   private readonly watched = signal<string | null>(null);
+  /** A player joins the room with a seat; a spectator only receives the game. */
+  readonly mode = signal<WatchMode>('player');
   private subscribed: string | null = null;
   // Session that selected the watched game; the transport drops its rooms when the token changes.
   private owner: { token: string; userId: string } | null = null;
@@ -88,7 +94,11 @@ export class GameRealtime {
     effect(() => {
       const id = this.watched();
       if (this.transport.state() === 'connected' && id && id !== this.subscribed) {
-        if (this.transport.joinGame(id)) this.subscribed = id;
+        const entered =
+          untracked(this.mode) === 'spectator'
+            ? this.transport.spectateGame(id)
+            : this.transport.joinGame(id);
+        if (entered) this.subscribed = id;
       }
     });
     effect(() => {
@@ -103,15 +113,16 @@ export class GameRealtime {
     this.transport.events.pipe(takeUntilDestroyed()).subscribe((packet) => this.receive(packet));
   }
 
-  watch(gameId: string): boolean {
+  watch(gameId: string, mode: WatchMode = 'player'): boolean {
     const token = this.session.token();
     const userId = this.session.user()?.id ?? null;
     if (!token || !userId || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(gameId))
       return false;
     this.follow(token, userId);
     const id = gameId.toLowerCase();
-    if (id === this.watched()) return true;
+    if (id === this.watched() && mode === this.mode()) return true;
     this.leave();
+    this.mode.set(mode);
     this.watched.set(id);
     this.owner = { token, userId };
     this.transport.connect();
@@ -119,7 +130,10 @@ export class GameRealtime {
   }
   leave(): void {
     const id = this.watched();
-    if (id) this.transport.leaveGame(id);
+    if (id) {
+      if (this.mode() === 'spectator') this.transport.stopSpectating(id);
+      else this.transport.leaveGame(id);
+    }
     this.watched.set(null);
     this.subscribed = null;
     this.owner = null;
@@ -161,7 +175,7 @@ export class GameRealtime {
   }
   private command(event: string, data: Record<string, unknown> = {}): boolean {
     const gameId = this.watched();
-    if (!gameId || this.game()?.status !== 'ACTIVE') return false;
+    if (!gameId || this.mode() === 'spectator' || this.game()?.status !== 'ACTIVE') return false;
     this.error.set(null);
     const sent = this.transport.send(event, { ...data, gameId });
     if (sent) this.pending.set(true);

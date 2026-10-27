@@ -1,0 +1,79 @@
+.live-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 16px;
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+}
+.heading {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+}
+.live-page h2,
+.live-page p {
+  margin: 0;
+}
+.muted,
+.meta,
+.versus {
+  color: var(--muted);
+}
+.live-error {
+  padding: 10px 14px;
+  border: 1px solid var(--error-border);
+  border-radius: 8px;
+  color: var(--error);
+  background: var(--error-bg);
+}
+.games {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.games[aria-busy='true'] {
+  opacity: 0.7;
+}
+.game {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.players strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta {
+  font-size: 13px;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .game {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .meta {
+    grid-column: 1;
+  }
+  .game .button {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+  }
+}

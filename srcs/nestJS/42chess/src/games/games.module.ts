@@ -14,6 +14,8 @@ import { GameTimeoutsService } from './clock/game-timeouts.service.js';
 import { GamesController } from './games.controller.js';
 import { GameHistoryController } from './game-history.controller.js';
 import { GameHistoryService } from './game-history.service.js';
+import { LiveGamesService } from './live-games.service.js';
+import { SpectatorRegistry } from './spectator-registry.js';
 import { GamePresenterService } from './game-presenter.service.js';
 import { GameActorGuard } from './game-actor.guard.js';
 import { SessionModule } from '../auth/session.module.js';
@@ -35,6 +37,8 @@ import { SessionModule } from '../auth/session.module.js';
   providers: [
     GamePresenterService,
     GameHistoryService,
+    LiveGamesService,
+    SpectatorRegistry,
     GameActorGuard,
     GamesService,
     GameStoreService,
@@ -44,7 +48,12 @@ import { SessionModule } from '../auth/session.module.js';
     GameTimeoutsService,
     ChessEngineService,
   ],
-  exports: [GamesService, GamePresenterService, GameActorGuard],
+  exports: [
+    GamesService,
+    GamePresenterService,
+    GameActorGuard,
+    SpectatorRegistry,
+  ],
   controllers: [GamesController, GameHistoryController],
 })
 export class GamesModule {}

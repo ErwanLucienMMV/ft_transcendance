@@ -53,8 +53,20 @@
     </div>
 
     <div class="game-panel">
-      <span class="eyebrow">Live game</span>
+      <span class="eyebrow">{{ spectating() ? 'Spectating' : 'Live game' }}</span>
       <h2 id="game-title" aria-live="polite">{{ headline() || 'Game' }}</h2>
+      @if (game() && spectators() > 0) {
+        <p class="watchers" data-watchers>
+          {{ spectators() }} {{ spectators() === 1 ? 'spectator' : 'spectators' }} watching
+        </p>
+      }
+      @if (spectating()) {
+        <div class="actions">
+          <button type="button" class="button secondary" (click)="stopWatching()">
+            Stop watching
+          </button>
+        </div>
+      }
 
       @if (realtime.error(); as error) {
         <p class="game-error" role="alert">{{ error.message }}</p>

@@ -7,6 +7,7 @@ import { Game } from './game.entity.js';
 import { GamePlayer } from './game-player.entity.js';
 import { Move } from './move.entity.js';
 import type { GameHistoryItem, GameOutcome } from './game-api.types.js';
+import { playerRef } from './player-ref.js';
 
 /** Finished games of one player, newest first; public like GET /games/:id. */
 @Injectable()
@@ -65,22 +66,7 @@ export class GameHistoryService {
       return {
         id: gameId,
         color,
-        opponent: seat.user
-          ? {
-              id: seat.user.id,
-              username: seat.user.username,
-              avatarUrl: seat.user.avatarUrl,
-              elo: seat.user.elo,
-              color: seat.color,
-            }
-          : {
-              id: seat.id,
-              username: `Bot ${seat.botDifficulty}`,
-              avatarUrl: null,
-              elo: null,
-              color: seat.color,
-              botDifficulty: seat.botDifficulty!,
-            },
+        opponent: playerRef(seat),
         outcome: outcome(game.result, color),
         reason: game.endReason,
         timeControl: {

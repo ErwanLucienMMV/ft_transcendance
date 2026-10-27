@@ -43,6 +43,8 @@ describe('Games REST client', () => {
       http.expectOne('/api/v1/users/00000000-0000-4000-8000-000000000002/games?limit=10&offset=20')
         .request.method,
     ).toBe('GET');
+    api.live().subscribe();
+    expect(http.expectOne('/api/v1/games/live').request.method).toBe('GET');
     http.verify();
   });
 });

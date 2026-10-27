@@ -47,9 +47,9 @@ A page reload works the same way, thanks to the refresh cookie of lot 18.
 
 ## Not seated
 
-Realtime rooms are for the two players only (the server answers `NOT_A_PLAYER`). Someone
-else who opens an active game gets a read-only board from `GET /api/v1/games/:id`. Live
-spectating (`START_SPECTATING`) belongs to the SPEC lot.
+`JOIN_GAME` is for the two players only (the server answers `NOT_A_PLAYER`). Someone else
+who opens a started game watches it live as a spectator instead: see
+`docs/spectator-mode.md`.
 
 ## Browser tests
 
