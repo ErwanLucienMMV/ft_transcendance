@@ -9,6 +9,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/home/home-page').then((m) => m.HomePage),
   },
   {
+    path: 'board',
+    title: 'Analysis board | 42 Chess',
+    loadComponent: () => import('./features/board/board-page').then((m) => m.BoardPage),
+  },
+  {
     path: 'login',
     title: 'Sign in | 42 Chess',
     loadComponent: () => import('./features/auth/login-page').then((m) => m.LoginPage),
