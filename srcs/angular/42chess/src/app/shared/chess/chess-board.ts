@@ -1,6 +1,7 @@
 import { Component, computed, input, linkedSignal, output } from '@angular/core';
 import type { PlayerColor, Promotion } from '../../core/realtime/game-realtime';
 import {
+  applyMove,
   isInCheck,
   legalMoves,
   Move,
@@ -11,6 +12,7 @@ import {
   PromotionType,
   squareIndex,
   squareName,
+  toFen,
 } from './chess-rules';
 
 export interface BoardMove {
@@ -44,6 +46,29 @@ const PROMOTION_NAMES: Record<PromotionType, Promotion> = {
   b: 'BISHOP',
   n: 'KNIGHT',
 };
+const PROMOTION_LETTERS: Record<Promotion, PromotionType> = {
+  QUEEN: 'q',
+  ROOK: 'r',
+  BISHOP: 'b',
+  KNIGHT: 'n',
+};
+
+/** UCI text of a board move, as the puzzle API and the bot engine expect it. */
+export function moveUci(move: BoardMove): string {
+  return move.from + move.to + (move.promotion ? PROMOTION_LETTERS[move.promotion] : '');
+}
+
+/** The position after a board move, for a local board or a preview; it throws on a bad FEN. */
+export function fenAfter(fen: string, move: BoardMove): string {
+  return toFen(
+    applyMove(parseFen(fen), {
+      from: move.from,
+      to: move.to,
+      promotion: move.promotion ? PROMOTION_LETTERS[move.promotion] : undefined,
+    }),
+  );
+}
+
 const REASONS: Record<string, string> = {
   CHECKMATE: 'checkmate',
   RESIGNATION: 'resignation',

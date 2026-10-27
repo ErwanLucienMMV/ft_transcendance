@@ -26,6 +26,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/game/game-page').then((m) => m.GamePage),
   },
   {
+    path: 'puzzle',
+    title: 'Daily puzzle | 42 Chess',
+    loadComponent: () => import('./features/puzzle/puzzle-page').then((m) => m.PuzzlePage),
+  },
+  {
     path: 'login',
     title: 'Sign in | 42 Chess',
     loadComponent: () => import('./features/auth/login-page').then((m) => m.LoginPage),

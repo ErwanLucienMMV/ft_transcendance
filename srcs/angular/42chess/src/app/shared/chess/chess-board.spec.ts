@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { BoardMove, ChessBoard } from './chess-board';
+import { BoardMove, ChessBoard, fenAfter, moveUci } from './chess-board';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -157,5 +157,25 @@ describe('Chessboard component', () => {
     expect(fixture.nativeElement.querySelector('[role="alert"]')?.textContent).toContain(
       'cannot be displayed',
     );
+  });
+});
+
+describe('Board move helpers', () => {
+  it('writes UCI with a lower-case promotion letter', () => {
+    expect(moveUci({ from: 'e2', to: 'e4', promotion: null })).toBe('e2e4');
+    expect(moveUci({ from: 'a7', to: 'a8', promotion: 'KNIGHT' })).toBe('a7a8n');
+  });
+
+  it('plays a move on a FEN, including a promotion', () => {
+    expect(
+      fenAfter('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', {
+        from: 'e2',
+        to: 'e4',
+        promotion: null,
+      }),
+    ).toBe('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1');
+    expect(
+      fenAfter('8/P6k/8/8/8/8/8/K7 w - - 0 1', { from: 'a7', to: 'a8', promotion: 'ROOK' }),
+    ).toBe('R7/7k/8/8/8/8/8/K7 b - - 0 1');
   });
 });

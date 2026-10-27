@@ -51,7 +51,8 @@ services:
       MAIL_SERVICE_URL: http://mail-e2e:3002
       CHESS_ENGINE_URL: ws://chess-engine-e2e:8081
       BOT_ENGINE_URL: ws://bot-e2e:8082
-    command: [sh, -c, 'node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js && node dist/main.js']
+    # The bundled puzzle catalogue is imported (and checked by the engine) before the API starts.
+    command: [sh, -c, 'node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js && node dist/puzzles/run-puzzle-import.js && node dist/main.js']
     depends_on:
       postgres-e2e:
         condition: service_healthy

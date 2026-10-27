@@ -8,6 +8,7 @@
     <h1 class="sr-only">Hello, {{ title() }}</h1>
     <nav aria-label="Main navigation">
       <a routerLink="/play" routerLinkActive="active" ariaCurrentWhenActive="page">Play</a>
+      <a routerLink="/puzzle" routerLinkActive="active" ariaCurrentWhenActive="page">Puzzle</a>
       <a routerLink="/board" routerLinkActive="active" ariaCurrentWhenActive="page">Board</a>
       @if (session.user(); as user) {
         <a routerLink="/session" routerLinkActive="active" ariaCurrentWhenActive="page">{{

@@ -1,10 +1,9 @@
 import { Component, computed, signal } from '@angular/core';
 import { PlayerColor } from '../../core/realtime/game-realtime';
-import { BoardMove, ChessBoard } from '../../shared/chess/chess-board';
-import { applyMove, parseFen, Position, toFen } from '../../shared/chess/chess-rules';
+import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
+import { parseFen, Position } from '../../shared/chess/chess-rules';
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-const PROMOTIONS = { QUEEN: 'q', ROOK: 'r', BISHOP: 'b', KNIGHT: 'n' } as const;
 
 /** Local analysis board: nothing here reaches the server, so it is also the board's showcase. */
 @Component({
@@ -88,12 +87,7 @@ export class BoardPage {
   readonly turn = computed(() => `${this.position().turn === 'w' ? 'White' : 'Black'} to move.`);
 
   play(move: BoardMove): void {
-    const next = applyMove(this.position(), {
-      from: move.from,
-      to: move.to,
-      promotion: move.promotion ? PROMOTIONS[move.promotion] : undefined,
-    });
-    this.fen.set(toFen(next));
+    this.fen.set(fenAfter(this.fen(), move));
     this.lastMove.set({ from: move.from, to: move.to });
   }
 

@@ -14,13 +14,11 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { GameMove, GamePlayer, GameRealtime, PlayerColor } from '../../core/realtime/game-realtime';
-import { BoardMove, ChessBoard } from '../../shared/chess/chess-board';
-import { applyMove, parseFen, toFen } from '../../shared/chess/chess-rules';
+import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
 import { GameClock } from './game-clock';
 import { GamesApi, GameView } from './games-api';
 
 const BOT_NAMES: Record<string, string> = { EASY: 'Easy', MEDIUM: 'Medium', HARD: 'Hard' };
-const PROMOTIONS = { QUEEN: 'q', ROOK: 'r', BISHOP: 'b', KNIGHT: 'n' } as const;
 const REASONS: Record<string, string> = {
   CHECKMATE: 'by checkmate',
   RESIGNATION: 'by resignation',
@@ -100,13 +98,7 @@ export class GamePage {
     const proposed = this.proposed();
     if (!this.realtime.pending() || proposed?.base !== game.board.fen) return game.board.fen;
     try {
-      return toFen(
-        applyMove(parseFen(game.board.fen), {
-          from: proposed.move.from,
-          to: proposed.move.to,
-          promotion: proposed.move.promotion ? PROMOTIONS[proposed.move.promotion] : undefined,
-        }),
-      );
+      return fenAfter(game.board.fen, proposed.move);
     } catch {
       return game.board.fen;
     }

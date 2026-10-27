@@ -1,0 +1,71 @@
+<section class="puzzle-page" aria-labelledby="puzzle-title">
+  <div class="board-column">
+    @if (daily()) {
+      <app-chess-board
+        [fen]="fen()"
+        [orientation]="color()"
+        [lastMove]="sending() ?? lastMove()"
+        [interactive]="canMove()"
+        [playerColor]="color()"
+        (moved)="play($event)"
+      />
+    } @else if (loading()) {
+      <p class="muted" role="status">Loading today's puzzle…</p>
+    }
+  </div>
+
+  <div class="puzzle-panel">
+    <span class="eyebrow">Daily puzzle</span>
+    <h2 id="puzzle-title">{{ daily() ? prompt() : "Today's puzzle" }}</h2>
+
+    @if (error(); as message) {
+      <p class="puzzle-error" role="alert">{{ message }}</p>
+    }
+
+    @if (daily(); as puzzle) {
+      <p class="feedback" role="status" [attr.data-feedback]="feedback()">
+        @if (feedback() === 'correct' && !solved()) {
+          The opponent answered. Your move again.
+        } @else if (feedback() === 'incorrect') {
+          The position is unchanged.
+        }
+      </p>
+
+      @if (solved()) {
+        <dl class="result" aria-label="Your result">
+          <div>
+            <dt>Time</dt>
+            <dd data-result="time">{{ time() }}</dd>
+          </div>
+          <div>
+            <dt>Wrong tries</dt>
+            <dd data-result="mistakes">{{ mistakes() }}</dd>
+          </div>
+        </dl>
+        <button type="button" class="button secondary" (click)="restart()">Solve it again</button>
+      }
+
+      @if (!session.authenticated()) {
+        <p>Sign in to solve the puzzle. Your progress and time are saved.</p>
+        <a class="button" routerLink="/login" [queryParams]="{ returnUrl: '/puzzle' }">Sign in</a>
+      }
+
+      <dl class="details">
+        <div>
+          <dt>Rating</dt>
+          <dd>{{ puzzle.rating }}</dd>
+        </div>
+        <div>
+          <dt>Date</dt>
+          <dd>{{ puzzle.date }}</dd>
+        </div>
+        @if (themes().length) {
+          <div>
+            <dt>Themes</dt>
+            <dd>{{ themes().join(', ') }}</dd>
+          </div>
+        }
+      </dl>
+    }
+  </div>
+</section>
