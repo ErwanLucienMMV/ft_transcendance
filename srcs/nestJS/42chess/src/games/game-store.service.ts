@@ -20,6 +20,28 @@ export class GameStoreService {
     return this.source.transaction(action);
   }
 
+  async now(manager: EntityManager): Promise<Date> {
+    const [row]: { now: Date }[] = await manager.query(
+      'SELECT clock_timestamp() AS now',
+    );
+    return row.now;
+  }
+
+  async activeBotGames(
+    manager: EntityManager,
+    userId: string,
+  ): Promise<number> {
+    const [row]: { count: number }[] = await manager.query(
+      `SELECT count(*)::int AS count
+      FROM game_players human JOIN games g ON g.id = human."gameId"
+      WHERE human."userId" = $1 AND g.status = 'ACTIVE'
+      AND EXISTS (SELECT 1 FROM game_players bot
+        WHERE bot."gameId" = g.id AND bot."botDifficulty" IS NOT NULL)`,
+      [userId],
+    );
+    return row.count;
+  }
+
   async dueClocks(): Promise<string[]> {
     const rows: { id: string }[] = await this.source.query(`SELECT id FROM games
       WHERE status='ACTIVE' AND "clockDeadline" <= CURRENT_TIMESTAMP
@@ -31,8 +53,9 @@ export class GameStoreService {
   async locked<T>(
     id: string,
     action: (manager: EntityManager, state: GameState) => Promise<T>,
+    failIfBusy = false,
   ): Promise<T> {
-    return (await this.lockTransaction(id, action, false)) as T;
+    return (await this.lockTransaction(id, action, false, failIfBusy)) as T;
   }
 
   /** Background work skips busy parents and retries their durable deadline later. */
@@ -47,6 +70,7 @@ export class GameStoreService {
     id: string,
     action: (manager: EntityManager, state: GameState) => Promise<T>,
     skipBusy: boolean,
+    failIfBusy = false,
   ): Promise<T | undefined> {
     try {
       const changes: { gameId: string; userIds: string[]; active: boolean }[] =
@@ -57,7 +81,11 @@ export class GameStoreService {
           where: { id },
           lock: {
             mode: 'pessimistic_write',
-            onLocked: skipBusy ? 'skip_locked' : undefined,
+            onLocked: skipBusy
+              ? 'skip_locked'
+              : failIfBusy
+                ? 'nowait'
+                : undefined,
           },
         });
         if (!game && skipBusy) return undefined;

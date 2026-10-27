@@ -7,11 +7,13 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { AppModule } from '../dist/app.module.js';
 import { User } from '../dist/users/user.entity.js';
+import { SessionService } from '../dist/auth/session.service.js';
 
 describe('SCRUM-95 current user (real JWT and PostgreSQL)', () => {
   let app: INestApplication<App>;
   let source: DataSource;
   let user: User;
+  let sessions: SessionService;
   const jwt = new JwtService();
   const secret = process.env.JWT_SECRET!;
   const sign = (sub: string, options = {}) =>
@@ -30,6 +32,7 @@ describe('SCRUM-95 current user (real JWT and PostgreSQL)', () => {
     ).createNestApplication();
     await app.init();
     source = app.get(DataSource);
+    sessions = app.get(SessionService);
     user = await source.getRepository(User).save({
       username: `me_${randomUUID().slice(0, 8)}`,
       email: `me_${randomUUID()}@example.com`,
@@ -49,7 +52,10 @@ describe('SCRUM-95 current user (real JWT and PostgreSQL)', () => {
       .findOneByOrFail({ id: user.id });
     const response = await request(app.getHttpServer())
       .get('/v1/users/me')
-      .set('Authorization', `Bearer ${await sign(user.id)}`)
+      .set(
+        'Authorization',
+        `Bearer ${(await sessions.issue(user)).accessToken}`,
+      )
       .expect(200);
     expect(response.body).toEqual({
       id: user.id,
@@ -96,10 +102,35 @@ describe('SCRUM-95 current user (real JWT and PostgreSQL)', () => {
       .expect(401);
   });
   it('does not return an arbitrary account for a deleted token subject', async () => {
+    const deleted = await source
+      .getRepository(User)
+      .save({
+        username: `deleted_${randomUUID().slice(0, 8)}`,
+        emailVerifiedAt: new Date(),
+      });
+    const { accessToken } = await sessions.issue(deleted);
+    await source.getRepository(User).delete(deleted.id);
     const response = await request(app.getHttpServer())
       .get('/v1/users/me')
-      .set('Authorization', `Bearer ${await sign(randomUUID())}`)
-      .expect(404);
-    expect(response.body.code).toBe('USER_NOT_FOUND');
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(401);
+    expect(response.body.code).toBe('AUTH_REQUIRED');
+  });
+  it('refuses a revoked session while accepting another session for the same user', async () => {
+    const first = await sessions.issue(user),
+      second = await sessions.issue(user);
+    await request(app.getHttpServer())
+      .post('/v1/auth/logout')
+      .auth(first.accessToken, { type: 'bearer' })
+      .expect(204);
+    const refused = await request(app.getHttpServer())
+      .get('/v1/users/me')
+      .auth(first.accessToken, { type: 'bearer' })
+      .expect(401);
+    expect(refused.body.code).toBe('AUTH_REQUIRED');
+    await request(app.getHttpServer())
+      .get('/v1/users/me')
+      .auth(second.accessToken, { type: 'bearer' })
+      .expect(200);
   });
 });

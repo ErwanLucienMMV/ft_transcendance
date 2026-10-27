@@ -54,6 +54,9 @@
               "outputHashing": "all"
             },
             "development": {
+              "security": {
+                "allowedHosts": ["localhost", "127.0.0.1"]
+              },
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
@@ -63,6 +66,7 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": { "proxyConfig": "proxy.conf.mjs" },
           "configurations": {
             "production": {
               "buildTarget": "42chess:build:production"
