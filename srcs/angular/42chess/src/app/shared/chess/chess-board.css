@@ -1,0 +1,154 @@
+:host {
+  display: block;
+  --light-square: #f4f1dc;
+  --dark-square: #5f7a66;
+  --last-move: rgba(196, 235, 92, 0.42);
+  --selected: rgba(196, 235, 92, 0.7);
+  --check: rgba(255, 92, 72, 0.85);
+}
+.board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 3px;
+  user-select: none;
+}
+.square {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  display: grid;
+  place-items: center;
+  background: var(--light-square);
+  color: var(--dark-square);
+  cursor: pointer;
+}
+.square.dark {
+  background: var(--dark-square);
+  color: var(--light-square);
+}
+.square:hover {
+  background: var(--light-square);
+}
+.square.dark:hover {
+  background: var(--dark-square);
+}
+.square:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.square:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+  z-index: 1;
+}
+.square.last-move {
+  box-shadow: inset 0 0 0 999px var(--last-move);
+}
+.square.selected {
+  box-shadow: inset 0 0 0 999px var(--selected);
+}
+.square.check {
+  background-image: radial-gradient(circle, var(--check) 0%, var(--check) 35%, transparent 72%);
+}
+.square.target::after {
+  content: '';
+  position: absolute;
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: rgba(18, 24, 11, 0.35);
+  pointer-events: none;
+}
+.square.capture::after {
+  width: 88%;
+  height: 88%;
+  background: transparent;
+  border: 5px solid rgba(18, 24, 11, 0.35);
+}
+.piece {
+  display: block;
+  width: 89%;
+  height: 89%;
+  pointer-events: none;
+  fill: currentColor;
+  stroke-linejoin: round;
+}
+.piece.black {
+  color: #1c2922;
+  stroke: #e2e6d8;
+  stroke-width: 1.1;
+}
+.piece.white {
+  color: #fffde9;
+  stroke: #243329;
+  stroke-width: 1.8;
+}
+.coord {
+  position: absolute;
+  font-size: clamp(8px, 1.6vw, 12px);
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+.rank {
+  top: 4px;
+  left: 4px;
+}
+.file {
+  right: 4px;
+  bottom: 3px;
+}
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(14, 17, 18, 0.62);
+  z-index: 2;
+}
+.promotion {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.promotion button {
+  width: 64px;
+  height: 64px;
+  padding: 4px;
+  background: var(--field);
+}
+.promotion button:hover {
+  background: var(--border);
+}
+.promotion .cancel {
+  width: auto;
+  flex-basis: 100%;
+  height: auto;
+  color: var(--text);
+}
+.overlay.result {
+  background: rgba(14, 17, 18, 0.28);
+}
+.result p {
+  margin: 0;
+  padding: 14px 22px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-weight: 700;
+  text-align: center;
+}
+.invalid {
+  color: var(--error);
+}
