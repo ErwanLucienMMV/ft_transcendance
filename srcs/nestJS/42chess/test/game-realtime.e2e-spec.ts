@@ -142,6 +142,36 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
     return { id, a, b };
   }
 
+  it('synchronizes a persisted clock after reconnect and freezes after resignation', async () => {
+    const { id, a } = await active();
+    a.send('SYNC_CLOCK', { gameId: id, requestId: 42 });
+    const first = await a.take('CLOCK_SYNC');
+    expect(first.data).toMatchObject({
+      requestId: 42,
+      clockStatus: 'RUNNING',
+      status: 'ACTIVE',
+      turn: 'WHITE',
+    });
+    expect(Number.isFinite(Date.parse(first.data.serverTime))).toBe(true);
+    expect(first.data.clocks.white).toBeLessThanOrEqual(300000);
+    await a.close();
+    const reconnected = await connect('fixture-white');
+    reconnected.send('JOIN_GAME', { gameId: id });
+    const restored = await reconnected.take('GAME_STATE');
+    expect(restored.data.clockStatus).toBe('RUNNING');
+    expect(Date.parse(restored.data.serverTime)).toBeGreaterThanOrEqual(
+      Date.parse(first.data.serverTime),
+    );
+    reconnected.send('RESIGN', { gameId: id });
+    await reconnected.take('GAME_STATE', (data) => data.status === 'FINISHED');
+    reconnected.send('SYNC_CLOCK', { gameId: id, requestId: 43 });
+    const terminal = await reconnected.take('CLOCK_SYNC');
+    expect(terminal.data).toMatchObject({
+      requestId: 43,
+      status: 'FINISHED',
+      clockStatus: 'STOPPED',
+    });
+  });
   it('broadcasts a legal move identically to both players with durable SAN/history', async () => {
     const { id, a, b } = await active();
     a.send('MAKE_MOVE', { gameId: id, from: 'e2', to: 'e4', promotion: null });

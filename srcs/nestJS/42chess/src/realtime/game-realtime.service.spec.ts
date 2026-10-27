@@ -86,6 +86,38 @@ describe('Game realtime routing and rooms', () => {
       }),
     );
   });
+  it('samples the durable database clock and validates room sync requests', async () => {
+    state.game.clock = { updatedAt: 1793181600000, status: 'RUNNING' };
+    await expect(
+      command('SYNC_CLOCK', a, { requestId: 1 }),
+    ).rejects.toMatchObject({ status: 403 });
+    await join();
+    await command('SYNC_CLOCK', a, { requestId: 7 });
+    expect(a.send).toHaveBeenCalledWith(
+      'CLOCK_SYNC',
+      expect.objectContaining({
+        gameId: id,
+        requestId: 7,
+        serverTime: new Date(state.game.clock.updatedAt).toISOString(),
+        clockStatus: 'RUNNING',
+        processingMs: expect.any(Number),
+        sampleAgeMs: expect.any(Number),
+      }),
+    );
+    await service.tick();
+    expect(a.send).toHaveBeenCalledWith(
+      'CLOCK_UPDATE',
+      expect.objectContaining({
+        serverTime: new Date(state.game.clock.updatedAt).toISOString(),
+      }),
+    );
+    await expect(
+      command('SYNC_CLOCK', a, { requestId: -1 }),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      command('SYNC_CLOCK', a, { requestId: 1, clocks: {} }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
   it('refuses outsiders without subscribing them', async () => {
     await expect(join({ ...a, userId: 'outsider' })).rejects.toMatchObject({
       code: 'NOT_A_PLAYER',
