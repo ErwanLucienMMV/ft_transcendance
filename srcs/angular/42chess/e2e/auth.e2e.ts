@@ -55,13 +55,17 @@ test('registers, refuses unverified login, verifies email and signs in against t
   await expect(page).toHaveURL(/\/login\?returnUrl=%2Fsession$/);
   await page.getByLabel('Username or email address').fill(username);
   await page.getByLabel('Password', { exact: true }).fill(password);
-  const signedIn = page.waitForResponse(
-    (r) => r.url().endsWith('/auth/login') && r.request().method() === 'POST',
-  );
+  // Keep a copy of the login answer: Chromium may drop a response body once the page moves on.
+  let identity: { accessToken: string; user: { id: string } } | undefined;
+  await page.route('**/api/v1/auth/login', async (route) => {
+    const response = await route.fetch();
+    identity = await response.json();
+    await route.fulfill({ response });
+  });
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  // Read the body before the redirect: Chromium drops it once the page navigates.
-  const identity = await (await signedIn).json();
   await expect(page).toHaveURL(/\/session$/);
+  await page.unroute('**/api/v1/auth/login');
+  if (!identity) throw new Error('The login answer was not captured.');
   const authenticated = await page.evaluate(
     (token: string) =>
       new Promise<string>((resolve, reject) => {

@@ -15,7 +15,7 @@ import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { GameMove, GamePlayer, GameRealtime, PlayerColor } from '../../core/realtime/game-realtime';
 import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
-import { botName, moveRows, resultText } from '../../shared/chess/game-text';
+import { botName, moveRows, resultText, seatOf } from '../../shared/chess/game-text';
 import { GameClock } from './game-clock';
 import { GamesApi } from './games-api';
 
@@ -65,13 +65,7 @@ export class GamePage {
   readonly spectating = computed(() => this.realtime.mode() === 'spectator');
   readonly spectators = computed(() => this.game()?.spectatorCount ?? 0);
   /** The seat this page plays; a spectator plays none, even when signed in as a player. */
-  readonly myColor = computed<PlayerColor | null>(() => {
-    const game = this.game();
-    const me = this.me();
-    if (!game || !me || this.spectating()) return null;
-    if (game.whitePlayer?.id === me) return 'WHITE';
-    return game.blackPlayer?.id === me ? 'BLACK' : null;
-  });
+  readonly myColor = computed(() => (this.spectating() ? null : seatOf(this.game(), this.me())));
   readonly orientation = computed<PlayerColor>(() => this.myColor() ?? 'WHITE');
   readonly bot = computed(
     () =>

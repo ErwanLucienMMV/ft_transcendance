@@ -2,8 +2,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { Component, DestroyRef, inject, PLATFORM_ID, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthSession } from '../../core/auth/auth-session';
-import type { GamePlayer } from '../../core/realtime/game-realtime';
-import { botName } from '../../shared/chess/game-text';
+import { playerLabel, seatOf } from '../../shared/chess/game-text';
 import { GamesApi, LiveGame, timeControlLabel } from '../game/games-api';
 
 /** The list follows new games and spectator counts without a reload. */
@@ -23,6 +22,7 @@ export class LivePage {
   readonly loading = signal(false);
   readonly failed = signal(false);
   readonly timeControlLabel = timeControlLabel;
+  readonly name = playerLabel;
 
   constructor() {
     if (!isPlatformBrowser(inject(PLATFORM_ID))) return;
@@ -47,15 +47,8 @@ export class LivePage {
     });
   }
 
-  name(player: GamePlayer | null): string {
-    if (!player) return 'Unknown player';
-    if (player.botDifficulty) return botName(player.botDifficulty);
-    return player.elo === null ? player.username : `${player.username} (${player.elo})`;
-  }
-
   /** My own games open as the player; any other one opens read-only. */
   mine(game: LiveGame): boolean {
-    const me = this.session.user()?.id;
-    return !!me && (game.whitePlayer?.id === me || game.blackPlayer?.id === me);
+    return seatOf(game, this.session.user()?.id) !== null;
   }
 }

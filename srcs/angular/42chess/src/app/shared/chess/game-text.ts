@@ -1,6 +1,7 @@
 import type {
   BotDifficulty,
   GameMove,
+  GamePlayer,
   GameResult,
   PlayerColor,
 } from '../../core/realtime/game-realtime';
@@ -36,6 +37,23 @@ export function resultText(result: GameResult, mine: PlayerColor | null = null):
 
 export function botName(difficulty: BotDifficulty): string {
   return `Computer · ${BOT_NAMES[difficulty]}`;
+}
+
+/** "rival (1216)", or the bot level; the rating is left out when there is none. */
+export function playerLabel(player: GamePlayer | null): string {
+  if (!player) return 'Unknown player';
+  if (player.botDifficulty) return botName(player.botDifficulty);
+  return player.elo === null ? player.username : `${player.username} (${player.elo})`;
+}
+
+/** The colour a user plays in a game, or null when they are not seated. */
+export function seatOf(
+  game: { whitePlayer: GamePlayer | null; blackPlayer: GamePlayer | null } | null,
+  userId: string | null | undefined,
+): PlayerColor | null {
+  if (!game || !userId) return null;
+  if (game.whitePlayer?.id === userId) return 'WHITE';
+  return game.blackPlayer?.id === userId ? 'BLACK' : null;
 }
 
 export interface MoveRow {

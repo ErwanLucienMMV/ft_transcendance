@@ -4,7 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
-import { botName, endReason } from '../../shared/chess/game-text';
+import { endReason, playerLabel } from '../../shared/chess/game-text';
 import { GameHistoryItem, GamesApi, Page, timeControlLabel } from '../game/games-api';
 
 export const HISTORY_PAGE_SIZE = 10;
@@ -55,9 +55,7 @@ export class HistoryPage {
   }
 
   opponent(item: GameHistoryItem): string {
-    const { opponent } = item;
-    if (opponent.botDifficulty) return botName(opponent.botDifficulty);
-    return opponent.elo === null ? opponent.username : `${opponent.username} (${opponent.elo})`;
+    return playerLabel(item.opponent);
   }
 
   details(item: GameHistoryItem): string {

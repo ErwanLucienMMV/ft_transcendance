@@ -44,6 +44,11 @@ describe('Player game history (HISTORY-03/04/05/06/07/08)', () => {
   afterAll(async () => {
     if (source?.isInitialized) {
       const ids = [white, black, idle].filter(Boolean).map((user) => user.id);
+      // Rated games keep rating rows that reference both the game and the users.
+      await source.query(
+        'DELETE FROM rating_history WHERE "userId" = ANY($1)',
+        [ids],
+      );
       await source.query(
         'DELETE FROM games WHERE id IN (SELECT "gameId" FROM game_players WHERE "userId" = ANY($1))',
         [ids],

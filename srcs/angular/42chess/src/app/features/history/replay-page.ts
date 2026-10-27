@@ -12,9 +12,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin, map } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
 import { AuthSession } from '../../core/auth/auth-session';
-import type { GameMove, GamePlayer, PlayerColor } from '../../core/realtime/game-realtime';
+import type { GameMove, PlayerColor } from '../../core/realtime/game-realtime';
 import { ChessBoard } from '../../shared/chess/chess-board';
-import { botName, moveRows, resultText, START_FEN } from '../../shared/chess/game-text';
+import { moveRows, playerLabel, resultText, seatOf, START_FEN } from '../../shared/chess/game-text';
 import { GamesApi, GameView } from '../game/games-api';
 
 /**
@@ -45,6 +45,7 @@ export class ReplayPage {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly flipped = signal(false);
+  readonly name = playerLabel;
   /** Plies shown from the start; a newly loaded game opens on its final position. */
   readonly ply = linkedSignal(() => this.moves().length);
 
@@ -54,13 +55,7 @@ export class ReplayPage {
     const move = this.moves()[this.ply() - 1];
     return move ? { from: move.from, to: move.to } : null;
   });
-  readonly myColor = computed<PlayerColor | null>(() => {
-    const game = this.game();
-    const me = this.session.user()?.id;
-    if (!game || !me) return null;
-    if (game.whitePlayer?.id === me) return 'WHITE';
-    return game.blackPlayer?.id === me ? 'BLACK' : null;
-  });
+  readonly myColor = computed(() => seatOf(this.game(), this.session.user()?.id));
   readonly orientation = computed<PlayerColor>(() => {
     const base = this.myColor() ?? 'WHITE';
     return this.flipped() ? (base === 'WHITE' ? 'BLACK' : 'WHITE') : base;
@@ -77,12 +72,6 @@ export class ReplayPage {
       const id = this.gameId();
       untracked(() => this.load(id));
     });
-  }
-
-  name(player: GamePlayer | null): string {
-    if (!player) return 'Unknown player';
-    if (player.botDifficulty) return botName(player.botDifficulty);
-    return player.elo === null ? player.username : `${player.username} (${player.elo})`;
   }
 
   goTo(ply: number, event?: Event): void {
