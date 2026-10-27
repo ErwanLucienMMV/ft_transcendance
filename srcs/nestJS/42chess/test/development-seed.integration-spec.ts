@@ -97,7 +97,7 @@ describe('DB-22 DB-23 DB-24 DB-25 development fixtures', () => {
   });
   it('aborts all inserts on username collision and preserves the existing account', async () => {
     await source.query(
-      'TRUNCATE moves, game_players, games, oauth_accounts, friend_requests, friendships, messages, game_messages, rating_history, matchmaking_queue, puzzle_attempts, users',
+      'TRUNCATE oauth_flows, auth_sessions, moves, game_players, games, oauth_accounts, friend_requests, friendships, messages, game_messages, rating_history, matchmaking_queue, puzzle_attempts, users',
     );
     await source.query(`INSERT INTO users (username) VALUES ('dev_bob')`);
     await expect(seedDevelopment(source, env)).rejects.toThrow();

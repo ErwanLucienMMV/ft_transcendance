@@ -1,22 +1,22 @@
+import { PresenceModule } from '../presence/presence.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { RealtimeGateway } from './realtime.gateway.js';
-import {
-  RealtimeAuthenticator,
-  UnavailableRealtimeAuthenticator,
-} from './realtime-authenticator.js';
+import { RealtimeAuthenticator } from './realtime-authenticator.js';
+import { SessionRealtimeAuthenticator } from './session-realtime-authenticator.js';
+import { SessionModule } from '../auth/session.module.js';
 import { RealtimeMessages } from './realtime-messages.js';
 import { GamesModule } from '../games/games.module.js';
 import { GameRealtimeService } from './game-realtime.service.js';
 
 @Module({
-  imports: [ConfigModule, GamesModule],
+  imports: [ConfigModule, GamesModule, SessionModule, PresenceModule],
   providers: [
     RealtimeGateway,
     { provide: RealtimeMessages, useClass: GameRealtimeService },
     {
       provide: RealtimeAuthenticator,
-      useClass: UnavailableRealtimeAuthenticator,
+      useClass: SessionRealtimeAuthenticator,
     },
   ],
   exports: [RealtimeGateway],

@@ -3,6 +3,7 @@ import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 export interface RealtimePrincipal {
   userId: string;
   expiresAt: number;
+  validate?: () => Promise<void>;
 }
 
 /** SCRUM-178 integration seam: implementations MUST verify JWT and user eligibility. */

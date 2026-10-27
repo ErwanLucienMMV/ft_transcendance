@@ -13,6 +13,8 @@ import { User } from '../dist/users/user.entity.js';
 import { Game } from '../dist/games/game.entity.js';
 import { GamePlayer } from '../dist/games/game-player.entity.js';
 import { Move } from '../dist/games/move.entity.js';
+import { RatingHistory } from '../dist/rating/rating-history.entity.js';
+import { RatingService } from '../dist/rating/rating.service.js';
 
 export const INITIAL_FEN =
   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -46,16 +48,16 @@ export function gameFixture(bot: BotEngine = new NativeBotAdapter()) {
     source = new DataSource({
       ...options,
       schema,
-      entities: [User, Game, GamePlayer, Move],
+      entities: [User, Game, GamePlayer, Move, RatingHistory],
       extra: { ...options.extra, options: `-c search_path=${schema},public` },
     });
     await source.initialize();
     await source.runMigrations();
     service = new GamesService(
-      new GameStoreService(source),
+      new GameStoreService(source, new RatingService()),
       new GameRulesService(engine),
       new GameAgreementsService(
-        new GameStoreService(source),
+        new GameStoreService(source, new RatingService()),
         new GameClocksService(),
       ),
       new GameClocksService(),
@@ -75,7 +77,7 @@ export function gameFixture(bot: BotEngine = new NativeBotAdapter()) {
 
   beforeEach(async () => {
     await source.query(
-      'TRUNCATE "oauth_accounts", "friend_requests", "friendships", "messages", "game_messages", "rating_history", "matchmaking_queue", "puzzle_attempts", "moves", "game_players", "games", "users"',
+      'TRUNCATE "oauth_flows", "auth_sessions", "oauth_accounts", "friend_requests", "friendships", "messages", "game_messages", "rating_history", "matchmaking_queue", "puzzle_attempts", "moves", "game_players", "games", "users"',
     );
     const rows = await source.query(`INSERT INTO "users" ("username")
       VALUES ('white_player'), ('black_player'), ('outsider') RETURNING "id"`);

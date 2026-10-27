@@ -29,6 +29,14 @@ export class Puzzle {
   id: string;
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
+  @Column({ type: 'text', nullable: true, unique: true })
+  sourceId: string | null;
+  @Column({ type: 'text', nullable: true })
+  sourceUrl: string | null;
+  @Column({ type: 'text', array: true, nullable: true })
+  sourceThemes: string[] | null;
+  @Column({ type: 'timestamptz', nullable: true })
+  validatedAt: Date | null;
   @Column({ type: 'text' })
   fen: string;
   // UCI storage remains available to the existing engine integration. Never a public DTO.
