@@ -1,0 +1,33 @@
+<section class="play-page" aria-labelledby="play-title">
+  <span class="eyebrow">Play</span>
+  <h2 id="play-title">Start a game</h2>
+
+  <article class="play-card" aria-labelledby="friend-title">
+    <h3 id="friend-title">Play a friend</h3>
+    <p>Pick a time control. You get a link to send; the game starts when your friend opens it.</p>
+    <fieldset>
+      <legend>Time control (minutes + seconds per move)</legend>
+      <div class="controls">
+        @for (control of controls; track control.label) {
+          <label class="control" [class.chosen]="control === selected()">
+            <input
+              type="radio"
+              name="time-control"
+              [value]="control.label"
+              [checked]="control === selected()"
+              (change)="selected.set(control)"
+            />
+            <strong>{{ control.label }}</strong>
+            <span>{{ control.category }}</span>
+          </label>
+        }
+      </div>
+    </fieldset>
+    @if (error(); as message) {
+      <p class="play-error" role="alert">{{ message }}</p>
+    }
+    <button type="button" [disabled]="creating()" (click)="create()">
+      {{ creating() ? 'Creating…' : 'Create game' }}
+    </button>
+  </article>
+</section>

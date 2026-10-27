@@ -1,0 +1,133 @@
+@if (invalid()) {
+  <section class="game-missing" role="alert">
+    <h2>This game link is not valid.</h2>
+    <a class="button" routerLink="/play">Start a new game</a>
+  </section>
+} @else {
+  <section class="game-page" aria-labelledby="game-title">
+    <div class="board-column">
+      @if (connection(); as text) {
+        <div class="connection" role="status">
+          <span>{{ text }}</span>
+          @if (realtime.transport.state() === 'unavailable') {
+            <button type="button" class="button secondary" (click)="realtime.reconnect()">
+              Reconnect
+            </button>
+          }
+        </div>
+      }
+      @if (game(); as current) {
+        <div class="seat top" data-seat="top">
+          <span class="player">{{ name(top().player) }}</span>
+          <app-game-clock
+            [remaining]="top().remaining"
+            [running]="top().running"
+            [label]="top().color === 'WHITE' ? 'White' : 'Black'"
+          />
+        </div>
+        <app-chess-board
+          [fen]="fen()"
+          [orientation]="orientation()"
+          [lastMove]="lastMove()"
+          [interactive]="canPlay()"
+          [playerColor]="myColor()"
+          [result]="current.result"
+          (moved)="play($event)"
+        />
+        <div class="seat bottom" data-seat="bottom">
+          <span class="player">{{ name(bottom().player) }}</span>
+          <app-game-clock
+            [remaining]="bottom().remaining"
+            [running]="bottom().running"
+            [label]="bottom().color === 'WHITE' ? 'White' : 'Black'"
+          />
+        </div>
+      } @else if (!realtime.error()) {
+        <p class="loading" role="status">Loading the game…</p>
+      }
+    </div>
+
+    <div class="game-panel">
+      <span class="eyebrow">Live game</span>
+      <h2 id="game-title" aria-live="polite">{{ headline() || 'Game' }}</h2>
+
+      @if (realtime.error(); as error) {
+        <p class="game-error" role="alert">{{ error.message }}</p>
+      }
+
+      @if (game(); as current) {
+        @if (current.status === 'WAITING') {
+          <div class="invite">
+            <p>Send this link to your opponent. The game starts as soon as they open it.</p>
+            <input
+              readonly
+              aria-label="Game link"
+              [value]="link()"
+              (focus)="$any($event.target).select()"
+            />
+            <button type="button" class="button secondary" (click)="copy()">
+              {{ copied() ? 'Link copied' : 'Copy link' }}
+            </button>
+          </div>
+        }
+
+        @if (current.status === 'ACTIVE' && myColor()) {
+          @if (drawOfferedByOpponent()) {
+            <div class="draw-offer" role="alert">
+              <p>Your opponent offers a draw.</p>
+              <div class="actions">
+                <button type="button" (click)="realtime.acceptDraw()">Accept draw</button>
+                <button type="button" class="button secondary" (click)="realtime.declineDraw()">
+                  Decline
+                </button>
+              </div>
+            </div>
+          } @else if (drawOfferedByMe()) {
+            <p role="status">Draw offered. Waiting for your opponent's answer.</p>
+          }
+          @if (drawDeclined()) {
+            <p role="status">Your draw offer was declined.</p>
+          }
+          <div class="actions">
+            @if (!bot() && !current.drawOffer) {
+              <button type="button" class="button secondary" (click)="realtime.offerDraw()">
+                Offer draw
+              </button>
+            }
+            @if (confirmingResign()) {
+              <button type="button" class="danger" (click)="resign()">Confirm resignation</button>
+              <button type="button" class="button secondary" (click)="confirmingResign.set(false)">
+                Keep playing
+              </button>
+            } @else {
+              <button type="button" class="button secondary" (click)="resign()">Resign</button>
+            }
+          </div>
+        }
+
+        @if (current.status === 'FINISHED') {
+          <div class="actions">
+            <a class="button" routerLink="/play">New game</a>
+            <a class="button secondary" routerLink="/board">Analysis board</a>
+          </div>
+        }
+
+        <section class="move-list" aria-labelledby="moves-title">
+          <h3 id="moves-title">Moves</h3>
+          @if (rows().length) {
+            <ol>
+              @for (row of rows(); track row.number) {
+                <li [attr.value]="row.number">
+                  <span>{{ row.white ?? '…' }}</span
+                  ><span>{{ row.black ?? '' }}</span>
+                </li>
+              }
+            </ol>
+          } @else {
+            <p>No moves yet.</p>
+          }
+        </section>
+      }
+    </div>
+  </section>
+}

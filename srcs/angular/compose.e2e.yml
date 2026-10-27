@@ -24,6 +24,17 @@ services:
       interval: 2s
       timeout: 3s
       retries: 20
+  # Moves and bot replies need the real engines.
+  chess-engine-e2e:
+    build:
+      context: ../chess-engine
+      dockerfile: Dockerfile
+    init: true
+  bot-e2e:
+    build:
+      context: ..
+      dockerfile: bot/Dockerfile
+    init: true
   api-e2e:
     build:
       context: ../nestJS
@@ -38,12 +49,18 @@ services:
       JWT_SECRET: browser-tests-only-secret-at-least-32-characters
       JWT_EXPIRES_IN: '3600'
       MAIL_SERVICE_URL: http://mail-e2e:3002
+      CHESS_ENGINE_URL: ws://chess-engine-e2e:8081
+      BOT_ENGINE_URL: ws://bot-e2e:8082
     command: [sh, -c, 'node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js && node dist/main.js']
     depends_on:
       postgres-e2e:
         condition: service_healthy
       mail-e2e:
         condition: service_healthy
+      chess-engine-e2e:
+        condition: service_started
+      bot-e2e:
+        condition: service_started
     healthcheck:
       test: [CMD, node, -e, "fetch('http://localhost:3000/v1/health').then(r=>process.exit(r.ok?0:1))"]
       interval: 3s

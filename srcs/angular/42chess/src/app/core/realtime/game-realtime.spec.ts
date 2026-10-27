@@ -119,6 +119,69 @@ describe('View-independent game adapter', () => {
     expect(service.error()?.message).not.toContain('raw server');
     expect(service.game()?.board.fen).toBe('authoritative-fen');
   });
+  it('applies announced moves once and keeps the clocks they carry', () => {
+    service.watch(id);
+    TestBed.tick();
+    snapshot();
+    const played = {
+      gameId: id,
+      move: { number: 1, playerId: 'player', from: 'e2', to: 'e4', notation: 'e4', fen: 'f1' },
+      board: { fen: 'after-e4', turn: 'BLACK', halfmoveClock: 0, fullmoveNumber: 1 },
+      clocks: { white: 990, black: 1000 },
+    };
+    events.next({ event: 'MOVE_PLAYED', data: played });
+    events.next({ event: 'MOVE_PLAYED', data: played });
+    expect(service.game()?.board.fen).toBe('after-e4');
+    expect(service.game()?.moves.map((move) => move.notation)).toEqual(['e4']);
+    expect(service.game()?.clocks).toEqual({ white: 990, black: 1000 });
+    events.next({ event: 'MOVE_PLAYED', data: { ...played, move: { number: 2, from: 'z9' } } });
+    expect(service.game()?.moves).toHaveLength(1);
+  });
+  it('tracks draw offers, declines and the end of the game', () => {
+    service.watch(id);
+    TestBed.tick();
+    snapshot();
+    events.next({ event: 'DRAW_OFFERED', data: { gameId: id, playerId: 'rival' } });
+    expect(service.game()?.drawOffer).toEqual({ playerId: 'rival' });
+    events.next({ event: 'DRAW_DECLINED', data: { gameId: id, playerId: 'player' } });
+    expect(service.game()?.drawOffer).toBeNull();
+    expect(service.drawDeclinedBy()).toBe('player');
+    events.next({
+      event: 'GAME_ENDED',
+      data: { gameId: id, result: { winner: 'BLACK', reason: 'RESIGNATION' } },
+    });
+    expect(service.game()?.status).toBe('FINISHED');
+    expect(service.game()?.result).toEqual({ winner: 'BLACK', reason: 'RESIGNATION' });
+    expect(service.move('e2', 'e4')).toBe(false);
+  });
+  it('marks a command pending until the server answers it', () => {
+    service.watch(id);
+    TestBed.tick();
+    snapshot();
+    expect(service.resign()).toBe(true);
+    expect(service.pending()).toBe(true);
+    snapshot();
+    expect(service.pending()).toBe(false);
+    service.move('e2', 'e5');
+    events.next({ event: 'ERROR', data: { code: 'ILLEGAL_MOVE', message: 'raw' } });
+    expect(service.pending()).toBe(false);
+    expect(service.error()).toEqual({
+      code: 'ILLEGAL_MOVE',
+      message: 'That move is not legal in this position.',
+    });
+    service.move('e2', 'e4');
+    transport.state.set('reconnecting');
+    TestBed.tick();
+    expect(service.pending()).toBe(false);
+  });
+  it('ignores errors while no game is watched', () => {
+    events.next({ event: 'ERROR', data: { code: 'UNKNOWN_EVENT' } });
+    expect(service.error()).toBeNull();
+  });
+  it('asks the transport to reconnect', () => {
+    service.reconnect();
+    expect(transport.connect).toHaveBeenCalled();
+  });
   it('refuses invalid identifiers and removes game data when the session expires', () => {
     expect(service.watch('bad-id')).toBe(false);
     service.watch(id);

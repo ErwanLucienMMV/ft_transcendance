@@ -14,6 +14,18 @@ export const routes: Routes = [
     loadComponent: () => import('./features/board/board-page').then((m) => m.BoardPage),
   },
   {
+    path: 'play',
+    title: 'Play | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/game/play-page').then((m) => m.PlayPage),
+  },
+  {
+    path: 'game/:id',
+    title: 'Live game | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/game/game-page').then((m) => m.GamePage),
+  },
+  {
     path: 'login',
     title: 'Sign in | 42 Chess',
     loadComponent: () => import('./features/auth/login-page').then((m) => m.LoginPage),

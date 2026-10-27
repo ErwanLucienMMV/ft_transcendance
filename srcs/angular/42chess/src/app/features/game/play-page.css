@@ -1,0 +1,77 @@
+.play-page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 16px;
+  display: grid;
+  gap: 20px;
+}
+.play-page h2 {
+  margin: 0;
+}
+.play-card {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.play-card h3,
+.play-card p {
+  margin: 0;
+}
+.play-card > p {
+  color: var(--muted);
+}
+fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+legend {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+.control {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--field);
+  cursor: pointer;
+}
+.control input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+}
+.control span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.control.chosen {
+  border-color: var(--accent);
+}
+.control:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.play-error {
+  color: var(--error);
+}
+.play-card > button {
+  justify-self: start;
+}

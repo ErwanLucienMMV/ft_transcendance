@@ -149,9 +149,6 @@ main {
   nav[aria-label='Main navigation'] {
     gap: 15px;
   }
-  nav a:first-child {
-    display: none;
-  }
   .brand {
     font-size: 14px;
   }

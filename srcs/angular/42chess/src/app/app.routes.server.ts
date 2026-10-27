@@ -4,6 +4,8 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'verify-email', renderMode: RenderMode.Client },
   { path: 'two-factor', renderMode: RenderMode.Client },
   { path: 'session', renderMode: RenderMode.Client },
+  { path: 'play', renderMode: RenderMode.Client },
+  { path: 'game/:id', renderMode: RenderMode.Client },
   { path: 'oauth/callback', renderMode: RenderMode.Client },
   {
     path: '**',
