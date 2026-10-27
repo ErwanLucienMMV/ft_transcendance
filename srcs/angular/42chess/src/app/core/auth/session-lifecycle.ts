@@ -21,12 +21,17 @@ export class SessionLifecycle {
   private readonly api = inject(ApiClient);
   private readonly realtime = inject(RealtimeService);
 
-  /** Clear tab-local identity immediately; the captured bearer revokes that session only. */
+  /**
+   * Clear tab-local identity immediately. The captured bearer, or the refresh cookie once
+   * the bearer has expired, revokes that session only; the server also clears the cookie.
+   */
   signOut(): Observable<void> {
     const token = this.auth.session.token();
-    const request = token
-      ? this.api.post<void>('auth/logout', {}, { headers: { Authorization: `Bearer ${token}` } })
-      : of(undefined);
+    const request = this.api.post<void>(
+      'auth/logout',
+      {},
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+    );
     this.realtime.disconnect();
     this.auth.cancelChallenge();
     this.auth.session.clear();

@@ -39,7 +39,19 @@ test('registers, refuses unverified login, verifies email and signs in against t
   expect(
     await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })),
   ).toEqual({ local: 0, session: 0 });
+  // The access token stays in memory; the httpOnly refresh cookie restores it on reload.
   await page.reload();
+  await expect(page).toHaveURL(/\/session$/);
+  await expect(page.getByRole('status')).toHaveText(`Welcome, ${username}.`);
+  expect((await page.context().cookies()).find((c) => c.name === 'refresh_token')).toMatchObject({
+    httpOnly: true,
+    sameSite: 'Strict',
+    path: '/api/v1/auth',
+  });
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.reload();
+  await page.goto('/session');
   await expect(page).toHaveURL(/\/login\?returnUrl=%2Fsession$/);
   await page.getByLabel('Username or email address').fill(username);
   await page.getByLabel('Password', { exact: true }).fill(password);
