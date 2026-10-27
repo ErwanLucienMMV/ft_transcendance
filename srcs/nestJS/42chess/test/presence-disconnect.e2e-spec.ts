@@ -1,20 +1,19 @@
+import { RealtimeGateway } from '../dist/realtime/realtime.gateway.js';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
+import { sessionToken } from './session.fixture.js';
 import { DataSource } from 'typeorm';
 import { WebSocket } from 'ws';
 import { AppModule } from '../dist/app.module.js';
 import { User } from '../dist/users/user.entity.js';
 import { PresenceService } from '../dist/presence/presence.service.js';
-import { PresenceGateway } from '../dist/presence/presence.gateway.js';
 
 describe('SCRUM-240 and SCRUM-243 connection cleanup', () => {
   let app: INestApplication,
     source: DataSource,
     presence: PresenceService,
-    gateway: PresenceGateway,
     user: User,
     url: string;
   const clients: WebSocket[] = [];
@@ -25,13 +24,10 @@ describe('SCRUM-240 and SCRUM-243 connection cleanup', () => {
     await app.listen(0, '127.0.0.1');
     source = app.get(DataSource);
     presence = app.get(PresenceService);
-    gateway = app.get(PresenceGateway);
-    user = await source
-      .getRepository(User)
-      .save({
-        username: `disconnect_${randomUUID().slice(0, 8)}`,
-        emailVerifiedAt: new Date(),
-      });
+    user = await source.getRepository(User).save({
+      username: `disconnect_${randomUUID().slice(0, 8)}`,
+      emailVerifiedAt: new Date(),
+    });
     url = (await app.getUrl()).replace('http:', 'ws:') + '/ws';
   });
   afterEach(async () => {
@@ -50,10 +46,7 @@ describe('SCRUM-240 and SCRUM-243 connection cleanup', () => {
     return client;
   }
   async function authenticate(client: WebSocket, expiresIn = 120) {
-    const token = await new JwtService().signAsync(
-      { sub: user.id },
-      { secret: process.env.JWT_SECRET, expiresIn },
-    );
+    const token = await sessionToken(app, user.id, expiresIn);
     const message = once(client, 'message');
     client.send(
       JSON.stringify({ event: 'AUTHENTICATE', data: { accessToken: token } }),
@@ -97,10 +90,7 @@ describe('SCRUM-240 and SCRUM-243 connection cleanup', () => {
             finish = resolve;
           }),
       );
-    const token = await new JwtService().signAsync(
-      { sub: user.id },
-      { secret: process.env.JWT_SECRET, expiresIn: 120 },
-    );
+    const token = await sessionToken(app, user.id);
     client.send(
       JSON.stringify({ event: 'AUTHENTICATE', data: { accessToken: token } }),
     );
@@ -123,10 +113,10 @@ describe('SCRUM-240 and SCRUM-243 connection cleanup', () => {
     const client = await open(false);
     await authenticate(client);
     const ping = once(client, 'ping');
-    gateway.checkConnections();
+    app.get(RealtimeGateway).checkConnections();
     await ping;
     const closed = once(client, 'close');
-    gateway.checkConnections();
+    app.get(RealtimeGateway).checkConnections();
     await closed;
     expect(presence.get(user.id).status).toBe('OFFLINE');
   });

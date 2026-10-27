@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
+import { sessionToken } from './session.fixture.js';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
@@ -50,15 +50,12 @@ describe('SCRUM-241 ONLINE across WebSocket and public profiles', () => {
     const client = new WebSocket(url);
     clients.push(client);
     await once(client, 'open');
-    const accessToken = await new JwtService().signAsync(
-      { sub: account.id },
-      { secret: process.env.JWT_SECRET, expiresIn: 120 },
-    );
+    const accessToken = await sessionToken(app, account.id);
     const message = once(client, account === unverified ? 'close' : 'message');
     client.send(
       JSON.stringify({
         event: 'AUTHENTICATE',
-        data: { accessToken, userId: unverified.id },
+        data: { accessToken },
       }),
     );
     return { client, result: await message };

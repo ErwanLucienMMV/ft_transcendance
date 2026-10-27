@@ -28,14 +28,12 @@ describe('SCRUM-242 authoritative IN_GAME presence', () => {
     games = app.get(GamesService);
   });
   beforeEach(async () => {
-    users = await source
-      .getRepository(User)
-      .save(
-        [0, 1, 2].map(() => ({
-          username: `playing_${randomUUID().slice(0, 8)}`,
-          emailVerifiedAt: new Date(),
-        })),
-      );
+    users = await source.getRepository(User).save(
+      [0, 1, 2].map(() => ({
+        username: `playing_${randomUUID().slice(0, 8)}`,
+        emailVerifiedAt: new Date(),
+      })),
+    );
     for (const user of users) presence.connect(user.id, 'tab');
   });
   afterEach(async () => {
@@ -61,6 +59,26 @@ describe('SCRUM-242 authoritative IN_GAME presence', () => {
     await games.join(opponent.id, game.id);
     return game.id;
   }
+  it('tracks a human bot-game participant and finishes without rating a bot identity', async () => {
+    const { game } = await games.createBot(
+      users[0].id,
+      { initialTime: 300000, color: 'WHITE' },
+      'EASY',
+    );
+    owned.push(game.id);
+    expect(presence.get(users[0].id).status).toBe('IN_GAME');
+    await games.resign(users[0].id, game.id);
+    expect(presence.get(users[0].id).status).toBe('ONLINE');
+    expect(
+      await source.query('SELECT id FROM rating_history WHERE "gameId"=$1', [
+        game.id,
+      ]),
+    ).toHaveLength(0);
+    expect(
+      (await source.getRepository(User).findOneByOrFail({ id: users[0].id }))
+        .elo,
+    ).toBe(1200);
+  });
   it('uses committed activation/completion while keeping waiting players ONLINE', async () => {
     const { game } = await games.create(users[0].id, {
       initialTime: 300000,

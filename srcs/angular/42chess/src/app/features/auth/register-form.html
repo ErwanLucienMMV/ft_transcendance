@@ -1,0 +1,81 @@
+<form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="pending()" novalidate>
+  <div class="form-field">
+    <label for="register-username">Username</label>
+    <input
+      id="register-username"
+      type="text"
+      formControlName="username"
+      autocomplete="username"
+      placeholder="Choose your player name"
+      required
+      [minLength]="limits.usernameMin"
+      [maxLength]="limits.usernameMax"
+      [attr.aria-invalid]="invalid('username')"
+      aria-describedby="username-help username-error"
+    />
+    <p id="username-help">
+      {{ limits.usernameMin }}–{{ limits.usernameMax }} letters, digits or underscores.
+    </p>
+    @if (invalid('username')) {
+      <p id="username-error">Enter a valid username.</p>
+    }
+  </div>
+  <div class="form-field">
+    <label for="register-email">Email address</label>
+    <input
+      id="register-email"
+      type="email"
+      formControlName="email"
+      autocomplete="email"
+      placeholder="you@example.com"
+      required
+      [maxLength]="limits.emailMax"
+      [attr.aria-invalid]="invalid('email')"
+      [attr.aria-describedby]="invalid('email') ? 'register-email-error' : null"
+    />
+    @if (invalid('email')) {
+      <p id="register-email-error">Enter a valid email address.</p>
+    }
+  </div>
+  <div class="form-field">
+    <label for="register-password">Password</label>
+    <input
+      id="register-password"
+      type="password"
+      formControlName="password"
+      autocomplete="new-password"
+      placeholder="Create a strong password"
+      required
+      [attr.aria-invalid]="invalid('password')"
+      aria-describedby="password-help password-error"
+    />
+    <p id="password-help">Use {{ limits.passwordMin }}–{{ limits.passwordMax }} characters.</p>
+    @if (invalid('password')) {
+      <p id="password-error">Enter a password within these limits.</p>
+    }
+  </div>
+  <div class="form-field">
+    <label for="register-confirm-password">Confirm password</label>
+    <input
+      id="register-confirm-password"
+      type="password"
+      formControlName="confirmPassword"
+      autocomplete="new-password"
+      placeholder="Repeat your password"
+      required
+      [attr.aria-invalid]="invalid('confirmPassword') || passwordMismatch()"
+      [attr.aria-describedby]="
+        invalid('confirmPassword') || passwordMismatch() ? 'confirm-password-error' : null
+      "
+    />
+    @if (invalid('confirmPassword') || passwordMismatch()) {
+      <p id="confirm-password-error">Enter the same password in both fields.</p>
+    }
+  </div>
+  @if (!submissionEnabled()) {
+    <p role="status">Account creation is temporarily unavailable.</p>
+  }
+  <button type="submit" [disabled]="!submissionEnabled() || pending()">
+    {{ pending() ? 'Creating account…' : 'Create an account' }}
+  </button>
+</form>

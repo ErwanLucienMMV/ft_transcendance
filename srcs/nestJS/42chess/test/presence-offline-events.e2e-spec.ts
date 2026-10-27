@@ -1,8 +1,9 @@
+import { RealtimeGateway } from '../dist/realtime/realtime.gateway.js';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
+import { sessionToken } from './session.fixture.js';
 import { DataSource } from 'typeorm';
 import { WebSocket } from 'ws';
 import { AppModule } from '../dist/app.module.js';
@@ -31,14 +32,12 @@ describe('SCRUM-246 final-disconnect events', () => {
     source = app.get(DataSource);
     presence = app.get(PresenceService);
     gateway = app.get(PresenceGateway);
-    users = await source
-      .getRepository(User)
-      .save(
-        ['subject', 'friend', 'outsider'].map((name) => ({
-          username: `${name}_${randomUUID().slice(0, 8)}`,
-          emailVerifiedAt: new Date(),
-        })),
-      );
+    users = await source.getRepository(User).save(
+      ['subject', 'friend', 'outsider'].map((name) => ({
+        username: `${name}_${randomUUID().slice(0, 8)}`,
+        emailVerifiedAt: new Date(),
+      })),
+    );
     const pair = [users[0].id, users[1].id].sort((a, b) => a.localeCompare(b));
     [{ id: friendship }] = await source.query(
       'INSERT INTO friendships ("userId", "friendId") VALUES ($1,$2) RETURNING id',
@@ -74,10 +73,7 @@ describe('SCRUM-246 final-disconnect events', () => {
     });
     await once(client, 'open');
     const message = once(client, 'message');
-    const accessToken = await new JwtService().signAsync(
-      { sub: user.id },
-      { secret: process.env.JWT_SECRET, expiresIn: 120 },
-    );
+    const accessToken = await sessionToken(app, user.id);
     client.send(
       JSON.stringify({ event: 'AUTHENTICATE', data: { accessToken } }),
     );
@@ -118,12 +114,12 @@ describe('SCRUM-246 final-disconnect events', () => {
   it('sends USER_OFFLINE when a dead peer misses its heartbeat', async () => {
     const subject = await connect(users[0], false);
     const ping = once(subject.client, 'ping');
-    gateway.checkConnections();
+    app.get(RealtimeGateway).checkConnections();
     await ping;
     // A fresh observer has not missed the subject's previous heartbeat.
     const friend = await connect(users[1]);
     const closed = once(subject.client, 'close');
-    gateway.checkConnections();
+    app.get(RealtimeGateway).checkConnections();
     await closed;
     await gateway.flushNotifications();
     await vi.waitFor(() => expect(offline(friend.packets)).toHaveLength(1));

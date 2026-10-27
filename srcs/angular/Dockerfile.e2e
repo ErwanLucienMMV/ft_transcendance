@@ -1,0 +1,7 @@
+FROM mcr.microsoft.com/playwright:v1.64.0-noble
+WORKDIR /app
+COPY 42chess/package*.json ./
+RUN npm ci
+COPY 42chess/ ./
+ENV CI=true NG_BUILD_MAX_WORKERS=2
+CMD ["npm", "run", "test:e2e"]

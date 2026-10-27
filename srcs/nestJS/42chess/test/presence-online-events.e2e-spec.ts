@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
+import { sessionToken } from './session.fixture.js';
 import { DataSource } from 'typeorm';
 import { WebSocket } from 'ws';
 import { AppModule } from '../dist/app.module.js';
@@ -80,10 +80,7 @@ describe('SCRUM-245 private friend presence events', () => {
     });
     await once(client, 'open');
     const message = once(client, 'message');
-    const accessToken = await new JwtService().signAsync(
-      { sub: user.id },
-      { secret: process.env.JWT_SECRET, expiresIn: 120 },
-    );
+    const accessToken = await sessionToken(app, user.id);
     client.send(
       JSON.stringify({ event: 'AUTHENTICATE', data: { accessToken } }),
     );

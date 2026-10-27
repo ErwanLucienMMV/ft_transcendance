@@ -31,7 +31,7 @@ describe('Atomic game completion and rating (SCRUM-211)', () => {
             ? 1
             : 0;
       const user = await f.source.manager.findOneByOrFail(User, {
-        id: player.userId,
+        id: player.userId!,
       });
       expect(user).toMatchObject({
         gamesPlayed: 1,

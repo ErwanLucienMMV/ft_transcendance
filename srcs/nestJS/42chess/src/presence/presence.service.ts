@@ -30,7 +30,7 @@ export class PresenceService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     if (!this.source) return;
     const rows: { userId: string; gameId: string }[] = await this.source.query(
-      `SELECT p."userId", p."gameId" FROM game_players p JOIN games g ON g.id = p."gameId" WHERE g.status = 'ACTIVE'`,
+      `SELECT p."userId", p."gameId" FROM game_players p JOIN games g ON g.id = p."gameId" WHERE g.status = 'ACTIVE' AND p."userId" IS NOT NULL`,
     );
     for (const row of rows) this.setGameStatus(row.gameId, [row.userId], true);
     const accounts: { id: string; lastSeenAt: Date }[] =

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
+import { sessionToken } from './session.fixture.js';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
@@ -22,10 +22,7 @@ describe('SCRUM-99 persisted preferences', () => {
         username: `prefs_${randomUUID().slice(0, 8)}`,
         emailVerifiedAt: new Date(),
       });
-    token = await new JwtService().signAsync(
-      { sub: user.id },
-      { secret: process.env.JWT_SECRET, expiresIn: 120 },
-    );
+    token = await sessionToken(app, user.id);
   });
   afterAll(async () => {
     if (user) await source.getRepository(User).delete(user.id);

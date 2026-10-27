@@ -169,7 +169,7 @@ export class RatingService {
   private validatePlayers(
     gameId: string,
     players: readonly GamePlayer[],
-  ): void {
+  ): asserts players is (GamePlayer & { userId: string })[] {
     if (
       !Array.isArray(players) ||
       players.length !== 2 ||

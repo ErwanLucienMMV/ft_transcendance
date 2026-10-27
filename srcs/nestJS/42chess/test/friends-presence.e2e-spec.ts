@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
+import { sessionToken } from './session.fixture.js';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
@@ -24,11 +24,7 @@ describe('SCRUM-247 private friend-list presence synchronization', () => {
   const clients: WebSocket[] = [],
     owned: string[] = [];
   const suffix = randomUUID().replaceAll('-', '').slice(0, 12);
-  const token = (id: string) =>
-    new JwtService().signAsync(
-      { sub: id },
-      { secret: process.env.JWT_SECRET, expiresIn: 120 },
-    );
+  const token = (id: string) => sessionToken(app, id);
   beforeAll(async () => {
     process.env.CHESS_ENGINE_URL =
       process.env.TEST_CHESS_ENGINE_URL ?? 'ws://127.0.0.1:55433';
@@ -83,7 +79,7 @@ describe('SCRUM-247 private friend-list presence synchronization', () => {
     for (const id of owned) {
       const state = await games.get(id);
       if (state.game.status === 'ACTIVE')
-        await games.resign(state.players[0].userId, id);
+        await games.resign(state.players[0].userId!, id);
     }
     for (const client of clients.splice(0)) client.terminate();
     await vi.waitFor(() => {
@@ -197,6 +193,29 @@ describe('SCRUM-247 private friend-list presence synchronization', () => {
     });
     expect((await list())[0].status).toBe('OFFLINE');
   });
+  it('shares game rooms and revocable multi-tab presence on the same transport', async () => {
+    const accessToken = await token(users[0].id);
+    const socket = new WebSocket(url);
+    clients.push(socket);
+    await once(socket, 'open');
+    const handshake = once(socket, 'message');
+    socket.send(JSON.stringify({ event: 'AUTHENTICATE', data: { accessToken } }));
+    expect(JSON.parse(String((await handshake)[0])).event).toBe('AUTHENTICATED');
+    const otherTab = await connect(users[0]);
+    const { game } = await games.create(users[0].id, { initialTime: 300000 });
+    owned.push(game.id);
+    const snapshot = once(socket, 'message');
+    socket.send(JSON.stringify({ event: 'JOIN_GAME', data: { gameId: game.id } }));
+    expect(JSON.parse(String((await snapshot)[0]))).toMatchObject({ event: 'GAME_STATE', data: { gameId: game.id } });
+    const closed = once(socket, 'close');
+    await request(app.getHttpServer()).post('/v1/auth/logout').auth(accessToken, { type: 'bearer' }).expect(204);
+    await request(app.getHttpServer()).get('/v1/friends').auth(accessToken, { type: 'bearer' }).expect(401);
+    expect((await closed)[0]).toBe(4401);
+    await vi.waitFor(() => expect(presence.isOnline(users[0].id)).toBe(true));
+    const friendOnline = once(otherTab, 'message');
+    await connect(users[1]);
+    expect(JSON.parse(String((await friendOnline)[0]))).toMatchObject({ event: 'USER_ONLINE', data: { userId: users[1].id } });
+  });
   it('authenticates the owner, excludes pending requests, and ignores a forged owner query', async () => {
     await request(app.getHttpServer()).get('/v1/friends').expect(401);
     await request(app.getHttpServer())
@@ -210,10 +229,15 @@ describe('SCRUM-247 private friend-list presence synchronization', () => {
       .set('Authorization', `Bearer ${await token(users[3].id)}`)
       .expect(200);
     expect(response.body).toEqual({ friends: [] });
+    const deleted = await source
+      .getRepository(User)
+      .save({ username: 'deleted_' + suffix, emailVerifiedAt: new Date() });
+    const deletedToken = await token(deleted.id);
+    await source.getRepository(User).delete(deleted.id);
     const missing = await request(app.getHttpServer())
       .get('/v1/friends')
-      .set('Authorization', `Bearer ${await token(randomUUID())}`)
-      .expect(404);
-    expect(missing.body.code).toBe('USER_NOT_FOUND');
+      .set('Authorization', `Bearer ${deletedToken}`)
+      .expect(401);
+    expect(missing.body.code).toBe('AUTH_REQUIRED');
   });
 });

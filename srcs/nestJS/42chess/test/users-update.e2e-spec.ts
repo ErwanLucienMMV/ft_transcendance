@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
+import { sessionToken } from './session.fixture.js';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
@@ -25,21 +25,14 @@ describe('SCRUM-96 profile patch (real JWT and database)', () => {
         emailVerifiedAt: new Date(),
       })),
     );
-    token = await new JwtService().signAsync(
-      { sub: owner.id },
-      {
-        secret: process.env.JWT_SECRET,
-        algorithm: 'HS256',
-        expiresIn: 60,
-      },
-    );
+    token = await sessionToken(app, owner.id);
   });
   afterAll(async () => {
     for (const user of [owner, other])
       if (user) await source.getRepository(User).delete(user.id);
     await app?.close();
   });
-  const patch = (body: unknown) =>
+  const patch = (body: object) =>
     request(app.getHttpServer())
       .patch('/v1/users/me')
       .set('Authorization', `Bearer ${token}`)

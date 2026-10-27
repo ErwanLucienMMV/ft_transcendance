@@ -1,3 +1,4 @@
+import { sessionToken } from './session.fixture.js';
 import { once } from 'node:events';
 import { randomUUID, createHmac } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
@@ -17,11 +18,15 @@ describe('SCRUM-239 authenticated native WebSocket connections', () => {
     url: string;
   const clients: WebSocket[] = [];
   const jwt = new JwtService();
-  const sign = (sub: string, options = {}) =>
-    jwt.signAsync(
-      { sub },
+  const sign = async (sub: string, options = {}) => {
+    const { iat: _iat, exp: _exp, ...claims } = jwt.decode<Record<string, unknown>>(
+      await sessionToken(app, user.id),
+    );
+    return jwt.signAsync(
+      { ...claims, sub },
       { secret: process.env.JWT_SECRET, expiresIn: 120, ...options },
     );
+  };
   beforeAll(async () => {
     app = (
       await Test.createTestingModule({ imports: [AppModule] }).compile()
@@ -29,12 +34,10 @@ describe('SCRUM-239 authenticated native WebSocket connections', () => {
     await app.listen(0, '127.0.0.1');
     source = app.get(DataSource);
     presence = app.get(PresenceService);
-    user = await source
-      .getRepository(User)
-      .save({
-        username: `presence_${randomUUID().slice(0, 8)}`,
-        emailVerifiedAt: new Date(),
-      });
+    user = await source.getRepository(User).save({
+      username: `presence_${randomUUID().slice(0, 8)}`,
+      emailVerifiedAt: new Date(),
+    });
     url = (await app.getUrl()).replace('http:', 'ws:') + '/ws';
   });
   afterEach(async () => {
@@ -58,7 +61,7 @@ describe('SCRUM-239 authenticated native WebSocket connections', () => {
     client.send(
       JSON.stringify({
         event: 'AUTHENTICATE',
-        data: { accessToken: await sign(user.id), userId: randomUUID() },
+        data: { accessToken: await sessionToken(app, user.id) },
       }),
     );
     expect(JSON.parse(String((await message)[0]))).toEqual({
@@ -66,6 +69,21 @@ describe('SCRUM-239 authenticated native WebSocket connections', () => {
       data: { userId: user.id },
     });
     expect(presence.get(user.id).status).toBe('ONLINE');
+  });
+  it('rejects an authentication payload with a forged identity field', async () => {
+    const client = await open();
+    const closed = once(client, 'close');
+    client.send(
+      JSON.stringify({
+        event: 'AUTHENTICATE',
+        data: {
+          accessToken: await sessionToken(app, user.id),
+          userId: randomUUID(),
+        },
+      }),
+    );
+    expect((await closed)[0]).toBe(4401);
+    expect(presence.isOnline(user.id)).toBe(false);
   });
   it.each(['forged', 'expired', 'missing-user', 'challenge', 'no-expiry'])(
     'rejects %s tokens without creating presence',
@@ -75,11 +93,15 @@ describe('SCRUM-239 authenticated native WebSocket connections', () => {
       if (kind === 'forged')
         accessToken = await sign(user.id, { secret: 'wrong' });
       if (kind === 'expired')
-        accessToken = await sign(user.id, { expiresIn: -1 });
+        accessToken = await sessionToken(app, user.id, -1);
       if (kind === 'missing-user') accessToken = await sign(randomUUID());
       if (kind === 'no-expiry')
         accessToken = await jwt.signAsync(
-          { sub: user.id },
+          (() => {
+            const { exp: _exp, iat: _iat, ...claims } =
+              jwt.decode<Record<string, unknown>>(accessToken);
+            return claims;
+          })(),
           { secret: process.env.JWT_SECRET },
         );
       if (kind === 'challenge')

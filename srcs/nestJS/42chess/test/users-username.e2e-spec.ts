@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
+import { sessionToken } from './session.fixture.js';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
@@ -24,17 +24,7 @@ describe('SCRUM-97 username changes', () => {
         emailVerifiedAt: new Date(),
       })),
     );
-    for (const user of users)
-      tokens.push(
-        await new JwtService().signAsync(
-          { sub: user.id },
-          {
-            secret: process.env.JWT_SECRET,
-            algorithm: 'HS256',
-            expiresIn: 120,
-          },
-        ),
-      );
+    for (const user of users) tokens.push(await sessionToken(app, user.id));
   });
   afterAll(async () => {
     for (const user of users) await source.getRepository(User).delete(user.id);
@@ -107,7 +97,9 @@ describe('SCRUM-97 username changes', () => {
       patch(0, { username }),
       patch(1, { username: username.toUpperCase() }),
     ]);
-    expect(responses.map((result) => result.status).sort((a, b) => a - b)).toEqual([200, 409]);
+    expect(
+      responses.map((result) => result.status).sort((a, b) => a - b),
+    ).toEqual([200, 409]);
     expect(responses.find((result) => result.status === 409)?.body.code).toBe(
       'USERNAME_ALREADY_EXISTS',
     );

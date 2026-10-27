@@ -16,6 +16,12 @@ export class GameAgreementsService {
 
   offer(actor: string, id: string): Promise<GameState> {
     return this.act(actor, id, (state, color) => {
+      if (state.players.some((seat) => seat.botDifficulty)) {
+        throw new GameError(
+          'BOT_DRAW_UNSUPPORTED',
+          'Draw offers are not supported against bots.',
+        );
+      }
       if (state.game.drawOffer !== null)
         throw new GameError(
           'DRAW_ALREADY_OFFERED',

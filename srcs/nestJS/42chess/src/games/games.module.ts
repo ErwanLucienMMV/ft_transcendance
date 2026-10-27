@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BotEngineModule } from '../bots/bot-engine.module.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChessEngineService } from '../chess/chess-engine.service.js';
 import { Game } from './game.entity.js';
@@ -15,6 +16,7 @@ import { GamePresenterService } from './game-presenter.service.js';
 import { GameActorGuard } from './game-actor.guard.js';
 import { RatingModule } from '../rating/rating.module.js';
 import { PresenceModule } from '../presence/presence.module.js';
+import { SessionModule } from '../auth/session.module.js';
 
 /**
  * Core of the application: game lifecycle (WAITING → ACTIVE → FINISHED),
@@ -29,6 +31,8 @@ import { PresenceModule } from '../presence/presence.module.js';
     TypeOrmModule.forFeature([Game, GamePlayer, Move]),
     RatingModule,
     PresenceModule,
+    BotEngineModule,
+    SessionModule,
   ],
   providers: [
     GamePresenterService,
@@ -41,7 +45,7 @@ import { PresenceModule } from '../presence/presence.module.js';
     GameTimeoutsService,
     ChessEngineService,
   ],
-  exports: [GamesService],
+  exports: [GamesService, GamePresenterService, GameActorGuard],
   controllers: [GamesController],
 })
 export class GamesModule {}
