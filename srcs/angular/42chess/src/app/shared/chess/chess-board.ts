@@ -14,6 +14,7 @@ import {
   squareName,
   toFen,
 } from './chess-rules';
+import { resultText } from './game-text';
 
 export interface BoardMove {
   from: string;
@@ -68,17 +69,6 @@ export function fenAfter(fen: string, move: BoardMove): string {
     }),
   );
 }
-
-const REASONS: Record<string, string> = {
-  CHECKMATE: 'checkmate',
-  RESIGNATION: 'resignation',
-  TIMEOUT: 'time out',
-  DRAW_AGREEMENT: 'draw agreed',
-  STALEMATE: 'stalemate',
-  INSUFFICIENT_MATERIAL: 'insufficient material',
-  THREEFOLD_REPETITION: 'threefold repetition',
-  FIFTY_MOVE_RULE: 'fifty-move rule',
-};
 
 /**
  * Renders a FEN and proposes moves. It never plays them: the parent sends `moved` to the
@@ -156,18 +146,14 @@ export class ChessBoard {
   readonly outcome = computed<string | null>(() => {
     const result = this.result();
     if (result) {
-      const winner = result.winner
-        ? `${result.winner === 'WHITE' ? 'White' : 'Black'} wins`
-        : 'Draw';
-      const reason = result.reason ? (REASONS[result.reason] ?? null) : null;
-      return reason ? `${winner} · ${reason}` : winner;
+      return resultText(result);
     }
     const position = this.position();
     if (!position) return null;
     const status = positionStatus(position);
     if (status === 'checkmate')
-      return `${position.turn === 'w' ? 'Black' : 'White'} wins · checkmate`;
-    return status === 'stalemate' ? 'Draw · stalemate' : null;
+      return `${position.turn === 'w' ? 'Black' : 'White'} wins by checkmate`;
+    return status === 'stalemate' ? 'Draw by stalemate' : null;
   });
   readonly canMove = computed(() => {
     const position = this.position();

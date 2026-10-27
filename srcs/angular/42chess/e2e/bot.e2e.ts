@@ -32,5 +32,17 @@ test('plays against the bot from either side', async ({ browser, request }) => {
   await expect(page.locator('.square').first()).toHaveAttribute('data-square', 'h1');
   await expect(page.locator('.move-list li')).toHaveCount(1);
   await expect(headline).toHaveText('Your turn');
+
+  // Only the finished game is in the history; it opens as a replay.
+  await page.getByRole('navigation').getByRole('link', { name: 'History' }).click();
+  const games = page.locator('.games .game');
+  await expect(games).toHaveCount(1);
+  await expect(games.first().locator('.outcome')).toHaveText('Lost');
+  await expect(games.first()).toContainText('vs Computer · Medium');
+  await expect(games.first()).toContainText('White · by resignation · 10 + 0 · 1 move');
+  await games.first().click();
+  await expect(page).toHaveURL(/\/replay\//);
+  await expect(page.locator('#replay-title')).toHaveText('You lost by resignation');
+  await expect(page.locator('.position')).toHaveText('Move 2 / 2');
   expect(errors).toEqual([]);
 });

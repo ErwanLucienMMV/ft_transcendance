@@ -50,3 +50,16 @@ export interface MoveResponse {
   timestamp: ISODateString;
 }
 export type GameMovesResponse = CollectionResponse<'moves', MoveResponse>;
+export type GameOutcome = 'WIN' | 'LOSS' | 'DRAW';
+/** One finished game seen from the requested player's seat. */
+export interface GameHistoryItem {
+  id: UUID;
+  color: PlayerColor;
+  opponent: PlayerRef;
+  outcome: GameOutcome;
+  reason: GameEndReason | null;
+  timeControl: TimeControl;
+  moveCount: number;
+  startedAt: ISODateString;
+  endedAt: ISODateString;
+}

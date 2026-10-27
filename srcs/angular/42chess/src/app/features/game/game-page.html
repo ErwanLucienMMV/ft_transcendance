@@ -124,6 +124,7 @@
         @if (current.status === 'FINISHED') {
           <div class="actions">
             <a class="button" routerLink="/play">New game</a>
+            <a class="button secondary" [routerLink]="['/replay', current.id]">Replay</a>
             <a class="button secondary" routerLink="/board">Analysis board</a>
           </div>
         }
@@ -134,8 +135,8 @@
             <ol>
               @for (row of rows(); track row.number) {
                 <li [attr.value]="row.number">
-                  <span>{{ row.white ?? '…' }}</span
-                  ><span>{{ row.black ?? '' }}</span>
+                  <span>{{ row.white?.text ?? '…' }}</span
+                  ><span>{{ row.black?.text ?? '' }}</span>
                 </li>
               }
             </ol>

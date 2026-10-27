@@ -53,8 +53,21 @@ test('two players create, join and finish a live game by checkmate', async ({
 
   await expect(headline(white)).toHaveText('You won by checkmate');
   await expect(headline(black)).toHaveText('You lost by checkmate');
-  await expect(black.locator('.overlay.result')).toHaveText('White wins · checkmate');
+  await expect(black.locator('.overlay.result')).toHaveText('White wins by checkmate');
   await expect(white.locator('.move-list li').last()).toContainText('Qxf7#');
+
+  // The finished game is replayed from the stored moves.
+  await white.getByRole('link', { name: 'Replay' }).click();
+  await expect(white).toHaveURL(/\/replay\/[0-9a-f-]{36}$/);
+  await expect(white.locator('#replay-title')).toHaveText('You won by checkmate');
+  await expect(white.locator('.position')).toHaveText('Move 7 / 7');
+  await white.getByRole('button', { name: 'Previous move' }).click();
+  await expect(white.locator('.position')).toHaveText('Move 6 / 7');
+  await expect(white.locator('.overlay.result')).toHaveCount(0);
+  await white.getByRole('button', { name: 'e4', exact: true }).click();
+  await expect(white.locator('[data-square="f1"] svg')).toHaveCount(1);
+  await expect(white.locator('[data-square="e2"] svg')).toHaveCount(0);
+  await expect(white.locator('.position')).toHaveText('Move 1 / 7');
   expect(errors).toEqual([]);
 });
 

@@ -34,6 +34,15 @@ describe('Games REST client', () => {
     expect(
       http.expectOne('/api/v1/games/00000000-0000-4000-8000-000000000001/bot-move').request.method,
     ).toBe('POST');
+    api.moves('00000000-0000-4000-8000-000000000001').subscribe();
+    expect(
+      http.expectOne('/api/v1/games/00000000-0000-4000-8000-000000000001/moves').request.method,
+    ).toBe('GET');
+    api.history('00000000-0000-4000-8000-000000000002', 10, 20).subscribe();
+    expect(
+      http.expectOne('/api/v1/users/00000000-0000-4000-8000-000000000002/games?limit=10&offset=20')
+        .request.method,
+    ).toBe('GET');
     http.verify();
   });
 });

@@ -215,7 +215,7 @@ describe('Live game page', () => {
     expect(text(element, '#game-title')).toBe('You lost on time');
     expect(element.querySelector('.running')).toBeNull();
     expect(element.querySelector('a[href="/play"]')).not.toBeNull();
-    expect(text(element, '.overlay.result')).toBe('Black wins · time out');
+    expect(text(element, '.overlay.result')).toBe('Black wins on time');
   });
 
   it('shows the invitation link while waiting for an opponent', () => {

@@ -15,26 +15,10 @@ import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { GameMove, GamePlayer, GameRealtime, PlayerColor } from '../../core/realtime/game-realtime';
 import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
+import { botName, moveRows, resultText } from '../../shared/chess/game-text';
 import { GameClock } from './game-clock';
 import { GamesApi, GameView } from './games-api';
 
-const BOT_NAMES: Record<string, string> = { EASY: 'Easy', MEDIUM: 'Medium', HARD: 'Hard' };
-const REASONS: Record<string, string> = {
-  CHECKMATE: 'by checkmate',
-  RESIGNATION: 'by resignation',
-  TIMEOUT: 'on time',
-  DRAW_AGREEMENT: 'by agreement',
-  STALEMATE: 'by stalemate',
-  INSUFFICIENT_MATERIAL: 'by insufficient material',
-  THREEFOLD_REPETITION: 'by threefold repetition',
-  FIFTY_MOVE_RULE: 'by the fifty-move rule',
-};
-
-interface MoveRow {
-  number: number;
-  white: string | null;
-  black: string | null;
-}
 interface Seat {
   color: PlayerColor;
   player: GamePlayer | null;
@@ -118,18 +102,7 @@ export class GamePage {
   readonly top = computed(() => this.seat(this.orientation() === 'WHITE' ? 'BLACK' : 'WHITE'));
   readonly bottom = computed(() => this.seat(this.orientation()));
 
-  readonly rows = computed<MoveRow[]>(() => {
-    const rows: MoveRow[] = [];
-    for (const move of this.moves()) {
-      const text = move.notation ?? `${move.from}-${move.to}`;
-      // Ply 1 is White's first move.
-      if (move.number % 2 === 1)
-        rows.push({ number: (move.number + 1) / 2, white: text, black: null });
-      else if (rows.length) rows[rows.length - 1].black = text;
-      else rows.push({ number: move.number / 2, white: null, black: text });
-    }
-    return rows;
-  });
+  readonly rows = computed(() => moveRows(this.moves()));
 
   /** The bot owes a move: right after mine (still a preview) or once the turn is its own. */
   readonly botThinking = computed(
@@ -244,7 +217,7 @@ export class GamePage {
 
   name(player: GamePlayer | null): string {
     if (!player) return 'Waiting for a player';
-    if (player.botDifficulty) return `Computer · ${BOT_NAMES[player.botDifficulty]}`;
+    if (player.botDifficulty) return botName(player.botDifficulty);
     return player.id === this.me() ? `${player.username} (you)` : player.username;
   }
 
@@ -281,12 +254,6 @@ export class GamePage {
 
   private outcome(): string {
     const result = this.game()?.result;
-    if (!result) return 'Game over';
-    const reason = result.reason ? REASONS[result.reason] : undefined;
-    const suffix = reason ? ` ${reason}` : '';
-    if (!result.winner) return `Draw${suffix}`;
-    const mine = this.myColor();
-    if (!mine) return `${result.winner === 'WHITE' ? 'White' : 'Black'} wins${suffix}`;
-    return result.winner === mine ? `You won${suffix}` : `You lost${suffix}`;
+    return result ? resultText(result, this.myColor()) : 'Game over';
   }
 }

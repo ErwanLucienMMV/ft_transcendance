@@ -140,15 +140,15 @@ describe('Chessboard component', () => {
       interactive: true,
     });
     const status = () => fixture.nativeElement.querySelector('[role="status"]')?.textContent.trim();
-    expect(status()).toBe('Black wins · checkmate');
+    expect(status()).toBe('Black wins by checkmate');
     expect(square(fixture, 'e1').disabled).toBe(true);
     fixture.componentRef.setInput('fen', START);
     fixture.componentRef.setInput('result', { winner: 'WHITE', reason: 'RESIGNATION' });
     fixture.detectChanges();
-    expect(status()).toBe('White wins · resignation');
+    expect(status()).toBe('White wins by resignation');
     fixture.componentRef.setInput('result', { winner: null, reason: 'DRAW_AGREEMENT' });
     fixture.detectChanges();
-    expect(status()).toBe('Draw · draw agreed');
+    expect(status()).toBe('Draw by agreement');
     expect(square(fixture, 'e2').disabled).toBe(true);
   });
 

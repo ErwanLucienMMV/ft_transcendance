@@ -31,6 +31,17 @@ export const routes: Routes = [
     loadComponent: () => import('./features/puzzle/puzzle-page').then((m) => m.PuzzlePage),
   },
   {
+    path: 'history',
+    title: 'Game history | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/history/history-page').then((m) => m.HistoryPage),
+  },
+  {
+    path: 'replay/:id',
+    title: 'Game replay | 42 Chess',
+    loadComponent: () => import('./features/history/replay-page').then((m) => m.ReplayPage),
+  },
+  {
     path: 'login',
     title: 'Sign in | 42 Chess',
     loadComponent: () => import('./features/auth/login-page').then((m) => m.LoginPage),
