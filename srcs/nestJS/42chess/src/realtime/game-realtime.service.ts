@@ -15,6 +15,7 @@ import type { GameState } from '../games/game-state.js';
 import type { GameResponse } from '../games/game-api.types.js';
 import { RealtimeMessages } from './realtime-messages.js';
 import type { RealtimeClient, RealtimeMessage } from './realtime-messages.js';
+import { DataSource } from 'typeorm';
 
 interface Room {
   clients: Map<string, RealtimeClient>;
@@ -58,6 +59,7 @@ export class GameRealtimeService
   constructor(
     private readonly games: GamesService,
     private readonly presenter: GamePresenterService,
+    private readonly source: DataSource,
   ) {
     super();
   }
@@ -100,13 +102,28 @@ export class GameRealtimeService
       if (message.event === 'SYNC_CLOCK') {
         const started = performance.now();
         const state = await this.games.settle(id);
+        // Read the same wall-clock authority as the persisted checkpoint. Settlement
+        // can spend time saving/committing after sampling; application wall time can
+        // differ from PostgreSQL and must never be used to measure that sample's age.
+        const querying = performance.now();
+        const [row]: { now: Date }[] = await this.source.query(
+          'SELECT clock_timestamp() AS now',
+        );
         const sampled = performance.now();
         const view = await this.presenter.state(state);
+        const sending = performance.now();
+        // Approximate the DB query's return leg by half its monotonic round trip,
+        // just as the client estimates transport latency. Include all later work.
+        const sampleAgeMs = state.game.clock
+          ? Math.max(0, row.now.getTime() - state.game.clock.updatedAt) +
+            (sampled - querying) / 2 +
+            (sending - sampled)
+          : 0;
         client.send('CLOCK_SYNC', {
           gameId: id,
           requestId: message.data.requestId,
-          processingMs: performance.now() - started,
-          sampleAgeMs: performance.now() - sampled,
+          processingMs: sending - started,
+          sampleAgeMs,
           ...this.clockSample(state),
           clocks: view.clocks,
           turn: view.board.turn,

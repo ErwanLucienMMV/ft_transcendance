@@ -12,7 +12,12 @@ After joining a room, a seated client can send `SYNC_CLOCK` with `{gameId, reque
 The request identifier must be a non-negative safe integer. Room authorization and the
 existing per-game serialization apply. The unicast `CLOCK_SYNC` echoes that identifier
 and returns `clocks`, `turn`, `status`, `clockStatus`, `serverTime`, `processingMs` and
-`sampleAgeMs`. Processing uses a server monotonic timer, never client time. The normal
+`sampleAgeMs`. Processing uses a server monotonic timer, never client time. A PostgreSQL
+`clock_timestamp()` read after settlement measures checkpoint age, including persistence
+and commit time. Half the database query round trip estimates its return latency; subsequent
+presentation work uses the monotonic timer. Application host wall-clock skew is irrelevant.
+Both database and client half-round-trip estimates assume symmetric transport delays.
+The normal
 durable settlement service applies a timeout if one occurred; the client cannot set time.
 
 Angular `GameRealtime.displayClocks` projects only the active color from the latest server
@@ -54,7 +59,8 @@ Validation in the existing Linux Node 22 Docker images (Windows native dependenc
 lacked the optional rolldown binding):
 
 - Backend build: PASS.
-- Clock + realtime unit tests: 3 files, 73 tests passed.
+- Clock + realtime unit tests: 3 files, 74 tests passed, including delayed settlement and
+  application wall-clock skew regression.
 - Real game WebSocket E2E with isolated PostgreSQL port 55436 and existing chess/bot
   test services: 1 file, 12 tests passed, including reconnect/resign sync and real timeout.
 - Angular realtime tests: 3 files, 29 tests passed.
@@ -63,3 +69,15 @@ lacked the optional rolldown binding):
 No migration, private environment file, presence service, gateway, root module or CI
 workflow was changed. Clients without the new metadata retain authoritative snapshots;
 they cannot perform latency projection until the new server contract is available.
+
+## SCRUM-174 follow-up audit
+
+The checkpoint-age regression uses a 100 ms settlement persistence delay, a database
+round trip and an application host wall clock one hour ahead. Clock synchronization
+now measures checkpoint age against PostgreSQL and includes later processing.
+
+A preliminary E2E run observed GAME_BUSY (PostgreSQL 55P03) in the existing REST
+bot-move refresh scenario; a second audit run and the final validation passed all 12
+tests. This scenario and its NOWAIT bot-move locking already exist in dev_test and do
+not issue SYNC_CLOCK. No test retry or lock policy change was introduced to mask it.
+The underlying background-settlement versus bot-move contention remains a known risk.
