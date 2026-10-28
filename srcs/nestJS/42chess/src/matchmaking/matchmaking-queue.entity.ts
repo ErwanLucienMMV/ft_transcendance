@@ -49,6 +49,10 @@ export class MatchmakingEntry {
   increment: number;
   @Column({ type: 'varchar', length: 9, default: 'WAITING' })
   status: 'WAITING' | 'MATCHED' | 'CANCELLED';
+  @Column({ type: 'uuid', nullable: true })
+  matchedGameId: string | null;
+  @Column({ type: 'timestamptz', nullable: true })
+  matchedAt: Date | null;
   get timeControl(): { initialTime: number; increment: number } {
     return { initialTime: this.initialTime, increment: this.increment };
   }
