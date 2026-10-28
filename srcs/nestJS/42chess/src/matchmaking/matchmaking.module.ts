@@ -1,3 +1,6 @@
+import { GamesModule } from '../games/games.module.js';
+import { MatchmakingEventsModule } from './matchmaking-events.module.js';
+import { MatchmakingWorker } from './matchmaking-worker.service.js';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../users/user.entity.js';
@@ -13,9 +16,14 @@ import { HttpAuthModule } from '../common/http-auth.module.js';
  * Routes: `/matchmaking/*` (see spec §23–§24).
  */
 @Module({
-  imports: [HttpAuthModule, TypeOrmModule.forFeature([User, MatchmakingEntry])],
+  imports: [
+    GamesModule,
+    MatchmakingEventsModule,
+    HttpAuthModule,
+    TypeOrmModule.forFeature([User, MatchmakingEntry]),
+  ],
   controllers: [MatchmakingController],
-  providers: [MatchmakingService],
-  exports: [MatchmakingService],
+  providers: [MatchmakingService, MatchmakingWorker],
+  exports: [MatchmakingService, MatchmakingWorker],
 })
 export class MatchmakingModule {}
