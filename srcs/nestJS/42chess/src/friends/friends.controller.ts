@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -15,6 +16,7 @@ import { HttpAuthGuard } from '../common/http-auth.guard.js';
 import { FriendsService } from './friends.service.js';
 import type {
   FriendRequestResponse,
+  FriendRequestsResponse,
   FriendsResponse,
 } from './friends.types.js';
 import { SendFriendRequestDto } from './dto/send-friend-request.dto.js';
@@ -27,6 +29,11 @@ export class FriendsController {
   @Get()
   list(@Req() request: Request): Promise<FriendsResponse> {
     return this.friends.list(gameActor(request));
+  }
+
+  @Get('requests')
+  receivedRequests(@Req() request: Request): Promise<FriendRequestsResponse> {
+    return this.friends.receivedRequests(gameActor(request));
   }
 
   @Post('requests')
@@ -44,5 +51,23 @@ export class FriendsController {
     @Param('requestId', new ParseUUIDPipe()) requestId: string,
   ): Promise<FriendRequestResponse> {
     return this.friends.acceptRequest(gameActor(request), requestId);
+  }
+
+  @Post('requests/:requestId/reject')
+  @HttpCode(200)
+  rejectRequest(
+    @Req() request: Request,
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
+  ): Promise<FriendRequestResponse> {
+    return this.friends.rejectRequest(gameActor(request), requestId);
+  }
+
+  @Delete(':friendId')
+  @HttpCode(204)
+  removeFriend(
+    @Req() request: Request,
+    @Param('friendId', new ParseUUIDPipe()) friendId: string,
+  ): Promise<void> {
+    return this.friends.removeFriend(gameActor(request), friendId);
   }
 }

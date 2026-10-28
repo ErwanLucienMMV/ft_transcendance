@@ -26,6 +26,11 @@ export interface FriendRequestResponse {
   createdAt: ISODateString;
 }
 
+export type FriendRequestsResponse = CollectionResponse<
+  'requests',
+  FriendRequestResponse
+>;
+
 export function toFriendRequest(request: FriendRequest): FriendRequestResponse {
   return {
     id: request.id,
