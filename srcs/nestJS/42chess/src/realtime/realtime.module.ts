@@ -1,3 +1,4 @@
+import { MatchmakingEventsModule } from '../matchmaking/matchmaking-events.module.js';
 import { PresenceModule } from '../presence/presence.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -17,6 +18,7 @@ import { MetricsModule } from '../metrics/metrics.module.js';
     MetricsModule,
     SessionModule,
     PresenceModule,
+    MatchmakingEventsModule,
   ],
   providers: [
     RealtimeGateway,

@@ -6,6 +6,7 @@ import {
   OnApplicationShutdown,
   UnauthorizedException,
 } from '@nestjs/common';
+import { MatchmakingEvents } from '../matchmaking/matchmaking-events.service.js';
 import { PresenceGateway } from '../presence/presence.gateway.js';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost } from '@nestjs/core';
@@ -36,6 +37,7 @@ export class RealtimeGateway
     private readonly config: ConfigService,
     metrics: MetricsService,
     @Optional() private readonly presence?: PresenceGateway,
+    @Optional() private readonly matchmaking?: MatchmakingEvents,
   ) {
     this.connectionsActive = metrics.gauge({
       name: 'websocket_connections_active',
@@ -151,6 +153,7 @@ export class RealtimeGateway
       clearInterval(validation);
       this.presence?.disconnect(connectionId);
       this.messages.disconnect(connectionId);
+      this.matchmaking?.disconnect(connectionId);
     });
     socket.on('message', (raw, binary) => {
       if (socket.readyState !== WebSocket.OPEN) return;
@@ -234,7 +237,7 @@ export class RealtimeGateway
               );
               expiry.unref();
               this.send(socket, 'AUTHENTICATED', { userId: principal.userId });
-              this.presence?.connect(connectionId, {
+              const authenticatedClient = {
                 userId: verified.userId,
                 connected: () =>
                   socket.readyState === WebSocket.OPEN &&
@@ -242,8 +245,11 @@ export class RealtimeGateway
                 validate: async () => {
                   await verified.validate?.();
                 },
-                send: (event, data) => this.send(socket, event, data),
-              });
+                send: (event: string, data: unknown) =>
+                  this.send(socket, event, data),
+              };
+              this.presence?.connect(connectionId, authenticatedClient);
+              this.matchmaking?.connect(connectionId, authenticatedClient);
             } else {
               if (
                 principal.expiresAt <= Date.now() ||
