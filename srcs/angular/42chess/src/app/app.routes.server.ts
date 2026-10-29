@@ -10,6 +10,8 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'live', renderMode: RenderMode.Client },
   { path: 'history', renderMode: RenderMode.Client },
   { path: 'replay/:id', renderMode: RenderMode.Client },
+  { path: 'players/:id', renderMode: RenderMode.Client },
+  { path: 'friends', renderMode: RenderMode.Client },
   { path: 'oauth/callback', renderMode: RenderMode.Client },
   {
     path: '**',

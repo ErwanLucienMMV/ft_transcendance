@@ -1,0 +1,72 @@
+<section class="friends-page" aria-labelledby="friends-title">
+  <span class="eyebrow">Community</span>
+  <h2 id="friends-title">Friends</h2>
+
+  <section class="panel" aria-labelledby="search-title">
+    <h3 id="search-title">Find players</h3>
+    <form class="search" role="search" [formGroup]="form" (ngSubmit)="submit()">
+      <label class="sr-only" for="player-search">Username</label>
+      <input
+        id="player-search"
+        formControlName="q"
+        type="search"
+        autocomplete="off"
+        placeholder="Search by username"
+        [maxlength]="maxLength"
+      />
+      <button type="submit" class="button">Search</button>
+    </form>
+    @if (searchFailed()) {
+      <p class="error" role="alert">The search failed. Try again.</p>
+    } @else if (results(); as players) {
+      @if (players.length === 0) {
+        <p class="muted" role="status">No player matches “{{ query() }}”.</p>
+      } @else {
+        <ul class="people" [attr.aria-busy]="searching()" aria-label="Search results">
+          @for (player of players; track player.id) {
+            <li>
+              <a [routerLink]="['/players', player.id]">
+                <strong>{{ player.username }}</strong>
+                @if (self(player.id)) {
+                  <small>(you)</small>
+                }
+              </a>
+              <span class="elo">{{ player.elo }}</span>
+              <app-presence-badge [status]="player.online ? 'ONLINE' : 'OFFLINE'" />
+            </li>
+          }
+        </ul>
+      }
+    } @else if (searching()) {
+      <p class="muted" role="status">Searching…</p>
+    }
+  </section>
+
+  <section class="panel" aria-labelledby="list-title">
+    <h3 id="list-title">Your friends</h3>
+    @if (friendsFailed()) {
+      <div class="error" role="alert">
+        <p>Your friends could not be loaded.</p>
+        <button type="button" class="button secondary" (click)="loadFriends()">Try again</button>
+      </div>
+    } @else if (friends(); as list) {
+      @if (list.length === 0) {
+        <p class="muted">No friends yet. Find a player above and open their profile.</p>
+      } @else {
+        <ul class="people" aria-label="Friends">
+          @for (friend of list; track friend.id) {
+            <li>
+              <a [routerLink]="['/players', friend.id]"
+                ><strong>{{ friend.username }}</strong></a
+              >
+              <span class="elo">{{ friend.elo }}</span>
+              <app-presence-badge [status]="friend.status" />
+            </li>
+          }
+        </ul>
+      }
+    } @else {
+      <p class="muted" role="status">Loading your friends…</p>
+    }
+  </section>
+</section>

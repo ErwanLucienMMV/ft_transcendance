@@ -1,0 +1,124 @@
+<section class="profile-page" aria-labelledby="profile-title">
+  @if (error(); as message) {
+    <span class="eyebrow">Player</span>
+    <h2 id="profile-title">Player profile</h2>
+    <p class="profile-error" role="alert">{{ message }}</p>
+    <a class="button secondary" routerLink="/friends">Find players</a>
+  } @else if (profile(); as player) {
+    <header class="identity">
+      @if (player.avatarUrl && !avatarFailed()) {
+        <img
+          class="avatar"
+          [src]="player.avatarUrl"
+          alt=""
+          referrerpolicy="no-referrer"
+          (error)="avatarFailed.set(true)"
+        />
+      } @else {
+        <span class="avatar initial" aria-hidden="true">{{ initial() }}</span>
+      }
+      <div>
+        <span class="eyebrow">{{ mine() ? 'Your profile' : 'Player' }}</span>
+        <h2 id="profile-title">{{ player.username }}</h2>
+        <app-presence-badge [status]="status()" />
+      </div>
+    </header>
+
+    <dl class="stats">
+      <div>
+        <dt>Elo</dt>
+        <dd>{{ player.elo }}</dd>
+      </div>
+      <div>
+        <dt>Games</dt>
+        <dd>{{ player.gamesPlayed }}</dd>
+      </div>
+      @if (own(); as me) {
+        <div>
+          <dt>Won</dt>
+          <dd>{{ me.gamesWon }}</dd>
+        </div>
+        <div>
+          <dt>Drawn</dt>
+          <dd>{{ me.gamesDraw }}</dd>
+        </div>
+        <div>
+          <dt>Lost</dt>
+          <dd>{{ me.gamesLost }}</dd>
+        </div>
+      }
+    </dl>
+
+    @if (mine()) {
+      <p class="actions">
+        <a class="button secondary" routerLink="/history">All your games</a>
+        <a class="button secondary" routerLink="/session">Account settings</a>
+      </p>
+    }
+
+    <section aria-labelledby="rating-title">
+      <h3 id="rating-title">Rating changes</h3>
+      @if (sideFailed().ratings) {
+        <p class="muted">Rating changes could not be loaded.</p>
+      } @else if (ratings(); as changes) {
+        @if (changes.length === 0) {
+          <p class="muted">No rated game yet.</p>
+        } @else {
+          <ol class="rows">
+            @for (change of changes; track change.gameId) {
+              <li>
+                <a [routerLink]="['/replay', change.gameId]">
+                  <span
+                    class="change"
+                    [attr.data-sign]="
+                      change.change > 0 ? 'up' : change.change < 0 ? 'down' : 'even'
+                    "
+                    >{{ signed(change.change) }}</span
+                  >
+                  <span>{{ change.ratingBefore }} → {{ change.ratingAfter }}</span>
+                  <time [attr.datetime]="change.createdAt">{{
+                    change.createdAt | date: 'mediumDate'
+                  }}</time>
+                </a>
+              </li>
+            }
+          </ol>
+        }
+      } @else {
+        <p class="muted">Loading…</p>
+      }
+    </section>
+
+    <section aria-labelledby="recent-title">
+      <h3 id="recent-title">Recent games</h3>
+      @if (sideFailed().recent) {
+        <p class="muted">Recent games could not be loaded.</p>
+      } @else if (recent(); as games) {
+        @if (games.length === 0) {
+          <p class="muted">No finished game yet.</p>
+        } @else {
+          <ol class="rows">
+            @for (game of games; track game.id) {
+              <li>
+                <a [routerLink]="['/replay', game.id]">
+                  <span class="outcome" [attr.data-outcome]="game.outcome">{{
+                    outcome(game.outcome)
+                  }}</span>
+                  <span>vs {{ opponent(game.opponent) }}</span>
+                  <time [attr.datetime]="game.endedAt">{{
+                    game.endedAt | date: 'mediumDate'
+                  }}</time>
+                </a>
+              </li>
+            }
+          </ol>
+        }
+      } @else {
+        <p class="muted">Loading…</p>
+      }
+    </section>
+  } @else {
+    <h2 id="profile-title" class="sr-only">Player profile</h2>
+    <p class="muted" role="status">Loading the profile…</p>
+  }
+</section>
