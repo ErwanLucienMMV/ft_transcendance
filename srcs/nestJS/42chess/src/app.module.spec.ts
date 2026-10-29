@@ -13,6 +13,7 @@ import { RatingModule } from './rating/rating.module.js';
 import { PuzzlesModule } from './puzzles/puzzles.module.js';
 import { BotsModule } from './bots/bots.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
+import { MetricsModule } from './metrics/metrics.module.js';
 
 /** Feature modules that must be wired into `AppModule`. Add new ones here. */
 const DOMAIN_MODULES = [
@@ -42,7 +43,7 @@ describe('AppModule', () => {
   // connection (see test/*.integration-spec.ts for that).
   it.each(DOMAIN_MODULES)('compiles %o on its own', async (domainModule) => {
     const moduleRef = await Test.createTestingModule({
-      imports: [domainModule],
+      imports: [MetricsModule, domainModule],
     })
       .overrideProvider(getRepositoryToken(User))
       .useValue({})

@@ -18,6 +18,7 @@ import { LiveGamesService } from './live-games.service.js';
 import { SpectatorRegistry } from './spectator-registry.js';
 import { GamePresenterService } from './game-presenter.service.js';
 import { GameActorGuard } from './game-actor.guard.js';
+import { GamesMetricsService } from './games-metrics.service.js';
 import { RatingModule } from '../rating/rating.module.js';
 import { PresenceModule } from '../presence/presence.module.js';
 import { SessionModule } from '../auth/session.module.js';
@@ -44,6 +45,7 @@ import { SessionModule } from '../auth/session.module.js';
     LiveGamesService,
     SpectatorRegistry,
     GameActorGuard,
+    GamesMetricsService,
     GamesService,
     GameStoreService,
     GameRulesService,
