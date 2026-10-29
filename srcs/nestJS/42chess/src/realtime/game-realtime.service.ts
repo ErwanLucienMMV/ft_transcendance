@@ -15,6 +15,7 @@ import type { GameState } from '../games/game-state.js';
 import type { GameResponse } from '../games/game-api.types.js';
 import { RealtimeMessages } from './realtime-messages.js';
 import type { RealtimeClient, RealtimeMessage } from './realtime-messages.js';
+import { DataSource } from 'typeorm';
 
 interface Room {
   clients: Map<string, RealtimeClient>;
@@ -29,6 +30,7 @@ interface GameQueue {
 }
 const commands = new Set([
   'JOIN_GAME',
+  'SYNC_CLOCK',
   'LEAVE_GAME',
   'MAKE_MOVE',
   'RESIGN',
@@ -57,6 +59,7 @@ export class GameRealtimeService
   constructor(
     private readonly games: GamesService,
     private readonly presenter: GamePresenterService,
+    private readonly source: DataSource,
   ) {
     super();
   }
@@ -96,6 +99,38 @@ export class GameRealtimeService
           code: 'ROOM_REQUIRED',
           message: 'Join the game before sending commands.',
         });
+      if (message.event === 'SYNC_CLOCK') {
+        const started = performance.now();
+        const state = await this.games.settle(id);
+        // Read the same wall-clock authority as the persisted checkpoint. Settlement
+        // can spend time saving/committing after sampling; application wall time can
+        // differ from PostgreSQL and must never be used to measure that sample's age.
+        const querying = performance.now();
+        const [row]: { now: Date }[] = await this.source.query(
+          'SELECT clock_timestamp() AS now',
+        );
+        const sampled = performance.now();
+        const view = await this.presenter.state(state);
+        const sending = performance.now();
+        // Approximate the DB query's return leg by half its monotonic round trip,
+        // just as the client estimates transport latency. Include all later work.
+        const sampleAgeMs = state.game.clock
+          ? Math.max(0, row.now.getTime() - state.game.clock.updatedAt) +
+            (sampled - querying) / 2 +
+            (sending - sampled)
+          : 0;
+        client.send('CLOCK_SYNC', {
+          gameId: id,
+          requestId: message.data.requestId,
+          processingMs: sending - started,
+          sampleAgeMs,
+          ...this.clockSample(state),
+          clocks: view.clocks,
+          turn: view.board.turn,
+          status: view.status,
+        });
+        return;
+      }
       if (message.event === 'LEAVE_GAME') {
         this.leave(client.connectionId, id);
         client.send('GAME_LEFT', { gameId: id });
@@ -167,7 +202,7 @@ export class GameRealtimeService
                 gameId: id,
                 clocks: view.clocks,
                 turn: view.board.turn,
-                serverTime: new Date().toISOString(),
+                ...this.clockSample(state),
               });
           }).catch(() => this.logger.warn('Realtime game refresh failed.')),
         ),
@@ -255,6 +290,7 @@ export class GameRealtimeService
     room.signature = this.signature(state);
     this.broadcast(room, 'GAME_STATE', {
       ...view,
+      ...this.clockSample(state),
       gameId: view.id,
       moves: this.presenter.moves(state).moves,
     });
@@ -265,6 +301,16 @@ export class GameRealtimeService
         result: view.result,
       });
     }
+  }
+
+  /** Timestamp belongs to the persisted PostgreSQL clock sample, not packet emission. */
+  private clockSample(state: GameState) {
+    return {
+      serverTime: state.game.clock
+        ? new Date(state.game.clock.updatedAt).toISOString()
+        : null,
+      clockStatus: state.game.clock?.status ?? 'WAITING',
+    };
   }
 
   private signature(state: GameState): string {
@@ -307,9 +353,19 @@ export class GameRealtimeService
     const allowed =
       message.event === 'MAKE_MOVE'
         ? ['gameId', 'from', 'to', 'promotion']
-        : ['gameId'];
+        : message.event === 'SYNC_CLOCK'
+          ? ['gameId', 'requestId']
+          : ['gameId'];
     if (Object.keys(message.data).some((key) => !allowed.includes(key)))
       throw new BadRequestException('Unexpected command fields.');
+    if (
+      message.event === 'SYNC_CLOCK' &&
+      (!Number.isSafeInteger(message.data.requestId) ||
+        Number(message.data.requestId) < 0)
+    )
+      throw new BadRequestException(
+        'Expected a non-negative clock request identifier.',
+      );
     if (message.event === 'MAKE_MOVE') this.uci(message.data);
   }
   private uci(data: Record<string, unknown>): string {
