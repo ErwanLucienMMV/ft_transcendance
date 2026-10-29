@@ -35,13 +35,6 @@ export function resultText(result: GameResult, mine: PlayerColor | null = null):
   return `${result.winner === 'WHITE' ? 'White' : 'Black'} wins${suffix}`;
 }
 
-const OUTCOMES = { WIN: 'Won', LOSS: 'Lost', DRAW: 'Draw' } as const;
-
-/** One word for a finished game seen from a player's seat: "Won", "Lost" or "Draw". */
-export function outcomeText(outcome: keyof typeof OUTCOMES): string {
-  return OUTCOMES[outcome];
-}
-
 export function botName(difficulty: BotDifficulty): string {
   return `Computer · ${BOT_NAMES[difficulty]}`;
 }

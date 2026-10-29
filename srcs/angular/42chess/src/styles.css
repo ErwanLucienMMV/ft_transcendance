@@ -62,15 +62,6 @@ button:disabled {
   cursor: wait;
   opacity: 0.6;
 }
-/* Confirms an action that cannot be undone, such as resigning or removing a friend. */
-button.danger {
-  background: var(--error);
-  color: var(--error-bg);
-}
-button.danger:hover {
-  background: #ffcfc5;
-  color: var(--error-bg);
-}
 .button.secondary {
   background: var(--field);
   color: var(--text);

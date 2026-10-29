@@ -5,9 +5,6 @@
   <p class="auth-intro">
     You stay signed in on this browser, even after a reload, until you sign out.
   </p>
-  @if (session.user(); as user) {
-    <a class="button secondary" [routerLink]="['/players', user.id]">View your profile</a>
-  }
   <a class="button secondary" routerLink="/">Return home <span aria-hidden="true">→</span></a>
   <app-oauth-accounts />
 </app-auth-frame>

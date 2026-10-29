@@ -1,10 +1,9 @@
-import { Component, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { SessionLifecycle } from './core/auth/session-lifecycle';
 import { AuthSession } from './core/auth/auth-session';
 import { ErrorState } from './core/errors/error-state';
-import { RealtimeService } from './core/realtime/realtime.service';
 
 @Component({
   imports: [RouterOutlet, RouterLink, RouterLinkActive],
@@ -19,14 +18,6 @@ export class App {
   private readonly lifecycle = inject(SessionLifecycle);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-
-  constructor() {
-    // Presence (spec §29) counts authenticated sockets, so a signed-in tab keeps one open.
-    const realtime = inject(RealtimeService);
-    effect(() => {
-      if (this.session.authenticated()) untracked(() => realtime.connect());
-    });
-  }
 
   signOut(): void {
     const leave = () => {
