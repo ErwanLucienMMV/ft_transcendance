@@ -41,6 +41,16 @@ export const routes: Routes = [
       import('./features/auth/oauth-callback-page').then((m) => m.OAuthCallbackPage),
   },
   {
+    path: 'privacy',
+    title: 'Privacy Policy | 42 Chess',
+    loadComponent: () => import('./features/legal/privacy-page').then((m) => m.PrivacyPage),
+  },
+  {
+    path: 'terms',
+    title: 'Terms of Service | 42 Chess',
+    loadComponent: () => import('./features/legal/terms-page').then((m) => m.TermsPage),
+  },
+  {
     path: '**',
     title: 'Page not found | 42 Chess',
     loadComponent: () => import('./features/home/not-found-page').then((m) => m.NotFoundPage),
