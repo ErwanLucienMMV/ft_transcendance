@@ -1,0 +1,154 @@
+<article class="legal-page" aria-labelledby="privacy-title">
+  <span class="eyebrow">Legal</span>
+  <h2 id="privacy-title">Privacy Policy</h2>
+  <p class="updated">
+    Last updated <time [attr.datetime]="updated">{{ updated | date: 'longDate' : 'UTC' }}</time>
+  </p>
+  <p>
+    42 Chess is an online chess site built by a team of students at 42 school as part of the
+    ft_transcendence project. This page explains which personal data the site keeps, why, who can
+    see it and how long it is kept. It applies to every page of the site and to its realtime
+    connection.
+  </p>
+
+  <h3>Data we collect</h3>
+  <ul>
+    <li>
+      <strong>Account:</strong> your username, your email address and a password. The password is
+      never stored as typed: we keep only an Argon2id hash of it. If you sign in with Google or
+      GitHub, we keep the identifier that provider gives your account instead of a password.
+    </li>
+    <li>
+      <strong>Email verification:</strong> the date your address was confirmed, and a one-time code
+      (stored as a hash) that expires after 30 minutes.
+    </li>
+    <li>
+      <strong>Two-factor authentication</strong>, if you turn it on: the secret used to check your
+      codes and a count of failed attempts, to block repeated guessing.
+    </li>
+    <li>
+      <strong>Profile:</strong> the address of your avatar picture, if you set one, and your display
+      preferences.
+    </li>
+    <li>
+      <strong>Play:</strong> the games you play (players, moves, clocks, result and dates), your Elo
+      rating and its changes after each rated game, your win, draw and loss counts, and your daily
+      puzzle attempts.
+    </li>
+    <li>
+      <strong>Social:</strong> your friends and friend requests, whether you are online or in a
+      game, and when you were last seen.
+    </li>
+    <li>
+      <strong>Sessions:</strong> one record for each signed-in browser, with its expiry date and
+      whether you signed it out.
+    </li>
+  </ul>
+  <p>
+    We do not collect your real name, your address, payment details or your location. We do not use
+    advertising, tracking or third-party analytics.
+  </p>
+
+  <h3>Why we use it</h3>
+  <ul>
+    <li>
+      To create your account, sign you in and keep it secure (verification, two-factor, sessions).
+    </li>
+    <li>To run games in real time, rate them fairly and keep your game history.</li>
+    <li>To show friends when you are online and let them challenge you.</li>
+    <li>
+      To keep the service working: we measure request counts, response times and the number of games
+      in progress. These measurements never contain user or game identifiers.
+    </li>
+  </ul>
+  <p>
+    The legal basis is the agreement you accept when creating an account (the
+    <a routerLink="/terms">Terms of Service</a>) and our interest in keeping the site secure.
+  </p>
+
+  <h3>Who can see it</h3>
+  <ul>
+    <li>
+      <strong>Everyone</strong>, including visitors who are not signed in: your username, avatar,
+      Elo rating, rating history, number of games, whether you are online, your finished games and
+      their moves, and the games you are playing now (anyone can watch a game in progress).
+    </li>
+    <li><strong>Your friends:</strong> when you come online, go offline or start a game.</li>
+    <li>
+      <strong>Only you:</strong> your email address, preferences, friend requests, puzzle attempts
+      and sessions.
+    </li>
+    <li>
+      <strong>Nobody:</strong> your password and two-factor secret are never sent back by the site,
+      not even to you.
+    </li>
+  </ul>
+  <p>We never sell or rent your data.</p>
+
+  <h3>Other services involved</h3>
+  <ul>
+    <li>
+      <strong>Google and GitHub</strong>, only if you choose to sign in with them. They tell us your
+      account identifier and email address; their own privacy policies apply on their pages.
+    </li>
+    <li>
+      <strong>Our email provider</strong>, which delivers the verification email to your address.
+    </li>
+  </ul>
+
+  <h3>Cookies and browser storage</h3>
+  <p>The site sets a single cookie, and it is strictly necessary:</p>
+  <ul>
+    <li>
+      <code>refresh_token</code> keeps you signed in after a reload. It cannot be read by scripts
+      (httpOnly), is only sent to the sign-in service of this site (SameSite=Strict) and expires
+      after seven days, or as soon as you sign out.
+    </li>
+  </ul>
+  <p>
+    Your short-lived access token stays in the page's memory only. While you solve a daily puzzle,
+    the tab's session storage remembers which attempt is in progress, so a reload can resume it; it
+    is erased when you close the tab. No consent banner is needed because nothing else is stored.
+  </p>
+
+  <h3>How long we keep it</h3>
+  <ul>
+    <li>Account, profile, games and ratings: as long as your account exists.</li>
+    <li>Sessions: they stop working after seven days or when you sign out.</li>
+    <li>Email verification codes: 30 minutes. Two-factor sign-in challenges: 5 minutes.</li>
+  </ul>
+  <p>
+    If you ask for your account to be deleted, the team erases your account data. Finished games
+    stay in your opponents' history, but no longer show your username.
+  </p>
+
+  <h3>Your rights</h3>
+  <p>
+    Under the General Data Protection Regulation (GDPR) you can ask to see the data we hold about
+    you, to correct it, to receive a copy of it, to have it deleted, or object to how it is used.
+    Signing out ends the session of that browser at once. To use these rights, contact the team
+    members through the 42 school intranet; we answer within one month. You may also complain to the
+    CNIL, the French data protection authority (<a href="https://www.cnil.fr" rel="noopener"
+      >www.cnil.fr</a
+    >).
+  </p>
+
+  <h3>Security</h3>
+  <p>
+    The site is served over HTTPS only. Passwords are hashed with Argon2id, repeated wrong
+    two-factor codes are blocked, and every request and realtime connection checks that its session
+    is still valid.
+  </p>
+
+  <h3>Children</h3>
+  <p>
+    The site is meant for people aged 15 or older. Younger players need a parent's or guardian's
+    permission to create an account.
+  </p>
+
+  <h3>Changes</h3>
+  <p>
+    If this policy changes, the date at the top of this page changes with it. A change that affects
+    how your data is used will be announced on the site before it applies.
+  </p>
+</article>

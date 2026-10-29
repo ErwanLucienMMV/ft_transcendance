@@ -38,4 +38,18 @@ describe('App', () => {
     expect(compiled.querySelector('[role="alert"]')).toBeNull();
     expect(compiled.querySelector('nav[aria-label="Main navigation"]')).not.toBeNull();
   });
+
+  it('links the legal pages from the footer', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const links = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll(
+        'footer nav[aria-label="Legal"] a',
+      ),
+    ];
+    expect(links.map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
+      ['Privacy Policy', '/privacy'],
+      ['Terms of Service', '/terms'],
+    ]);
+  });
 });
