@@ -47,6 +47,17 @@ export const routes: Routes = [
     loadComponent: () => import('./features/history/replay-page').then((m) => m.ReplayPage),
   },
   {
+    path: 'players/:id',
+    title: 'Player profile | 42 Chess',
+    loadComponent: () => import('./features/social/profile-page').then((m) => m.ProfilePage),
+  },
+  {
+    path: 'friends',
+    title: 'Friends | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/social/friends-page').then((m) => m.FriendsPage),
+  },
+  {
     path: 'login',
     title: 'Sign in | 42 Chess',
     loadComponent: () => import('./features/auth/login-page').then((m) => m.LoginPage),

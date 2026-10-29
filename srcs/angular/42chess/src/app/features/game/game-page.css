@@ -60,10 +60,6 @@
   flex-wrap: wrap;
   gap: 8px;
 }
-.danger {
-  background: var(--error);
-  color: var(--error-bg);
-}
 .thinking {
   display: inline-flex;
   gap: 3px;
@@ -145,8 +141,4 @@
   .game-page {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-.danger:hover {
-  background: #ffcfc5;
-  color: var(--error-bg);
 }

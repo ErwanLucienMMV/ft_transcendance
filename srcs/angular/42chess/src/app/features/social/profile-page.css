@@ -1,0 +1,137 @@
+.profile-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 16px;
+  display: grid;
+  gap: 20px;
+}
+.profile-page h2,
+.profile-page h3,
+.profile-page p {
+  margin: 0;
+}
+.profile-page h3 {
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+.muted {
+  color: var(--muted);
+}
+.profile-error {
+  padding: 10px 14px;
+  border: 1px solid var(--error-border);
+  border-radius: 8px;
+  color: var(--error);
+  background: var(--error-bg);
+}
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.identity > div {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  min-width: 0;
+}
+.identity h2 {
+  overflow-wrap: anywhere;
+}
+.avatar {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--field);
+}
+.initial {
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+}
+.stats div {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.stats dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.stats dd {
+  margin: 2px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.note {
+  color: var(--muted);
+}
+.actions .note {
+  color: var(--error);
+}
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.rows a {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+}
+.rows a:hover,
+.rows a:focus-visible {
+  border-color: var(--accent);
+}
+.rows span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rows time {
+  color: var(--muted);
+  font-size: 13px;
+}
+.change,
+.outcome {
+  font-weight: 700;
+}
+.change[data-sign='up'],
+.outcome[data-outcome='WIN'] {
+  color: var(--accent);
+}
+.change[data-sign='down'],
+.outcome[data-outcome='LOSS'] {
+  color: var(--error);
+}
+.change[data-sign='even'],
+.outcome[data-outcome='DRAW'] {
+  color: var(--muted);
+}
