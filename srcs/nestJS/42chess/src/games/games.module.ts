@@ -18,6 +18,8 @@ import { LiveGamesService } from './live-games.service.js';
 import { SpectatorRegistry } from './spectator-registry.js';
 import { GamePresenterService } from './game-presenter.service.js';
 import { GameActorGuard } from './game-actor.guard.js';
+import { RatingModule } from '../rating/rating.module.js';
+import { PresenceModule } from '../presence/presence.module.js';
 import { SessionModule } from '../auth/session.module.js';
 
 /**
@@ -30,9 +32,11 @@ import { SessionModule } from '../auth/session.module.js';
  */
 @Module({
   imports: [
+    TypeOrmModule.forFeature([Game, GamePlayer, Move]),
+    RatingModule,
+    PresenceModule,
     BotEngineModule,
     SessionModule,
-    TypeOrmModule.forFeature([Game, GamePlayer, Move]),
   ],
   providers: [
     GamePresenterService,

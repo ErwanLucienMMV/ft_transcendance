@@ -1,3 +1,4 @@
+import { PresenceModule } from '../presence/presence.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { RealtimeGateway } from './realtime.gateway.js';
@@ -9,7 +10,7 @@ import { GamesModule } from '../games/games.module.js';
 import { GameRealtimeService } from './game-realtime.service.js';
 
 @Module({
-  imports: [ConfigModule, GamesModule, SessionModule],
+  imports: [ConfigModule, GamesModule, SessionModule, PresenceModule],
   providers: [
     RealtimeGateway,
     { provide: RealtimeMessages, useClass: GameRealtimeService },
