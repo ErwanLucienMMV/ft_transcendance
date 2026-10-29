@@ -78,7 +78,14 @@
 .actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
+}
+.note {
+  color: var(--muted);
+}
+.actions .note {
+  color: var(--error);
 }
 .rows {
   margin: 0;

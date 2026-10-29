@@ -49,6 +49,36 @@
       }
     </dl>
 
+    @switch (friendship()) {
+      @case ('none') {
+        <p class="actions">
+          <button type="button" class="button" [disabled]="sending()" (click)="addFriend()">
+            Add friend
+          </button>
+        </p>
+      }
+      @case ('failed') {
+        <p class="actions">
+          <button type="button" class="button" [disabled]="sending()" (click)="addFriend()">
+            Add friend
+          </button>
+          <span class="note" role="alert">The request could not be sent. Try again.</span>
+        </p>
+      }
+      @case ('sent') {
+        <p class="note" role="status">Friend request sent.</p>
+      }
+      @case ('pending') {
+        <p class="note" role="status">
+          A friend request between you is already pending.
+          <a routerLink="/friends">See your requests</a>
+        </p>
+      }
+      @case ('friends') {
+        <p class="note">You are friends.</p>
+      }
+    }
+
     @if (mine()) {
       <p class="actions">
         <a class="button secondary" routerLink="/history">All your games</a>

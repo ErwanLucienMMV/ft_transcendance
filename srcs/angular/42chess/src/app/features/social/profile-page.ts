@@ -18,6 +18,9 @@ import {
   UsersApi,
 } from './users-api';
 
+/** What the signed-in visitor can do about a friendship with this player. */
+export type Friendship = 'unknown' | 'none' | 'friends' | 'sent' | 'pending' | 'failed';
+
 export const PROFILE_RATING_CHANGES = 10;
 export const PROFILE_RECENT_GAMES = 5;
 
@@ -56,6 +59,8 @@ export class ProfilePage {
   );
   readonly initial = computed(() => this.profile()?.username.charAt(0).toUpperCase() ?? '');
   readonly avatarFailed = signal(false);
+  readonly friendship = signal<Friendship>('unknown');
+  readonly sending = signal(false);
   readonly opponent = playerLabel;
   readonly outcome = outcomeText;
 
@@ -63,7 +68,11 @@ export class ProfilePage {
     effect(() => {
       const id = this.userId();
       const mine = this.mine();
-      untracked(() => this.load(id, mine));
+      const visitor = this.signedInId();
+      untracked(() => {
+        this.load(id, mine);
+        this.loadFriendship(id, Boolean(visitor) && !mine);
+      });
     });
     presenceChanges(inject(RealtimeService))
       .pipe(takeUntilDestroyed(inject(DestroyRef)))
@@ -72,8 +81,43 @@ export class ProfilePage {
       });
   }
 
+  addFriend(): void {
+    const id = this.userId();
+    if (this.sending()) return;
+    this.sending.set(true);
+    this.users.sendFriendRequest(id).subscribe({
+      next: () => {
+        this.sending.set(false);
+        this.friendship.set('sent');
+      },
+      error: (error: unknown) => {
+        this.sending.set(false);
+        const code = error instanceof ApiError ? error.code : '';
+        this.friendship.set(
+          code === 'ALREADY_FRIENDS'
+            ? 'friends'
+            : code === 'FRIEND_REQUEST_PENDING'
+              ? 'pending'
+              : 'failed',
+        );
+      },
+    });
+  }
+
   signed(change: number): string {
     return change > 0 ? `+${change}` : `${change}`;
+  }
+
+  /** Friends are read from the visitor's own list; there is no per-pair lookup. */
+  private loadFriendship(id: string, applies: boolean): void {
+    this.friendship.set('unknown');
+    if (!applies) return;
+    this.users.friends().subscribe({
+      next: ({ friends }) =>
+        this.friendship.set(friends.some((friend) => friend.id === id) ? 'friends' : 'none'),
+      // Offer the request anyway: the server answers ALREADY_FRIENDS if it is one.
+      error: () => this.friendship.set('none'),
+    });
   }
 
   private load(id: string, mine: boolean): void {

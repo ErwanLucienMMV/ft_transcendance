@@ -42,6 +42,44 @@
     }
   </section>
 
+  @if (actionError(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+
+  @if (requests()?.length) {
+    <section class="panel" aria-labelledby="requests-title">
+      <h3 id="requests-title">Friend requests</h3>
+      <ul class="people" aria-label="Friend requests">
+        @for (request of requests(); track request.id) {
+          <li class="request">
+            <a [routerLink]="['/players', request.senderId]"
+              ><strong>{{ request.sender?.username ?? 'A player' }}</strong></a
+            >
+            <span class="elo">{{ request.sender?.elo }}</span>
+            <span class="actions">
+              <button
+                type="button"
+                class="button"
+                [disabled]="busy().has(request.id)"
+                (click)="accept(request)"
+              >
+                Accept
+              </button>
+              <button
+                type="button"
+                class="button secondary"
+                [disabled]="busy().has(request.id)"
+                (click)="reject(request)"
+              >
+                Decline
+              </button>
+            </span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
   <section class="panel" aria-labelledby="list-title">
     <h3 id="list-title">Your friends</h3>
     @if (friendsFailed()) {
@@ -51,7 +89,9 @@
       </div>
     } @else if (friends(); as list) {
       @if (list.length === 0) {
-        <p class="muted">No friends yet. Find a player above and open their profile.</p>
+        <p class="muted">
+          No friends yet. Find a player above, open their profile and send a friend request.
+        </p>
       } @else {
         <ul class="people" aria-label="Friends">
           @for (friend of list; track friend.id) {
@@ -61,6 +101,34 @@
               >
               <span class="elo">{{ friend.elo }}</span>
               <app-presence-badge [status]="friend.status" />
+              <span class="actions">
+                @if (confirmingRemoval() === friend.id) {
+                  <button
+                    type="button"
+                    class="danger"
+                    [disabled]="busy().has(friend.id)"
+                    (click)="remove(friend)"
+                  >
+                    Confirm removal
+                  </button>
+                  <button
+                    type="button"
+                    class="button secondary"
+                    (click)="confirmingRemoval.set(null)"
+                  >
+                    Cancel
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    class="link"
+                    [attr.aria-label]="'Remove ' + friend.username"
+                    (click)="confirmingRemoval.set(friend.id)"
+                  >
+                    Remove
+                  </button>
+                }
+              </span>
             </li>
           }
         </ul>
