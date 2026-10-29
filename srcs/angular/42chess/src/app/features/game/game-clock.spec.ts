@@ -7,6 +7,7 @@ describe('Game clock', () => {
     expect(formatClock(61_999)).toBe('1:01');
     expect(formatClock(9_870)).toBe('0:09.8');
     expect(formatClock(-5)).toBe('0:00.0');
+    expect(formatClock(9_870, false)).toBe('0:09');
   });
 
   it('marks a running low clock and announces the time', () => {

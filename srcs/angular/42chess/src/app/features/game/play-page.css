@@ -84,3 +84,10 @@ legend {
 .play-card > button {
   justify-self: start;
 }
+.play-card > p.searching {
+  color: var(--text);
+  font-weight: 600;
+}
+.searching time {
+  font-variant-numeric: tabular-nums;
+}

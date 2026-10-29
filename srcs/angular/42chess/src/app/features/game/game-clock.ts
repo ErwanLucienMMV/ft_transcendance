@@ -1,12 +1,12 @@
 import { Component, computed, input } from '@angular/core';
 
-/** Formats a clock; under ten seconds tenths matter, so they are shown. */
-export function formatClock(ms: number): string {
+/** Formats a clock; under ten seconds tenths matter, so they are shown unless turned off. */
+export function formatClock(ms: number, tenths = true): string {
   const safe = Math.max(0, ms);
   const minutes = Math.floor(safe / 60_000);
   const seconds = Math.floor((safe % 60_000) / 1000);
   const base = `${minutes}:${String(seconds).padStart(2, '0')}`;
-  return safe < 10_000 ? `${base}.${Math.floor((safe % 1000) / 100)}` : base;
+  return tenths && safe < 10_000 ? `${base}.${Math.floor((safe % 1000) / 100)}` : base;
 }
 
 @Component({
