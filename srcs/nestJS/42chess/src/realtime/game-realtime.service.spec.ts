@@ -5,6 +5,7 @@ import type { GamePresenterService } from '../games/game-presenter.service.js';
 import { GameError } from '../games/game-error.js';
 import { apiError } from '../common/api-error.js';
 import { SpectatorRegistry } from '../games/spectator-registry.js';
+import type { DataSource } from 'typeorm';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const white = '00000000-0000-4000-8000-000000000002';
@@ -14,6 +15,7 @@ describe('Game realtime routing and rooms', () => {
   let service: GameRealtimeService;
   let games: Record<string, ReturnType<typeof vi.fn>>;
   let state: any;
+  let source: { query: ReturnType<typeof vi.fn> };
   let a: RealtimeClient, b: RealtimeClient;
   let registry: SpectatorRegistry;
   beforeEach(() => {
@@ -52,10 +54,12 @@ describe('Game realtime routing and rooms', () => {
       })),
       moves: vi.fn((value: typeof state) => ({ moves: value.moves })),
     };
+    source = { query: vi.fn(async () => [{ now: new Date(1793181600000) }]) };
     service = new GameRealtimeService(
       games as unknown as GamesService,
       presenter as unknown as GamePresenterService,
       registry,
+      source as unknown as DataSource,
     );
     a = {
       userId: white,
@@ -89,6 +93,74 @@ describe('Game realtime routing and rooms', () => {
         moves: [],
       }),
     );
+  });
+  it('samples the durable database clock and validates room sync requests', async () => {
+    state.game.clock = { updatedAt: 1793181600000, status: 'RUNNING' };
+    await expect(
+      command('SYNC_CLOCK', a, { requestId: 1 }),
+    ).rejects.toMatchObject({ status: 403 });
+    await join();
+    await command('SYNC_CLOCK', a, { requestId: 7 });
+    expect(a.send).toHaveBeenCalledWith(
+      'CLOCK_SYNC',
+      expect.objectContaining({
+        gameId: id,
+        requestId: 7,
+        serverTime: new Date(state.game.clock.updatedAt).toISOString(),
+        clockStatus: 'RUNNING',
+        processingMs: expect.any(Number),
+        sampleAgeMs: expect.any(Number),
+      }),
+    );
+    await service.tick();
+    expect(a.send).toHaveBeenCalledWith(
+      'CLOCK_UPDATE',
+      expect.objectContaining({
+        serverTime: new Date(state.game.clock.updatedAt).toISOString(),
+      }),
+    );
+    await expect(
+      command('SYNC_CLOCK', a, { requestId: -1 }),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      command('SYNC_CLOCK', a, { requestId: 1, clocks: {} }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+  it('includes settlement commit latency in sample age using database time', async () => {
+    const checkpoint = 1793181600000;
+    state.game.clock = { updatedAt: checkpoint, status: 'RUNNING' };
+    await join();
+    let now = 0;
+    const monotonic = vi
+      .spyOn(performance, 'now')
+      .mockImplementation(() => now);
+    const wall = vi.spyOn(Date, 'now').mockReturnValue(checkpoint + 3600000);
+    try {
+      games.settle.mockImplementation(async () => {
+        // Checkpoint at 20ms, then 100ms of persistence/commit work.
+        now = 120;
+        return structuredClone(state);
+      });
+      source.query.mockImplementation(async () => {
+        now = 140;
+        return [{ now: new Date(checkpoint + 110) }];
+      });
+      await command('SYNC_CLOCK', a, { requestId: 8 });
+      expect(a.send).toHaveBeenCalledWith(
+        'CLOCK_SYNC',
+        expect.objectContaining({
+          serverTime: new Date(checkpoint).toISOString(),
+          processingMs: 140,
+          sampleAgeMs: 120,
+        }),
+      );
+      expect(source.query).toHaveBeenCalledWith(
+        'SELECT clock_timestamp() AS now',
+      );
+    } finally {
+      monotonic.mockRestore();
+      wall.mockRestore();
+    }
   });
   it('refuses outsiders without subscribing them', async () => {
     await expect(join({ ...a, userId: 'outsider' })).rejects.toMatchObject({
