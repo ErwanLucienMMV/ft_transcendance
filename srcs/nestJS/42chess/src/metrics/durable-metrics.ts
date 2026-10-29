@@ -17,6 +17,11 @@ export function registerDurableMetrics(
       'Players currently WAITING in the shared matchmaking queue',
       "SELECT count(*)::float8 AS value FROM matchmaking_queue WHERE status='WAITING'",
     ],
+    [
+      'puzzle_move_submissions',
+      'Submitted moves in retained puzzle sessions; unknown legacy counts excluded',
+      'SELECT COALESCE(sum(attempts),0)::float8 AS value FROM puzzle_attempts',
+    ],
   ] as const) {
     metrics.gauge({
       name,
