@@ -35,6 +35,14 @@ export interface Friend {
   elo: number;
   status: PresenceStatus;
 }
+/** The request DTO carries ids only; the page reads the sender's public profile. */
+export interface FriendRequest {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  createdAt: string;
+}
 
 /** The search accepts any username fragment, up to a full username. */
 export const SEARCH_MAX_LENGTH = AUTH_FIELD_LIMITS.usernameMax;
@@ -63,7 +71,7 @@ export function presenceChanges(
   );
 }
 
-/** Public profiles, player search and the signed-in user's friends. */
+/** Public profiles, player search, and the signed-in user's friends and friend requests. */
 @Injectable({ providedIn: 'root' })
 export class UsersApi {
   private readonly api = inject(ApiClient);
@@ -86,5 +94,26 @@ export class UsersApi {
 
   friends(): Observable<{ friends: Friend[] }> {
     return this.api.get('friends');
+  }
+
+  /** Pending requests sent to the signed-in user, oldest first. */
+  friendRequests(): Observable<{ requests: FriendRequest[] }> {
+    return this.api.get('friends/requests');
+  }
+
+  sendFriendRequest(recipientId: string): Observable<FriendRequest> {
+    return this.api.post('friends/requests', { recipientId });
+  }
+
+  acceptFriendRequest(id: string): Observable<FriendRequest> {
+    return this.api.post(`friends/requests/${encodeURIComponent(id)}/accept`, {});
+  }
+
+  rejectFriendRequest(id: string): Observable<FriendRequest> {
+    return this.api.post(`friends/requests/${encodeURIComponent(id)}/reject`, {});
+  }
+
+  removeFriend(friendId: string): Observable<void> {
+    return this.api.delete(`friends/${encodeURIComponent(friendId)}`);
   }
 }

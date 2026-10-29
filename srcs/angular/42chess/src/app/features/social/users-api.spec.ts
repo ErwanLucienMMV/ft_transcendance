@@ -25,6 +25,18 @@ describe('Users REST client', () => {
     ).toBe('GET');
     api.friends().subscribe();
     expect(http.expectOne('/api/v1/friends').request.method).toBe('GET');
+    api.friendRequests().subscribe();
+    expect(http.expectOne('/api/v1/friends/requests').request.method).toBe('GET');
+    api.sendFriendRequest(id).subscribe();
+    const send = http.expectOne('/api/v1/friends/requests');
+    expect(send.request.method).toBe('POST');
+    expect(send.request.body).toEqual({ recipientId: id });
+    api.acceptFriendRequest('r1').subscribe();
+    expect(http.expectOne('/api/v1/friends/requests/r1/accept').request.method).toBe('POST');
+    api.rejectFriendRequest('r1').subscribe();
+    expect(http.expectOne('/api/v1/friends/requests/r1/reject').request.method).toBe('POST');
+    api.removeFriend(id).subscribe();
+    expect(http.expectOne(`/api/v1/friends/${id}`).request.method).toBe('DELETE');
     http.verify();
   });
 

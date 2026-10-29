@@ -33,6 +33,8 @@ describe('Player profile page', () => {
   let ratingHistory: ReturnType<typeof vi.fn>;
   let history: ReturnType<typeof vi.fn>;
   let refreshUser: ReturnType<typeof vi.fn>;
+  let friends: ReturnType<typeof vi.fn>;
+  let sendFriendRequest: ReturnType<typeof vi.fn>;
   let events: Subject<ServerEvent>;
 
   beforeEach(() => {
@@ -78,11 +80,16 @@ describe('Player profile page', () => {
       }),
     );
     refreshUser = vi.fn().mockReturnValue(of(aliceAccount));
+    friends = vi.fn().mockReturnValue(of({ friends: [] }));
+    sendFriendRequest = vi.fn().mockReturnValue(of({ id: 'r1', status: 'PENDING' }));
     events = new Subject();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([{ path: 'players/:id', component: ProfilePage }]),
-        { provide: UsersApi, useValue: { profile, ratingHistory } },
+        {
+          provide: UsersApi,
+          useValue: { profile, ratingHistory, friends, sendFriendRequest },
+        },
         { provide: GamesApi, useValue: { history } },
         { provide: SessionLifecycle, useValue: { refreshUser } },
         { provide: RealtimeService, useValue: { events: events.asObservable() } },
@@ -184,5 +191,61 @@ describe('Player profile page', () => {
     expect(element.querySelector('h2')?.textContent).toBe('alice');
     expect(element.textContent).toContain('Rating changes could not be loaded.');
     expect(element.textContent).toContain('Recent games could not be loaded.');
+  });
+
+  it('offers no friend action to visitors who are signed out or on their own profile', async () => {
+    const { element } = await open('/players/alice');
+    expect(friends).not.toHaveBeenCalled();
+    expect(element.textContent).not.toContain('Add friend');
+  });
+
+  it('sends a friend request from the profile of a non-friend', async () => {
+    signIn('me');
+    const { harness, element } = await open('/players/alice');
+    const add = [...element.querySelectorAll('button')].find(
+      (item) => item.textContent?.trim() === 'Add friend',
+    ) as HTMLButtonElement;
+    add.click();
+    harness.detectChanges();
+    expect(sendFriendRequest).toHaveBeenCalledWith('alice');
+    expect(element.querySelector('[role="status"]')?.textContent?.trim()).toBe(
+      'Friend request sent.',
+    );
+  });
+
+  it('knows an existing friend and explains a request already pending', async () => {
+    signIn('me');
+    friends.mockReturnValue(
+      of({ friends: [{ id: 'alice', username: 'alice', elo: 1452, status: 'ONLINE' }] }),
+    );
+    const friend = await open('/players/alice');
+    expect(friend.element.textContent).toContain('You are friends.');
+    expect(friend.element.textContent).not.toContain('Add friend');
+  });
+
+  it('turns the pending and already-friends refusals into explanations', async () => {
+    signIn('me');
+    sendFriendRequest.mockReturnValue(
+      throwError(
+        () =>
+          new ApiError(
+            new HttpErrorResponse({
+              status: 409,
+              error: { statusCode: 409, code: 'FRIEND_REQUEST_PENDING' },
+            }),
+          ),
+      ),
+    );
+    const { harness, element } = await open('/players/alice');
+    (
+      [...element.querySelectorAll('button')].find(
+        (item) => item.textContent?.trim() === 'Add friend',
+      ) as HTMLButtonElement
+    ).click();
+    harness.detectChanges();
+    expect(element.querySelector('[role="status"]')?.textContent).toContain(
+      'A friend request between you is already pending.',
+    );
+    expect(element.querySelector('a[href="/friends"]')).not.toBeNull();
   });
 });

@@ -53,7 +53,7 @@
 }
 .people li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 14px;
   align-items: center;
   padding: 10px 14px;
@@ -75,4 +75,38 @@
 .elo {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+.people li.request {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.actions button {
+  padding: 6px 12px;
+  min-height: 0;
+  font-size: 13px;
+}
+.actions .link {
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  text-decoration: underline;
+}
+.actions .link:hover,
+.actions .link:focus-visible {
+  color: var(--error);
+}
+@media (max-width: 560px) {
+  .people li,
+  .people li.request {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 8px;
+  }
+  .actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
 }
