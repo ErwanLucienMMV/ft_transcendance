@@ -172,6 +172,12 @@ describe('DB ticket schema on PostgreSQL', () => {
       `${schema}.oauth_accounts`,
     ]);
     expect(row.name).toBeNull();
+    const preferencesColumn = () =>
+      source.query(
+        'SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name=$2 AND column_name=$3',
+        [schema, 'users', 'preferences'],
+      );
+    expect(await preferencesColumn()).toHaveLength(0);
     for (const table of ['auth_sessions', 'oauth_flows']) {
       const [removed] = await source.query('SELECT to_regclass($1) AS name', [
         `${schema}.${table}`,
@@ -180,6 +186,15 @@ describe('DB ticket schema on PostgreSQL', () => {
     }
     expect(await source.runMigrations()).toHaveLength(featureCount);
     expect(await source.runMigrations()).toHaveLength(0);
+    expect(await preferencesColumn()).toHaveLength(1);
+    const accounts = await q('SELECT preferences FROM @.users');
+    expect(accounts).toHaveLength(2);
+    for (const account of accounts)
+      expect(account.preferences).toEqual({
+        language: 'en',
+        theme: 'system',
+        soundEnabled: true,
+      });
     for (const table of ['auth_sessions', 'oauth_flows']) {
       const [restored] = await source.query('SELECT to_regclass($1) AS name', [
         `${schema}.${table}`,

@@ -1,4 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
+import { PresenceService } from '../presence/presence.service.js';
 import { BotTurnRunner } from '../bots/bot-turn-runner.js';
 import type { ChessSnapshot } from '../chess/chess-engine.service.js';
 import type { EntityManager } from 'typeorm';
@@ -32,6 +33,7 @@ export class GamesService {
     private readonly agreements: GameAgreementsService,
     private readonly clocks: GameClocksService,
     @Optional() private readonly bot?: BotEngine,
+    @Optional() private readonly presence?: PresenceService,
   ) {}
 
   async create(actor: string, input: CreateGameInput): Promise<GameState> {
@@ -221,6 +223,7 @@ export class GamesService {
       await manager.save(Game, game);
       return this.store.state(manager, game);
     });
+    this.presence?.setGameStatus(state.game.id, [userId], true);
     // This also computes White's opening move when the human chooses Black.
     return this.resumeBot(userId, state.game.id);
   }

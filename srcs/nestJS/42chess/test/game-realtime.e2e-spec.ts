@@ -106,8 +106,10 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
   });
   afterEach(async () => {
     await Promise.all(clients.map((client) => client.close()));
-    for (const id of owned)
+    for (const id of owned) {
+      await source.query('DELETE FROM rating_history WHERE "gameId"=$1', [id]);
       await source.query('DELETE FROM games WHERE id=$1', [id]);
+    }
   });
   afterAll(async () => {
     if (source?.isInitialized)
