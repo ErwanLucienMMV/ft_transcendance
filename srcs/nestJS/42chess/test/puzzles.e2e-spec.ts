@@ -80,8 +80,10 @@ describe('Daily puzzle HTTP flow (E2E-14)', () => {
         http().get('/v1/puzzles/daily').expect(200),
       ),
     );
-    for (const response of results)
+    for (const response of results) {
       expect(response.body).toEqual(results[0].body);
+      expect(response.headers['cache-control']).toBe('no-store');
+    }
     expect(Object.keys(results[0].body).sort()).toEqual([
       'date',
       'fen',
@@ -287,5 +289,29 @@ describe('Daily puzzle HTTP flow (E2E-14)', () => {
       .get(`/v1/puzzles/attempts/${randomUUID()}`)
       .auth(token, { type: 'bearer' })
       .expect(404);
+  });
+
+  it('returns an uncached public 503 for an empty catalogue and recovers after import', async () => {
+    await f.clear();
+    try {
+      const unavailable = await http().get('/v1/puzzles/daily').expect(503);
+      expect(unavailable.headers['cache-control']).toBe('no-store');
+      expect(unavailable.body).toMatchObject({
+        statusCode: 503,
+        code: 'PUZZLE_CATALOG_EMPTY',
+      });
+      expect(await f.source.query('SELECT id FROM daily_puzzles')).toEqual([]);
+    } finally {
+      await f.load();
+    }
+    const recovered = await http().get('/v1/puzzles/daily').expect(200);
+    expect(recovered.headers['cache-control']).toBe('no-store');
+    expect(Object.keys(recovered.body).sort()).toEqual([
+      'date',
+      'fen',
+      'id',
+      'rating',
+      'themes',
+    ]);
   });
 });

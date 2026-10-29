@@ -135,6 +135,38 @@ describe('Live game page', () => {
     expect(text(element, '[data-seat="bottom"] [role="timer"]')).toBe('4:59');
   });
 
+  it('shows the server-projected clock once a sync round trip has measured the delay', () => {
+    let now = 1_000;
+    const timer = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      const { element, state, render } = setup();
+      const sample = { serverTime: new Date().toISOString(), clockStatus: 'RUNNING' };
+      state(sample);
+      expect(transport.send).toHaveBeenCalledWith('SYNC_CLOCK', { gameId: id, requestId: 1 });
+      // The answer took 400 ms, 100 ms of it on the server: the clock was read 150 ms ago.
+      now = 1_400;
+      events.next({
+        event: 'CLOCK_SYNC',
+        data: {
+          gameId: id,
+          requestId: 1,
+          clocks: { white: 300_000, black: 300_000 },
+          turn: 'WHITE',
+          processingMs: 100,
+          sampleAgeMs: 0,
+          ...sample,
+        },
+      });
+      now = 3_400;
+      vi.advanceTimersByTime(100);
+      render();
+      expect(text(element, '[data-seat="bottom"] [role="timer"]')).toBe('4:57');
+      expect(text(element, '[data-seat="top"] [role="timer"]')).toBe('5:00');
+    } finally {
+      timer.mockRestore();
+    }
+  });
+
   it('sends a move, previews it, and drops the preview when the server rejects it', () => {
     const { element, click, state, fixture } = setup();
     state();

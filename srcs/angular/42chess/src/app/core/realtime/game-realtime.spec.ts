@@ -140,6 +140,51 @@ describe('View-independent game adapter', () => {
     expect(transport.leaveGame).toHaveBeenCalledWith(id);
     expect(service.game()).toBeNull();
   });
+  it('compensates a clock round trip and keeps terminal clocks frozen', () => {
+    let now = 100;
+    const timer = vi.spyOn(performance, 'now').mockImplementation(() => now);
+    try {
+      service.watch(id);
+      TestBed.tick();
+      const data = {
+        id,
+        gameId: id,
+        status: 'ACTIVE',
+        board: { fen: 'server-fen', turn: 'WHITE' },
+        moves: [],
+        clocks: { white: 5000, black: 6000 },
+        serverTime: '2026-10-28T10:00:00.000Z',
+        clockStatus: 'RUNNING',
+      };
+      events.next({ event: 'GAME_STATE', data });
+      expect(transport.send).toHaveBeenCalledWith('SYNC_CLOCK', { gameId: id, requestId: 1 });
+      expect(service.clockSynced()).toBe(false);
+      now = 400;
+      events.next({
+        event: 'CLOCK_SYNC',
+        data: { ...data, turn: 'WHITE', requestId: 1, processingMs: 100, sampleAgeMs: 50 },
+      });
+      expect(service.displayClocks()).toEqual({ white: 4850, black: 6000 });
+      expect(service.clockSynced()).toBe(true);
+      expect(service.game()?.clocks).toEqual({ white: 5000, black: 6000 });
+      events.next({
+        event: 'GAME_STATE',
+        data: {
+          ...data,
+          status: 'FINISHED',
+          clockStatus: 'STOPPED',
+          clocks: { white: 4800, black: 6000 },
+          serverTime: '2026-10-28T10:00:00.200Z',
+        },
+      });
+      events.next({ event: 'CLOCK_UPDATE', data: { ...data, turn: 'WHITE' } });
+      expect(service.displayClocks()).toEqual({ white: 4800, black: 6000 });
+      expect(service.clockSynced()).toBe(false);
+      expect(service.game()?.status).toBe('FINISHED');
+    } finally {
+      timer.mockRestore();
+    }
+  });
   it('reports errors without changing a previously received board', () => {
     service.watch(id);
     TestBed.tick();
