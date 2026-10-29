@@ -16,12 +16,17 @@ test('shows the daily puzzle and checks a move on the server', async ({ browser,
   await page.getByRole('navigation').getByRole('link', { name: 'Puzzle', exact: true }).click();
   const title = page.locator('#puzzle-title');
   await expect(title).toHaveText(/^Find the best move for/);
+  // Read the targets only once the board shows the clicked piece as selected: counting
+  // right after the click can see the previous piece's targets and click a stale one.
   const pieces = page.locator('.square[draggable="true"]');
+  const targets = page.locator('.square.target');
   for (let index = 0; index < (await pieces.count()); index++) {
-    await pieces.nth(index).click();
-    if (await page.locator('.square.target').count()) break;
+    const piece = pieces.nth(index);
+    await piece.click();
+    await expect(piece).toHaveAttribute('aria-pressed', 'true');
+    if (await targets.count()) break;
   }
-  await page.locator('.square.target').first().click();
+  await targets.first().click();
   await expect(title).toHaveText(
     /^(Correct! Keep going\.|Not the best move\. Try again\.|Puzzle solved!)$/,
   );

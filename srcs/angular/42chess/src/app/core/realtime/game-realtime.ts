@@ -1,6 +1,7 @@
-import { effect, inject, Injectable, signal, untracked } from '@angular/core';
+import { DestroyRef, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthSession } from '../auth/auth-session';
+import { GameClockSync, type ClockSample } from './game-clock-sync';
 import { RealtimeService, ServerEvent } from './realtime.service';
 
 export type PlayerColor = 'WHITE' | 'BLACK';
@@ -37,6 +38,8 @@ export interface GameSnapshot {
   timeControl: { initialTime: number; increment: number };
   board: { fen: string; turn: PlayerColor; halfmoveClock: number; fullmoveNumber: number };
   clocks: { white: number; black: number } | null;
+  serverTime?: string | null;
+  clockStatus?: 'WAITING' | 'RUNNING' | 'STOPPED' | 'EXPIRED';
   result: GameResult | null;
   drawOffer: { playerId: string } | null;
   startedAt: string | null;
@@ -82,6 +85,14 @@ export class GameRealtime {
   // Session that selected the watched game; the transport drops its rooms when the token changes.
   private owner: { token: string; userId: string } | null = null;
   readonly game = signal<GameSnapshot | null>(null);
+  /** Smooth display in milliseconds; never used to decide a move, timeout or result. */
+  readonly displayClocks = signal<{ white: number; black: number } | null>(null);
+  /** True once a SYNC_CLOCK round trip measured the server offset, so the projection can run. */
+  readonly clockSynced = signal(false);
+  private readonly clock = new GameClockSync();
+  private syncRequest: { id: number; sent: number } | null = null;
+  private requestSequence = 0;
+  private lastSync = -Infinity;
   readonly error = signal<{ code: string; message: string } | null>(null);
   /** Local time at which `game().clocks` was last set by the server, for the countdown. */
   readonly clocksAt = signal(0);
@@ -91,6 +102,14 @@ export class GameRealtime {
   readonly drawDeclinedBy = signal<string | null>(null);
 
   constructor() {
+    const timer = setInterval(() => {
+      if (this.transport.state() === 'connected')
+        this.displayClocks.set(this.clock.project(performance.now()));
+    }, 100);
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    effect(() => {
+      if (this.transport.state() !== 'connected') this.resetClock();
+    });
     effect(() => {
       const id = this.watched();
       if (this.transport.state() === 'connected' && id && id !== this.subscribed) {
@@ -138,6 +157,8 @@ export class GameRealtime {
     this.subscribed = null;
     this.owner = null;
     this.game.set(null);
+    this.resetClock();
+    this.displayClocks.set(null);
     this.error.set(null);
     this.pending.set(false);
     this.drawDeclinedBy.set(null);
@@ -173,6 +194,22 @@ export class GameRealtime {
       this.subscribed = null;
     }
   }
+  private resetClock(): void {
+    this.clock.reset();
+    this.clockSynced.set(false);
+    this.syncRequest = null;
+    this.lastSync = -Infinity;
+  }
+  private requestSync(): void {
+    const gameId = this.watched();
+    const now = performance.now();
+    if (!gameId || this.game()?.status !== 'ACTIVE' || now - this.lastSync < 10000) return;
+    const requestId = ++this.requestSequence;
+    if (this.transport.send('SYNC_CLOCK', { gameId, requestId })) {
+      this.syncRequest = { id: requestId, sent: now };
+      this.lastSync = now;
+    }
+  }
   private command(event: string, data: Record<string, unknown> = {}): boolean {
     const gameId = this.watched();
     if (!gameId || this.mode() === 'spectator' || this.game()?.status !== 'ACTIVE') return false;
@@ -206,9 +243,38 @@ export class GameRealtime {
         ) {
           this.game.set(value);
           this.clocksAt.set(Date.now());
+          if (value.status !== 'ACTIVE') this.resetClock();
+          const accepted = this.clock.accept({
+            ...packet.data,
+            turn: value.board.turn,
+          } as unknown as ClockSample);
+          this.displayClocks.set(this.clock.project(performance.now()) ?? value.clocks);
+          if (accepted) this.requestSync();
           this.pending.set(false);
           this.error.set(null);
           if (value.drawOffer) this.drawDeclinedBy.set(null);
+        }
+        break;
+      }
+      case 'CLOCK_SYNC': {
+        const pending = this.syncRequest;
+        if (
+          this.game()?.status === 'ACTIVE' &&
+          pending &&
+          packet.data['requestId'] === pending.id
+        ) {
+          this.syncRequest = null;
+          if (
+            this.clock.synchronize(
+              packet.data as unknown as ClockSample,
+              pending.sent,
+              performance.now(),
+              Number(packet.data['processingMs']),
+              Number(packet.data['sampleAgeMs']),
+            )
+          )
+            this.clockSynced.set(true);
+          this.displayClocks.set(this.clock.project(performance.now()));
         }
         break;
       }
@@ -217,10 +283,17 @@ export class GameRealtime {
         break;
       case 'CLOCK_UPDATE': {
         const clocks = this.clocks(packet.data['clocks']);
-        if (clocks) {
-          this.game.update((game) => (game ? { ...game, clocks } : null));
-          this.clocksAt.set(Date.now());
-        }
+        if (!clocks || this.game()?.status === 'FINISHED') break;
+        // An older server sample than the one shown is dropped.
+        if (
+          packet.data['serverTime'] !== undefined &&
+          !this.clock.accept(packet.data as unknown as ClockSample)
+        )
+          break;
+        this.displayClocks.set(this.clock.project(performance.now()) ?? clocks);
+        this.requestSync();
+        this.game.update((game) => (game ? { ...game, clocks } : null));
+        this.clocksAt.set(Date.now());
         break;
       }
       case 'DRAW_OFFERED': {
