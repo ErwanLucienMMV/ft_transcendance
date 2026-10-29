@@ -12,6 +12,7 @@
             name="time-control"
             [value]="control.label"
             [checked]="control === selected()"
+            [disabled]="searching()"
             (change)="selected.set(control)"
           />
           <strong>{{ control.label }}</strong>
@@ -22,13 +23,42 @@
   </fieldset>
 
   <div class="cards">
+    <article class="play-card" aria-labelledby="match-title">
+      <h3 id="match-title">Find an opponent</h3>
+      @if (searching()) {
+        <p role="status" class="searching">
+          @if (search.state() === 'joining') {
+            Joining the queue…
+          } @else {
+            Searching for a {{ searchLabel() }} opponent ·
+            <time aria-label="Time waited">{{ waited() }}</time>
+          }
+        </p>
+        <p>Players are paired by Elo; the range widens the longer you wait.</p>
+        <button
+          type="button"
+          class="button secondary"
+          [disabled]="search.state() !== 'waiting'"
+          (click)="search.cancel()"
+        >
+          {{ search.state() === 'leaving' ? 'Cancelling…' : 'Cancel search' }}
+        </button>
+      } @else {
+        <p>A rated game against a player of similar Elo, with the time control above.</p>
+        <button type="button" (click)="findOpponent()">Find an opponent</button>
+      }
+      @if (search.error(); as message) {
+        <p class="play-error" role="alert">{{ message }}</p>
+      }
+    </article>
+
     <article class="play-card" aria-labelledby="friend-title">
       <h3 id="friend-title">Play a friend</h3>
       <p>You get a link to send. The game starts when your friend opens it.</p>
       @if (error(); as message) {
         <p class="play-error" role="alert">{{ message }}</p>
       }
-      <button type="button" [disabled]="creating()" (click)="create()">
+      <button type="button" [disabled]="creating() || searching()" (click)="create()">
         {{ creating() ? 'Creating…' : 'Create game' }}
       </button>
     </article>
@@ -73,7 +103,7 @@
       @if (botError(); as message) {
         <p class="play-error" role="alert">{{ message }}</p>
       }
-      <button type="button" [disabled]="botCreating()" (click)="createBot()">
+      <button type="button" [disabled]="botCreating() || searching()" (click)="createBot()">
         {{ botCreating() ? 'Starting…' : 'Play the bot' }}
       </button>
     </article>
