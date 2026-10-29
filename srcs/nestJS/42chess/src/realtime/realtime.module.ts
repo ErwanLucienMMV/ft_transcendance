@@ -8,9 +8,16 @@ import { SessionModule } from '../auth/session.module.js';
 import { RealtimeMessages } from './realtime-messages.js';
 import { GamesModule } from '../games/games.module.js';
 import { GameRealtimeService } from './game-realtime.service.js';
+import { MetricsModule } from '../metrics/metrics.module.js';
 
 @Module({
-  imports: [ConfigModule, GamesModule, SessionModule, PresenceModule],
+  imports: [
+    ConfigModule,
+    GamesModule,
+    MetricsModule,
+    SessionModule,
+    PresenceModule,
+  ],
   providers: [
     RealtimeGateway,
     { provide: RealtimeMessages, useClass: GameRealtimeService },

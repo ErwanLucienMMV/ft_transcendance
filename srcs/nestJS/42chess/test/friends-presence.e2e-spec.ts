@@ -139,12 +139,16 @@ describe('SCRUM-247 private friend-list presence synchronization', () => {
         id: users[1].id,
         username: users[1].username,
         elo: 1200,
+        avatarUrl: null,
+        lastSeenAt: expect.any(String),
         status: 'ONLINE',
       },
       {
         id: users[2].id,
         username: users[2].username,
         elo: 1200,
+        avatarUrl: null,
+        lastSeenAt: null,
         status: 'OFFLINE',
       },
     ]);
@@ -199,22 +203,40 @@ describe('SCRUM-247 private friend-list presence synchronization', () => {
     clients.push(socket);
     await once(socket, 'open');
     const handshake = once(socket, 'message');
-    socket.send(JSON.stringify({ event: 'AUTHENTICATE', data: { accessToken } }));
-    expect(JSON.parse(String((await handshake)[0])).event).toBe('AUTHENTICATED');
+    socket.send(
+      JSON.stringify({ event: 'AUTHENTICATE', data: { accessToken } }),
+    );
+    expect(JSON.parse(String((await handshake)[0])).event).toBe(
+      'AUTHENTICATED',
+    );
     const otherTab = await connect(users[0]);
     const { game } = await games.create(users[0].id, { initialTime: 300000 });
     owned.push(game.id);
     const snapshot = once(socket, 'message');
-    socket.send(JSON.stringify({ event: 'JOIN_GAME', data: { gameId: game.id } }));
-    expect(JSON.parse(String((await snapshot)[0]))).toMatchObject({ event: 'GAME_STATE', data: { gameId: game.id } });
+    socket.send(
+      JSON.stringify({ event: 'JOIN_GAME', data: { gameId: game.id } }),
+    );
+    expect(JSON.parse(String((await snapshot)[0]))).toMatchObject({
+      event: 'GAME_STATE',
+      data: { gameId: game.id },
+    });
     const closed = once(socket, 'close');
-    await request(app.getHttpServer()).post('/v1/auth/logout').auth(accessToken, { type: 'bearer' }).expect(204);
-    await request(app.getHttpServer()).get('/v1/friends').auth(accessToken, { type: 'bearer' }).expect(401);
+    await request(app.getHttpServer())
+      .post('/v1/auth/logout')
+      .auth(accessToken, { type: 'bearer' })
+      .expect(204);
+    await request(app.getHttpServer())
+      .get('/v1/friends')
+      .auth(accessToken, { type: 'bearer' })
+      .expect(401);
     expect((await closed)[0]).toBe(4401);
     await vi.waitFor(() => expect(presence.isOnline(users[0].id)).toBe(true));
     const friendOnline = once(otherTab, 'message');
     await connect(users[1]);
-    expect(JSON.parse(String((await friendOnline)[0]))).toMatchObject({ event: 'USER_ONLINE', data: { userId: users[1].id } });
+    expect(JSON.parse(String((await friendOnline)[0]))).toMatchObject({
+      event: 'USER_ONLINE',
+      data: { userId: users[1].id },
+    });
   });
   it('authenticates the owner, excludes pending requests, and ignores a forged owner query', async () => {
     await request(app.getHttpServer()).get('/v1/friends').expect(401);

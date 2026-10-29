@@ -2,6 +2,11 @@ import type { UUID } from '../common/types/api.js';
 import type { TimeControl } from '../games/clock/game-clock.js';
 import type { MatchmakingEntry as StoredEntry } from './matchmaking-queue.entity.js';
 
+export interface JoinMatchmakingResponse {
+  status: 'WAITING';
+  joinedAt: Date;
+}
+
 /** Spec §24. Requeue resets status/createdAt on the user's single persisted entry. */
 export interface MatchmakingEntry {
   id: UUID;
