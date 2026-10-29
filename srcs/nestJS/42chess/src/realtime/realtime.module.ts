@@ -1,3 +1,5 @@
+import { MatchmakingEventsModule } from '../matchmaking/matchmaking-events.module.js';
+import { PresenceModule } from '../presence/presence.module.js';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { RealtimeGateway } from './realtime.gateway.js';
@@ -7,9 +9,17 @@ import { SessionModule } from '../auth/session.module.js';
 import { RealtimeMessages } from './realtime-messages.js';
 import { GamesModule } from '../games/games.module.js';
 import { GameRealtimeService } from './game-realtime.service.js';
+import { MetricsModule } from '../metrics/metrics.module.js';
 
 @Module({
-  imports: [ConfigModule, GamesModule, SessionModule],
+  imports: [
+    ConfigModule,
+    GamesModule,
+    MetricsModule,
+    SessionModule,
+    PresenceModule,
+    MatchmakingEventsModule,
+  ],
   providers: [
     RealtimeGateway,
     { provide: RealtimeMessages, useClass: GameRealtimeService },

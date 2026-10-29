@@ -162,6 +162,37 @@ describe('Puzzle training with PostgreSQL and the C++ rules daemon', () => {
     expect((await f.service.daily()).id).toBe(rows.at(-1)!.id);
   });
 
+  it('rolls back a failed daily assignment and lets another replica retry', async () => {
+    await f.load();
+    // Fail inside PostgreSQL after the row is inserted, as a constraint or
+    // database-side hook could do. The transaction must release its daily lock.
+    await f.source
+      .query(`CREATE FUNCTION fail_daily_assignment() RETURNS trigger
+      LANGUAGE plpgsql AS $$ BEGIN
+        RAISE EXCEPTION 'daily assignment test failure';
+      END $$`);
+    await f.source.query(`CREATE TRIGGER fail_daily_assignment
+      AFTER INSERT ON daily_puzzles FOR EACH ROW
+      EXECUTE FUNCTION fail_daily_assignment()`);
+    try {
+      await expect(f.service.daily()).rejects.toThrow(
+        'daily assignment test failure',
+      );
+      expect(await f.source.query('SELECT id FROM daily_puzzles')).toEqual([]);
+    } finally {
+      await f.source.query(
+        'DROP TRIGGER fail_daily_assignment ON daily_puzzles',
+      );
+      await f.source.query('DROP FUNCTION fail_daily_assignment()');
+    }
+    const other = new PuzzlesService(f.source, f.rules);
+    const results = await Promise.all([f.service.daily(), other.daily()]);
+    expect(results[0]).toEqual(results[1]);
+    expect(await f.source.query('SELECT id FROM daily_puzzles')).toHaveLength(
+      1,
+    );
+  });
+
   it('uses the oldest assignment once every puzzle has appeared', async () => {
     await f.load();
     const rows = await f.source

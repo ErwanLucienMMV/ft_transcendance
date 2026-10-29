@@ -7,8 +7,13 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { DEFAULT_PREFERENCES } from './user-preferences.js';
+import type { UserPreferences } from './user-preferences.js';
 
-export const INITIAL_ELO = 1200;
+import { INITIAL_ELO } from '../rating/rating.constants.js';
+
+// Preserve the existing import path while keeping calculation code dependency-free.
+export { INITIAL_ELO } from '../rating/rating.constants.js';
 
 /**
  * Internal account shared by every authentification method (local password,
@@ -38,6 +43,9 @@ export class User {
 
   @Column({ type: 'varchar', length: 2048, nullable: true })
   avatarUrl: string | null;
+
+  @Column({ type: 'jsonb', default: DEFAULT_PREFERENCES })
+  preferences: UserPreferences;
 
   @Column({ type: 'integer', default: INITIAL_ELO })
   elo: number;

@@ -1,5 +1,17 @@
 # Monitoring — Grafana
 
+`games_active` est une gauge Prometheus sans label métier, exposée sur
+`/metrics` et `/v1/metrics`. À chaque scrape, elle compte les lignes PostgreSQL
+dont le statut est `ACTIVE`, y compris les parties contre un bot. Les parties
+`WAITING` et `FINISHED` sont exclues et la valeur revient à `0` quand aucune
+partie n'est active. Le calcul depuis la base partagée reste correct après un
+redémarrage et pour toutes les façons de terminer une partie.
+
+Avec plusieurs réplicas NestJS, utiliser `max(games_active)` pour afficher le
+total partagé : chaque réplica expose déjà le nombre global de parties. Une
+erreur de lecture PostgreSQL fait échouer le scrape au lieu d'exposer une
+valeur périmée comme si elle était à jour.
+
 ## 1. Accéder à Grafana
 
 En développement / pendant la phase actuelle où Grafana est exposé sur l'hôte :

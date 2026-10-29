@@ -3,8 +3,7 @@ import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { ChessEngineService } from './chess/chess-engine.service.js';
-import { PrometheusModule } from '@willsoto/nestjs-prometheus';
-import { MetricsController } from './metrics/metrics.controller.js';
+import { MetricsModule } from './metrics/metrics.module.js';
 import { ConfigModule } from '@nestjs/config';
 import { configurationOptions } from './config/environment.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -20,6 +19,7 @@ import { BotsModule } from './bots/bots.module.js';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { createValidationPipe } from './common/validation.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
+import { PresenceModule } from './presence/presence.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
 import { OAuthModule } from './oauth/oauth.module.js';
 
@@ -29,6 +29,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
   imports: [
     ConfigModule.forRoot(configurationOptions),
     DatabaseModule,
+    PresenceModule,
     // Distributed tracing, auto-correlated logs, request/job metrics, error
     // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
     ObserveModule.forRoot({
@@ -36,7 +37,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       appSecret: 'YOUR_APP_SECRET',
       serviceId: '42chess',
     }),
-    PrometheusModule.register(),
+    MetricsModule,
     AuthModule,
     OAuthModule,
     UsersModule,
@@ -49,7 +50,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     BotsModule,
     RealtimeModule,
   ],
-  controllers: [AppController, MetricsController],
+  controllers: [AppController],
   providers: [
     AppService,
     ChessEngineService,

@@ -1,4 +1,5 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { ConflictException, Injectable, Optional } from '@nestjs/common';
+import { PresenceService } from '../presence/presence.service.js';
 import { BotTurnRunner } from '../bots/bot-turn-runner.js';
 import type { ChessSnapshot } from '../chess/chess-engine.service.js';
 import type { EntityManager } from 'typeorm';
@@ -32,7 +33,69 @@ export class GamesService {
     private readonly agreements: GameAgreementsService,
     private readonly clocks: GameClocksService,
     @Optional() private readonly bot?: BotEngine,
+    @Optional() private readonly presence?: PresenceService,
   ) {}
+
+  /** Matching supplies its transaction; queue changes and both seats commit together. */
+  async createMatched(
+    manager: EntityManager,
+    whiteId: string,
+    blackId: string,
+    input: { initialTime: number; increment: number },
+  ): Promise<GameState> {
+    if (!manager.queryRunner?.isTransactionActive)
+      throw new Error('Matched games require an active transaction.');
+    const ids = [identifier(whiteId), identifier(blackId)].sort();
+    if (ids[0] === ids[1])
+      throw new GameError(
+        'INVALID_GAME_INPUT',
+        'Two distinct players are required.',
+      );
+    const { initialTime, increment } = creationInput(input);
+    const users = await manager
+      .createQueryBuilder(User, 'user')
+      .where('user.id IN (:...ids)', { ids })
+      .orderBy('user.id', 'ASC')
+      .setLock('pessimistic_write')
+      .getMany();
+    if (users.length !== 2 || users.some((user) => !user.emailVerifiedAt))
+      throw new GameError('USER_NOT_FOUND', 'Both players must be available.');
+    const active: { id: string }[] = await manager.query(
+      `SELECT g.id FROM games g JOIN game_players p ON p."gameId" = g.id
+       WHERE p."userId" = ANY($1::uuid[]) AND g.status = 'ACTIVE' LIMIT 1`,
+      [ids],
+    );
+    if (active.length)
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'ACTIVE_GAME_EXISTS',
+        message: 'A player already has an active game.',
+      });
+    const game = manager.create(Game, {
+      initialTime,
+      increment,
+      status: 'ACTIVE',
+      turn: 'WHITE',
+      startedAt: new Date(),
+    });
+    this.clocks.initialize(game);
+    await this.clocks.start(manager, game);
+    game.startedAt = new Date(game.clock!.updatedAt);
+    await manager.save(Game, game);
+    await manager.save(GamePlayer, [
+      manager.create(GamePlayer, {
+        gameId: game.id,
+        userId: whiteId,
+        color: 'WHITE',
+      }),
+      manager.create(GamePlayer, {
+        gameId: game.id,
+        userId: blackId,
+        color: 'BLACK',
+      }),
+    ]);
+    return this.store.state(manager, game);
+  }
 
   async create(actor: string, input: CreateGameInput): Promise<GameState> {
     const userId = identifier(actor);
@@ -221,6 +284,7 @@ export class GamesService {
       await manager.save(Game, game);
       return this.store.state(manager, game);
     });
+    this.presence?.setGameStatus(state.game.id, [userId], true);
     // This also computes White's opening move when the human chooses Black.
     return this.resumeBot(userId, state.game.id);
   }
