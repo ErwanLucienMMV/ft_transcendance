@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -71,16 +71,16 @@ export class SessionService {
     @InjectRepository(AuthSession)
     private readonly sessions: Repository<AuthSession>,
     @InjectRepository(User) private readonly users: Repository<User>,
-    private readonly config: ConfigService,
+    @Optional() private readonly config?: ConfigService,
   ) {}
 
   /**
    * Session lifetime in milliseconds, also the refresh cookie Max-Age. The application
-   * validates the setting; test modules with a partial configuration get the same default.
+   * validates the setting; test modules built without it get the same default.
    */
   lifetime(): number {
     return (
-      (this.config.get<number>('REFRESH_EXPIRES_IN') ??
+      (this.config?.get<number>('REFRESH_EXPIRES_IN') ??
         DEFAULT_REFRESH_EXPIRES_IN) * 1000
     );
   }

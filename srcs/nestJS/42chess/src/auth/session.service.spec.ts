@@ -63,6 +63,12 @@ describe('Revocable access sessions', () => {
       { get: () => undefined } as unknown as ConfigService,
     );
     expect(partial.lifetime()).toBe(7 * 24 * 3600 * 1000);
+    const unconfigured = new SessionService(
+      jwt,
+      rows as unknown as Repository<AuthSession>,
+      users as unknown as Repository<User>,
+    );
+    expect(unconfigured.lifetime()).toBe(7 * 24 * 3600 * 1000);
   });
   it('requires a live database session and verified user, not merely a valid signature', async () => {
     const { accessToken } = await service.issue(user);
