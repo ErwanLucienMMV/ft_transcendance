@@ -26,3 +26,9 @@ export function toMatchmakingEntry(row: StoredEntry): MatchmakingEntry {
     status: row.status,
   };
 }
+
+export interface QueueStatus {
+  status: 'IDLE' | 'WAITING' | 'MATCHED' | 'CANCELLED';
+  joinedAt?: Date;
+  gameId?: string;
+}
