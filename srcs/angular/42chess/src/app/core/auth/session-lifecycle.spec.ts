@@ -69,10 +69,12 @@ describe('Server session lifecycle', () => {
     expect(session.user()?.username).toBe('renamed');
     expect(session.token()).toBe(accessToken);
   });
-  it('does not send anonymous current-user or logout calls', () => {
-    lifecycle.signOut().subscribe();
+  it('logs out through the refresh cookie when no access token is left', () => {
+    lifecycle.signOut().subscribe({ error: () => {} });
     lifecycle.refreshUser().subscribe();
     http.expectNone('/api/v1/users/me');
-    http.expectNone('/api/v1/auth/logout');
+    const req = http.expectOne('/api/v1/auth/logout');
+    expect(req.request.headers.get('Authorization')).toBeNull();
+    req.flush(null, { status: 204, statusText: 'No Content' });
   });
 });

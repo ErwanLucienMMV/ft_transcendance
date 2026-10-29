@@ -1,0 +1,81 @@
+<section class="play-page" aria-labelledby="play-title">
+  <span class="eyebrow">Play</span>
+  <h2 id="play-title">Start a game</h2>
+
+  <fieldset>
+    <legend>Time control (minutes + seconds per move)</legend>
+    <div class="choices">
+      @for (control of controls; track control.label) {
+        <label class="choice" [class.chosen]="control === selected()">
+          <input
+            type="radio"
+            name="time-control"
+            [value]="control.label"
+            [checked]="control === selected()"
+            (change)="selected.set(control)"
+          />
+          <strong>{{ control.label }}</strong>
+          <span>{{ control.category }}</span>
+        </label>
+      }
+    </div>
+  </fieldset>
+
+  <div class="cards">
+    <article class="play-card" aria-labelledby="friend-title">
+      <h3 id="friend-title">Play a friend</h3>
+      <p>You get a link to send. The game starts when your friend opens it.</p>
+      @if (error(); as message) {
+        <p class="play-error" role="alert">{{ message }}</p>
+      }
+      <button type="button" [disabled]="creating()" (click)="create()">
+        {{ creating() ? 'Creating…' : 'Create game' }}
+      </button>
+    </article>
+
+    <article class="play-card" aria-labelledby="bot-title">
+      <h3 id="bot-title">Play the computer</h3>
+      <fieldset>
+        <legend>Difficulty</legend>
+        <div class="choices levels">
+          @for (choice of levels; track choice.difficulty) {
+            <label class="choice" [class.chosen]="choice === level()">
+              <input
+                type="radio"
+                name="bot-level"
+                [value]="choice.difficulty"
+                [checked]="choice === level()"
+                (change)="level.set(choice)"
+              />
+              <strong>{{ choice.label }}</strong>
+              <span>{{ choice.description }}</span>
+            </label>
+          }
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Your colour</legend>
+        <div class="choices">
+          @for (option of colors; track option.value) {
+            <label class="choice" [class.chosen]="option.value === color()">
+              <input
+                type="radio"
+                name="bot-color"
+                [value]="option.value"
+                [checked]="option.value === color()"
+                (change)="color.set(option.value)"
+              />
+              <strong>{{ option.label }}</strong>
+            </label>
+          }
+        </div>
+      </fieldset>
+      @if (botError(); as message) {
+        <p class="play-error" role="alert">{{ message }}</p>
+      }
+      <button type="button" [disabled]="botCreating()" (click)="createBot()">
+        {{ botCreating() ? 'Starting…' : 'Play the bot' }}
+      </button>
+    </article>
+  </div>
+</section>

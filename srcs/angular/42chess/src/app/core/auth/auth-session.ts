@@ -10,7 +10,10 @@ export interface AuthTokenResponse {
   user: AuthUser;
 }
 
-/** Memory only. JWT decoding controls client expiry; it never verifies identity. */
+/**
+ * The access token lives in memory only; the httpOnly refresh cookie (SessionRefresh)
+ * restores it after a reload. JWT decoding controls client expiry; it never verifies identity.
+ */
 @Injectable({ providedIn: 'root' })
 export class AuthSession {
   private readonly current = signal<AuthTokenResponse | null>(null);
@@ -18,6 +21,9 @@ export class AuthSession {
   readonly user = computed(() => this.current()?.user ?? null);
   readonly authenticated = computed(() => this.current() !== null);
   readonly notice = signal<string | null>(null);
+  private readonly expiration = signal<number | null>(null);
+  /** Access token expiry in epoch milliseconds, for renewing it ahead of time. */
+  readonly expiresAt = this.expiration.asReadonly();
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.clear());
@@ -35,6 +41,7 @@ export class AuthSession {
     this.clear();
     this.notice.set(null);
     this.current.set(response);
+    this.expiration.set(expiresAt);
     this.timer = setTimeout(
       () => this.clear('Your session expired. Please sign in again.'),
       Math.min(expiresAt - Date.now(), 2_147_483_647),
@@ -45,6 +52,7 @@ export class AuthSession {
     clearTimeout(this.timer);
     this.timer = undefined;
     this.current.set(null);
+    this.expiration.set(null);
     this.notice.set(message);
   }
 

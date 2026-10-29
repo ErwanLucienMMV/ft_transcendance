@@ -35,8 +35,10 @@ sign-ins on localhost on 2026-10-26. This is not production deployment validatio
 - `GET /v1/users/me` requires a verified, unexpired, non-revoked bearer session.
   It preserves SCRUM-95's public profile projection (without email). Secrets
   and persistence/session internals are never serialized.
-- `POST /v1/auth/logout` requires the bearer and returns 204. It revokes only that
-  session; a replay returns 401, while another valid session remains usable.
+- `POST /v1/auth/logout` revokes only the current session, identified by the bearer
+  or, once the bearer has expired, by the refresh cookie. It always clears the cookie
+  and always answers 204 (idempotent), so a signed-out browser never logs an error;
+  another valid session remains usable.
 - Game mutation routes use the same bearer verification. Existing trusted server
   principals and the game's `AUTH_REQUIRED` error contract are preserved.
 - `/ws` accepts the existing `AUTHENTICATE` message with the access token. Identity
@@ -45,8 +47,37 @@ sign-ins on localhost on 2026-10-26. This is not production deployment validatio
   so logout is enforced on open sockets within approximately one second, plus
   database latency. Database failures fail closed.
 - Legacy JWTs without a persisted session are refused: sign in again after
-  upgrading. Sessions survive an API restart but the browser still keeps its
-  token only in memory.
+  upgrading.
+
+## Session kept across reloads (lot 18)
+
+The access token stays in memory only (never in `localStorage`). Every sign-in
+(password, 2FA, OAuth exchange) also sets an httpOnly refresh cookie, so a reload
+or a new tab restores the session without exposing a long-lived secret to scripts.
+
+- Cookie `refresh_token`: `HttpOnly`, `SameSite=Strict`, `Path=/api/v1/auth`,
+  `Secure` behind HTTPS (`X-Forwarded-Proto` from Nginx), `Max-Age` =
+  `REFRESH_EXPIRES_IN` (default 604800 s, seven days). Its value is
+  `<sessionId>.<secret>`; the database stores only the SHA-256 of the secret
+  (`auth_sessions.refreshTokenHash`).
+- `POST /v1/auth/refresh` with header `X-Session-Refresh: 1` (a cross-site form
+  cannot send it) answers like login: `{ accessToken, user }`, `Cache-Control:
+  no-store`. It rotates the cookie and slides the session expiry. The secret never
+  appears in a response body.
+- Rotation and concurrent tabs: the previous secret is still accepted for 30 s,
+  without rotating again, so tabs restoring at the same time do not sign each other
+  out. Presenting it later means it was copied: the whole session is revoked.
+- Nothing to restore (no cookie, expired, revoked or unknown session) answers 204
+  with an empty body and clears the cookie: every signed-out visit asks, and the
+  subject forbids errors in the browser console. Only a request without the
+  `X-Session-Refresh` header gets 401 `INVALID_REFRESH_TOKEN`.
+- Angular: `SessionRefresh` restores the session at startup (guarded routes wait for
+  that answer instead of redirecting to `/login`), renews the access token one
+  minute before it expires, and on a 401 renews once and retries the request. A
+  reply arriving after a sign-out or another sign-in is ignored. The WebSocket picks
+  up the renewed token by reconnecting and rejoining its game rooms.
+- Migration `1793000000000-AddSessionRefresh` adds three nullable columns; sessions
+  created before it cannot be refreshed and simply end at their previous expiry.
 
 Migrations `1792800000000-CreateAuthSessions` and
 `1792800000001-CreateOauthFlows` are additive. Normal startup runs pending

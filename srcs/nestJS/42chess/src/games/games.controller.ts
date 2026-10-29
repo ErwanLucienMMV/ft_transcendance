@@ -14,13 +14,19 @@ import { CreateGameDto } from './dto/create-game.dto.js';
 import { GamesService } from './games.service.js';
 import { GamePresenterService } from './game-presenter.service.js';
 import { GameActorGuard, gameActor } from './game-actor.guard.js';
-import type { GameMovesResponse, GameResponse } from './game-api.types.js';
+import type {
+  GameMovesResponse,
+  GameResponse,
+  LiveGamesResponse,
+} from './game-api.types.js';
+import { LiveGamesService } from './live-games.service.js';
 
 @Controller('v1/games')
 export class GamesController {
   constructor(
     private readonly games: GamesService,
     private readonly presenter: GamePresenterService,
+    private readonly live: LiveGamesService,
   ) {}
   @Post()
   @UseGuards(GameActorGuard)
@@ -34,6 +40,12 @@ export class GamesController {
       opponentId: input.opponentId,
     });
     return { gameId: game.id, status: 'WAITING' };
+  }
+
+  /** Active games to watch, with their spectators (spec §28). Before `:id`. */
+  @Get('live')
+  liveGames(): Promise<LiveGamesResponse> {
+    return this.live.list();
   }
 
   /** Game state/history are public to support spectating (spec §§11,27). */

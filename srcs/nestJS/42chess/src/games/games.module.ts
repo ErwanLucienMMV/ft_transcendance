@@ -12,6 +12,10 @@ import { GameAgreementsService } from './game-agreements.service.js';
 import { GameClocksService } from './clock/game-clocks.service.js';
 import { GameTimeoutsService } from './clock/game-timeouts.service.js';
 import { GamesController } from './games.controller.js';
+import { GameHistoryController } from './game-history.controller.js';
+import { GameHistoryService } from './game-history.service.js';
+import { LiveGamesService } from './live-games.service.js';
+import { SpectatorRegistry } from './spectator-registry.js';
 import { GamePresenterService } from './game-presenter.service.js';
 import { GameActorGuard } from './game-actor.guard.js';
 import { GamesMetricsService } from './games-metrics.service.js';
@@ -37,6 +41,9 @@ import { SessionModule } from '../auth/session.module.js';
   ],
   providers: [
     GamePresenterService,
+    GameHistoryService,
+    LiveGamesService,
+    SpectatorRegistry,
     GameActorGuard,
     GamesMetricsService,
     GamesService,
@@ -47,7 +54,12 @@ import { SessionModule } from '../auth/session.module.js';
     GameTimeoutsService,
     ChessEngineService,
   ],
-  exports: [GamesService, GamePresenterService, GameActorGuard],
-  controllers: [GamesController],
+  exports: [
+    GamesService,
+    GamePresenterService,
+    GameActorGuard,
+    SpectatorRegistry,
+  ],
+  controllers: [GamesController, GameHistoryController],
 })
 export class GamesModule {}

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -7,9 +8,11 @@ import { AuthSession } from './auth-session.entity.js';
 import { SessionService } from './session.service.js';
 import { AuthGuard } from './auth.guard.js';
 import { SessionController } from './session.controller.js';
+import { RefreshCookieInterceptor } from './session-cookie.js';
 
 @Module({
   imports: [
+    ConfigModule,
     TypeOrmModule.forFeature([AuthSession, User]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -24,7 +27,11 @@ import { SessionController } from './session.controller.js';
     }),
   ],
   controllers: [SessionController],
-  providers: [SessionService, AuthGuard],
+  providers: [
+    SessionService,
+    AuthGuard,
+    { provide: APP_INTERCEPTOR, useClass: RefreshCookieInterceptor },
+  ],
   exports: [SessionService, AuthGuard],
 })
 export class SessionModule {}

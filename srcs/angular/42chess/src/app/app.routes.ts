@@ -9,6 +9,44 @@ export const routes: Routes = [
     loadComponent: () => import('./features/home/home-page').then((m) => m.HomePage),
   },
   {
+    path: 'board',
+    title: 'Analysis board | 42 Chess',
+    loadComponent: () => import('./features/board/board-page').then((m) => m.BoardPage),
+  },
+  {
+    path: 'play',
+    title: 'Play | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/game/play-page').then((m) => m.PlayPage),
+  },
+  {
+    path: 'game/:id',
+    title: 'Live game | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/game/game-page').then((m) => m.GamePage),
+  },
+  {
+    path: 'puzzle',
+    title: 'Daily puzzle | 42 Chess',
+    loadComponent: () => import('./features/puzzle/puzzle-page').then((m) => m.PuzzlePage),
+  },
+  {
+    path: 'live',
+    title: 'Live games | 42 Chess',
+    loadComponent: () => import('./features/live/live-page').then((m) => m.LivePage),
+  },
+  {
+    path: 'history',
+    title: 'Game history | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/history/history-page').then((m) => m.HistoryPage),
+  },
+  {
+    path: 'replay/:id',
+    title: 'Game replay | 42 Chess',
+    loadComponent: () => import('./features/history/replay-page').then((m) => m.ReplayPage),
+  },
+  {
     path: 'login',
     title: 'Sign in | 42 Chess',
     loadComponent: () => import('./features/auth/login-page').then((m) => m.LoginPage),

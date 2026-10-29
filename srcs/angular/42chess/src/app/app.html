@@ -7,14 +7,12 @@
     </a>
     <h1 class="sr-only">Hello, {{ title() }}</h1>
     <nav aria-label="Main navigation">
-      <a
-        routerLink="/"
-        routerLinkActive="active"
-        [routerLinkActiveOptions]="{ exact: true }"
-        ariaCurrentWhenActive="page"
-        >Play</a
-      >
+      <a routerLink="/play" routerLinkActive="active" ariaCurrentWhenActive="page">Play</a>
+      <a routerLink="/puzzle" routerLinkActive="active" ariaCurrentWhenActive="page">Puzzle</a>
+      <a routerLink="/live" routerLinkActive="active" ariaCurrentWhenActive="page">Live</a>
+      <a routerLink="/board" routerLinkActive="active" ariaCurrentWhenActive="page">Board</a>
       @if (session.user(); as user) {
+        <a routerLink="/history" routerLinkActive="active" ariaCurrentWhenActive="page">History</a>
         <a routerLink="/session" routerLinkActive="active" ariaCurrentWhenActive="page">{{
           user.username
         }}</a>

@@ -13,12 +13,18 @@ import { GameError } from '../games/game-error.js';
 import { identifier, moveInput } from '../games/game-input.js';
 import type { GameState } from '../games/game-state.js';
 import type { GameResponse } from '../games/game-api.types.js';
+import { SpectatorRegistry } from '../games/spectator-registry.js';
 import { RealtimeMessages } from './realtime-messages.js';
 import type { RealtimeClient, RealtimeMessage } from './realtime-messages.js';
 import { DataSource } from 'typeorm';
 
 interface Room {
   clients: Map<string, RealtimeClient>;
+  // Connections watching without a seat: they receive everything and may send nothing.
+  spectators: Set<string>;
+  spectatorCount: number;
+  // Last GAME_STATE, resent when only the spectator count changes.
+  snapshot: Record<string, unknown> | null;
   signature: string;
   ended: boolean;
   // Moves already announced to this room with MOVE_PLAYED.
@@ -37,6 +43,8 @@ const commands = new Set([
   'OFFER_DRAW',
   'ACCEPT_DRAW',
   'DECLINE_DRAW',
+  'START_SPECTATING',
+  'STOP_SPECTATING',
 ]);
 const promotions: Record<string, string> = {
   QUEEN: 'q',
@@ -59,6 +67,7 @@ export class GameRealtimeService
   constructor(
     private readonly games: GamesService,
     private readonly presenter: GamePresenterService,
+    private readonly spectators: SpectatorRegistry,
     private readonly source: DataSource,
   ) {
     super();
@@ -90,6 +99,10 @@ export class GameRealtimeService
       if (!client.connected()) return;
       if (message.event === 'JOIN_GAME') {
         await this.join(client, id);
+        return;
+      }
+      if (message.event === 'START_SPECTATING') {
+        await this.spectate(client, id);
         return;
       }
       const room = this.rooms.get(id);
@@ -131,11 +144,23 @@ export class GameRealtimeService
         });
         return;
       }
-      if (message.event === 'LEAVE_GAME') {
+      const spectating = room.spectators.has(client.connectionId);
+      if (
+        message.event === 'LEAVE_GAME' ||
+        (message.event === 'STOP_SPECTATING' && spectating)
+      ) {
         this.leave(client.connectionId, id);
         client.send('GAME_LEFT', { gameId: id });
         return;
       }
+      if (spectating || message.event === 'STOP_SPECTATING')
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: spectating ? 'SPECTATOR_READ_ONLY' : 'NOT_SPECTATING',
+          message: spectating
+            ? 'Spectators cannot act on the game.'
+            : 'This connection is not spectating the game.',
+        });
       let state: GameState;
       switch (message.event) {
         case 'MAKE_MOVE':
@@ -241,17 +266,79 @@ export class GameRealtimeService
     if (!client.connected()) return;
     const view = await this.presenter.state(state);
     if (!client.connected()) return;
+    const room = this.room(id, state);
+    room.clients.set(client.connectionId, client);
+    room.spectators.delete(client.connectionId);
+    memberships.add(id);
+    this.memberships.set(client.connectionId, memberships);
+    this.count(room, id);
+    this.publish(room, state, view);
+  }
+
+  /**
+   * Read-only subscription for any signed-in user (spec §28). Every game but a WAITING one
+   * is visible: there are no private games, and a finished game sends its state and end.
+   */
+  private async spectate(client: RealtimeClient, id: string): Promise<void> {
+    const memberships =
+      this.memberships.get(client.connectionId) ?? new Set<string>();
+    if (!memberships.has(id) && memberships.size >= 8)
+      throw new HttpException('Too many game subscriptions.', 429);
+    const state = await this.games.settle(id);
+    if (state.game.status === 'WAITING')
+      throw new GameError('GAME_NOT_ACTIVE', 'This game has not started yet.');
+    if (!client.connected()) return;
+    const view = await this.presenter.state(state);
+    if (!client.connected()) return;
+    const room = this.room(id, state);
+    // A seated connection keeps its seat; spectating never downgrades it.
+    if (!room.clients.has(client.connectionId))
+      room.spectators.add(client.connectionId);
+    room.clients.set(client.connectionId, client);
+    memberships.add(id);
+    this.memberships.set(client.connectionId, memberships);
+    const ended = room.ended;
+    if (!room.snapshot || this.signature(state) !== room.signature) {
+      this.count(room, id);
+      this.publish(room, state, view);
+    } else if (this.count(room, id)) {
+      this.broadcast(room, 'GAME_STATE', room.snapshot);
+    } else {
+      // Nothing changed for the others: only the newcomer needs the state.
+      client.send('GAME_STATE', room.snapshot);
+    }
+    // publish() announces the end once per room; a late spectator still needs it.
+    if (ended) client.send('GAME_ENDED', { gameId: id, result: view.result });
+  }
+
+  private room(id: string, state: GameState): Room {
     const room = this.rooms.get(id) ?? {
       clients: new Map(),
+      spectators: new Set<string>(),
+      spectatorCount: 0,
+      snapshot: null,
       signature: '',
       ended: false,
       plies: state.moves.length,
     };
     this.rooms.set(id, room);
-    room.clients.set(client.connectionId, client);
-    memberships.add(id);
-    this.memberships.set(client.connectionId, memberships);
-    this.publish(room, state, view);
+    return room;
+  }
+
+  /** Recounts distinct watching users; true when the number changed. */
+  private count(room: Room, id: string): boolean {
+    const users = new Set(
+      [...room.spectators].map(
+        (connection) => room.clients.get(connection)?.userId,
+      ),
+    );
+    users.delete(undefined);
+    if (users.size === room.spectatorCount) return false;
+    room.spectatorCount = users.size;
+    this.spectators.set(id, users.size);
+    if (room.snapshot)
+      room.snapshot = { ...room.snapshot, spectatorCount: users.size };
+    return true;
   }
 
   /**
@@ -288,12 +375,14 @@ export class GameRealtimeService
   private publish(room: Room, state: GameState, view: GameResponse): void {
     this.announce(room, state, view);
     room.signature = this.signature(state);
-    this.broadcast(room, 'GAME_STATE', {
+    room.snapshot = {
       ...view,
       ...this.clockSample(state),
       gameId: view.id,
       moves: this.presenter.moves(state).moves,
-    });
+      spectatorCount: room.spectatorCount,
+    };
+    this.broadcast(room, 'GAME_STATE', room.snapshot);
     if (view.status === 'FINISHED' && !room.ended) {
       room.ended = true;
       this.broadcast(room, 'GAME_ENDED', {
@@ -331,7 +420,12 @@ export class GameRealtimeService
   private leave(connectionId: string, id: string): void {
     const room = this.rooms.get(id);
     room?.clients.delete(connectionId);
-    if (room?.clients.size === 0) this.rooms.delete(id);
+    if (room?.spectators.delete(connectionId) && this.count(room, id))
+      this.broadcast(room, 'GAME_STATE', room.snapshot);
+    if (room?.clients.size === 0) {
+      this.rooms.delete(id);
+      this.spectators.set(id, 0);
+    }
     const memberships = this.memberships.get(connectionId);
     memberships?.delete(id);
     if (memberships?.size === 0) this.memberships.delete(connectionId);

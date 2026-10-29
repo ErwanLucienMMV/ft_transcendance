@@ -39,16 +39,33 @@ test('registers, refuses unverified login, verifies email and signs in against t
   expect(
     await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })),
   ).toEqual({ local: 0, session: 0 });
+  // The access token stays in memory; the httpOnly refresh cookie restores it on reload.
   await page.reload();
+  await expect(page).toHaveURL(/\/session$/);
+  await expect(page.getByRole('status')).toHaveText(`Welcome, ${username}.`);
+  expect((await page.context().cookies()).find((c) => c.name === 'refresh_token')).toMatchObject({
+    httpOnly: true,
+    sameSite: 'Strict',
+    path: '/api/v1/auth',
+  });
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.reload();
+  await page.goto('/session');
   await expect(page).toHaveURL(/\/login\?returnUrl=%2Fsession$/);
   await page.getByLabel('Username or email address').fill(username);
   await page.getByLabel('Password', { exact: true }).fill(password);
-  const signedIn = page.waitForResponse(
-    (r) => r.url().endsWith('/auth/login') && r.request().method() === 'POST',
-  );
+  // Keep a copy of the login answer: Chromium may drop a response body once the page moves on.
+  let identity: { accessToken: string; user: { id: string } } | undefined;
+  await page.route('**/api/v1/auth/login', async (route) => {
+    const response = await route.fetch();
+    identity = await response.json();
+    await route.fulfill({ response });
+  });
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/session$/);
-  const identity = await (await signedIn).json();
+  await page.unroute('**/api/v1/auth/login');
+  if (!identity) throw new Error('The login answer was not captured.');
   const authenticated = await page.evaluate(
     (token: string) =>
       new Promise<string>((resolve, reject) => {

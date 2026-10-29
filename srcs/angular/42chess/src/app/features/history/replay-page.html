@@ -1,0 +1,110 @@
+<section class="replay-page" aria-labelledby="replay-title">
+  <div class="board-column">
+    @if (game(); as current) {
+      <div class="seat">
+        {{ name(orientation() === 'WHITE' ? current.blackPlayer : current.whitePlayer) }}
+      </div>
+      <app-chess-board
+        [fen]="fen()"
+        [orientation]="orientation()"
+        [lastMove]="lastMove()"
+        [result]="atEnd() ? current.result : null"
+      />
+      <div class="seat">
+        {{ name(orientation() === 'WHITE' ? current.whitePlayer : current.blackPlayer) }}
+      </div>
+      <div class="controls" role="group" aria-label="Replay controls">
+        <button
+          type="button"
+          class="button secondary"
+          aria-label="First position"
+          [disabled]="ply() === 0"
+          (click)="goTo(0)"
+        >
+          «
+        </button>
+        <button
+          type="button"
+          class="button secondary"
+          aria-label="Previous move"
+          [disabled]="ply() === 0"
+          (click)="step(-1)"
+        >
+          ‹
+        </button>
+        <span class="position" aria-live="polite">Move {{ ply() }} / {{ moves().length }}</span>
+        <button
+          type="button"
+          class="button secondary"
+          aria-label="Next move"
+          [disabled]="atEnd()"
+          (click)="step(1)"
+        >
+          ›
+        </button>
+        <button
+          type="button"
+          class="button secondary"
+          aria-label="Last position"
+          [disabled]="atEnd()"
+          (click)="goTo(moves().length)"
+        >
+          »
+        </button>
+        <button type="button" class="button secondary" (click)="flipped.set(!flipped())">
+          Flip board
+        </button>
+      </div>
+    } @else if (loading()) {
+      <p class="muted" role="status">Loading the game…</p>
+    }
+  </div>
+
+  <div class="replay-panel">
+    <span class="eyebrow">Replay</span>
+    <h2 id="replay-title">{{ headline() }}</h2>
+
+    @if (error(); as message) {
+      <p class="replay-error" role="alert">{{ message }}</p>
+      <a class="button secondary" routerLink="/history">Back to my games</a>
+    }
+
+    @if (game(); as current) {
+      @if (!finished()) {
+        <p role="status">This game is still in progress.</p>
+        <a class="button" [routerLink]="['/game', current.id]">Open the live game</a>
+      }
+      <section class="move-list" aria-labelledby="replay-moves-title">
+        <h3 id="replay-moves-title">Moves</h3>
+        @if (rows().length) {
+          <ol>
+            @for (row of rows(); track row.number) {
+              <li [attr.value]="row.number">
+                @for (cell of [row.white, row.black]; track $index) {
+                  @if (cell) {
+                    <button
+                      type="button"
+                      class="move"
+                      [attr.aria-current]="cell.ply === ply() ? 'step' : null"
+                      (click)="goTo(cell.ply)"
+                    >
+                      {{ cell.text }}
+                    </button>
+                  } @else {
+                    <span class="move">{{ $index === 0 ? '…' : '' }}</span>
+                  }
+                }
+              </li>
+            }
+          </ol>
+        } @else {
+          <p class="muted">No moves were played.</p>
+        }
+      </section>
+      <div class="actions">
+        <a class="button secondary" routerLink="/history">Back to my games</a>
+        <a class="button secondary" routerLink="/board">Analysis board</a>
+      </div>
+    }
+  </div>
+</section>
