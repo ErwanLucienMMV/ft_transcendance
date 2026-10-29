@@ -23,7 +23,7 @@ export interface Environment extends DatabaseEnvironment {
 // HS256 key: shorter secrets can be brute-forced offline from any token.
 const JWT_SECRET_MIN_LENGTH = 32;
 const DEFAULT_JWT_EXPIRES_IN = 3600;
-const DEFAULT_REFRESH_EXPIRES_IN = 7 * 24 * 3600;
+export const DEFAULT_REFRESH_EXPIRES_IN = 7 * 24 * 3600;
 
 function required(input: Record<string, unknown>, name: string): string {
   const value = input[name];

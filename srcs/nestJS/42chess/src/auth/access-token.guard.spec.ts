@@ -28,7 +28,7 @@ describe('AccessTokenGuard', () => {
     }),
     rows as unknown as Repository<AuthSession>,
     users as unknown as Repository<User>,
-    { getOrThrow: () => 604800 } as unknown as ConfigService,
+    { get: () => 604800 } as unknown as ConfigService,
   );
   const guard = new AccessTokenGuard(new AuthGuard(sessions));
   beforeEach(() => {

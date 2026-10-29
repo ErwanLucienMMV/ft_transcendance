@@ -23,7 +23,7 @@ describe('Revocable access sessions', () => {
     jwt,
     rows as unknown as Repository<AuthSession>,
     users as unknown as Repository<User>,
-    { getOrThrow: () => 604800 } as unknown as ConfigService,
+    { get: () => 86400 } as unknown as ConfigService,
   );
   beforeEach(() => {
     vi.resetAllMocks();
@@ -48,9 +48,21 @@ describe('Revocable access sessions', () => {
     expect(row.refreshTokenHash).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(row)).not.toContain(refresh.split('.')[1]);
     // The session outlives the access token: that is what the refresh cookie renews.
-    expect(row.expiresAt.getTime() - Date.now()).toBeGreaterThan(6 * 86400000);
+    expect(row.expiresAt.getTime() - Date.now()).toBeGreaterThan(
+      86400000 - 60000,
+    );
+    expect(row.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(86400000);
     expect(a.user).toEqual({ id: user.id, username: 'alice', elo: 1200 });
     expect(JSON.stringify(a)).not.toContain(refresh);
+  });
+  it('falls back to seven days when a test module configures no session lifetime', () => {
+    const partial = new SessionService(
+      jwt,
+      rows as unknown as Repository<AuthSession>,
+      users as unknown as Repository<User>,
+      { get: () => undefined } as unknown as ConfigService,
+    );
+    expect(partial.lifetime()).toBe(7 * 24 * 3600 * 1000);
   });
   it('requires a live database session and verified user, not merely a valid signature', async () => {
     const { accessToken } = await service.issue(user);
