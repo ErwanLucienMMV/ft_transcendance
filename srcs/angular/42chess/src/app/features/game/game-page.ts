@@ -245,7 +245,12 @@ export class GamePage {
     const clocks = game?.clocks;
     const running = !!game && game.status === 'ACTIVE' && game.board.turn === color;
     let remaining: number | null = null;
-    if (clocks) {
+    const synced = this.realtime.clockSynced() ? this.realtime.displayClocks() : null;
+    if (synced) {
+      // Projected from the server time; corrects the delay since the server read the clock.
+      remaining = color === 'WHITE' ? synced.white : synced.black;
+    } else if (clocks) {
+      // Until the first sync, count down from when the last clock value arrived.
       remaining = color === 'WHITE' ? clocks.white : clocks.black;
       if (running) remaining -= this.now() - this.realtime.clocksAt();
       remaining = Math.max(0, remaining);

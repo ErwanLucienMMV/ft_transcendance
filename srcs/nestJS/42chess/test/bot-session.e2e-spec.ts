@@ -12,6 +12,10 @@ describe('Bot game routes with a real session', () => {
   let app: INestApplication, source: DataSource, user: User;
   const created: string[] = [];
   beforeAll(async () => {
+    process.env.CHESS_ENGINE_URL =
+      process.env.TEST_CHESS_ENGINE_URL ?? 'ws://127.0.0.1:55433';
+    process.env.BOT_ENGINE_URL =
+      process.env.TEST_BOT_ENGINE_URL ?? 'ws://127.0.0.1:55434';
     const module = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
