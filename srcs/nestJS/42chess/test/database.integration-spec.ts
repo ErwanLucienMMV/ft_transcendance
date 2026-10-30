@@ -57,6 +57,16 @@ describe('PostgreSQL migration lifecycle', () => {
     expect(row.version).toContain('PostgreSQL 15.');
   });
 
+  it('uses UTF8 for Unicode migrations and message content', async () => {
+    const [row] = await source.query('SHOW server_encoding');
+    expect(row.server_encoding).toBe('UTF8');
+    const content = '\u00a0\ufeff😀';
+    const [roundTrip] = await source.query('SELECT $1::text AS content', [
+      content,
+    ]);
+    expect(roundTrip.content).toBe(content);
+  });
+
   it('applies once, rolls back, then reapplies a migration', async () => {
     expect(await source.runMigrations()).toHaveLength(1);
     await source.query(

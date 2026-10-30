@@ -106,3 +106,14 @@ legacy blank messages for explicit review. Updating such a legacy row also
 requires content satisfying the new check. There is no automatic deletion or
 rewriting of historical messages. The migration tests verify both upgrade paths
 and all 25 whitespace characters.
+
+The database must use `UTF8` encoding for this Unicode constraint. The production
+PostgreSQL entrypoint initializes new clusters with `--encoding=UTF8` and
+`--locale=C.UTF-8`; backend database tests build the same image and assert the
+encoding and Unicode round trip. The browser tests also apply the migration.
+
+Existing PostgreSQL volumes are reused unchanged. Rebuilding the image does not
+convert an older `SQL_ASCII` database. Check `SHOW server_encoding;` against the
+application database before upgrading an existing installation. A non-UTF8
+database needs a separately reviewed backup, data validation and restore into a
+new UTF8 database; do not delete the existing volume to apply this change.
