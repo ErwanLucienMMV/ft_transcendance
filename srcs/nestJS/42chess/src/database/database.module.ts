@@ -3,11 +3,19 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { Environment } from '../config/environment.js';
 import { databaseOptions } from './database.options.js';
+import {
+  CheckedDataSource,
+  DatabaseRequirementsError,
+} from './database-preflight.js';
 
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
+      dataSourceFactory: async (options) => {
+        if (!options) throw new Error('Database options are required');
+        return new CheckedDataSource(options);
+      },
       useFactory: (config: ConfigService<Environment, true>) => ({
         ...databaseOptions({
           APIPORT: config.get('APIPORT', { infer: true }),
@@ -21,6 +29,8 @@ import { databaseOptions } from './database.options.js';
         migrationsRun: true,
         retryAttempts: 3,
         retryDelay: 1000,
+        toRetry: (error: unknown) =>
+          !(error instanceof DatabaseRequirementsError),
       }),
     }),
   ],

@@ -98,4 +98,47 @@ describe('Private-message commit and delivery guarantees', () => {
     await delivery.send(alice, data);
     expect(recipient.send).not.toHaveBeenCalled();
   });
+
+  it.each(['resolve', 'reject'] as const)(
+    'bounds a stalled validation to one second and ignores its late %s',
+    async (late) => {
+      vi.useFakeTimers();
+      let finish!: () => void;
+      const gate = new Promise<void>((resolve, reject) => {
+        finish = () =>
+          late === 'resolve'
+            ? resolve()
+            : reject(new Error('late session rejection'));
+      });
+      const delivery = new PrivateMessageRealtime({
+        send: vi.fn().mockResolvedValue(saved),
+      } as unknown as PrivateMessagesService);
+      const slow = connection(bob),
+        sender = connection(alice);
+      slow.validate.mockImplementation(() => gate);
+      delivery.connect('slow', slow);
+      delivery.connect('sender', sender);
+      let complete = false;
+      const pending = delivery.send(alice, data).then(() => {
+        complete = true;
+      });
+      try {
+        await vi.advanceTimersByTimeAsync(0);
+        expect(sender.send.mock.calls).toEqual([['PRIVATE_MESSAGE', saved]]);
+        await vi.advanceTimersByTimeAsync(999);
+        expect(complete).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(complete).toBe(true);
+        expect(vi.getTimerCount()).toBe(0);
+        finish();
+        await Promise.resolve();
+        expect(slow.send).not.toHaveBeenCalled();
+      } finally {
+        finish();
+        await pending;
+        delivery.onModuleDestroy();
+        vi.useRealTimers();
+      }
+    },
+  );
 });

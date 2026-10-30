@@ -1,11 +1,15 @@
 name: transcendence-browser-tests
 services:
   postgres-e2e:
-    image: docker.io/library/postgres:15
+    # Match the production and backend-test database initialization path.
+    build:
+      context: ../postgreSQL
     environment:
       POSTGRES_DB: browser_test
       POSTGRES_USER: browser_test
       POSTGRES_PASSWORD: browser_test_only
+      POSTGRES_BACKUP_USER: browser_backup
+      POSTGRES_BACKUP_PASSWORD: browser_backup_test_only
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
