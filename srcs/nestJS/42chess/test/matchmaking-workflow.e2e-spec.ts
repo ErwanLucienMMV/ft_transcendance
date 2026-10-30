@@ -256,7 +256,7 @@ describe('SCRUM-450/470 matchmaking workflow', () => {
     expect(status.body.status).toBe('CANCELLED');
   });
 
-  it('recovers a committed game through status after a socket disconnect', async () => {
+  it('recovers a committed game after a socket disconnect within the lease grace period', async () => {
     const disconnected = await connect(0);
     await join(0).expect(201);
     const closed = once(disconnected.socket, 'close');
@@ -280,6 +280,39 @@ describe('SCRUM-450/470 matchmaking workflow', () => {
       .expect(200);
     expect(again.body.gameId).toBe(found.data.gameId);
     expect(await activeSeats()).toHaveLength(2);
+  });
+
+  it('expires a disconnected search without leave and keeps the live opponent available for another match', async () => {
+    const disconnected = await connect(0);
+    await join(0).expect(201);
+    const closed = once(disconnected.socket, 'close');
+    disconnected.socket.terminate();
+    await closed;
+    // Advance only this lease with the database clock, without waiting 30 seconds.
+    await source.query(
+      `UPDATE matchmaking_queue SET "leaseExpiresAt" = clock_timestamp() WHERE "userId" = $1`,
+      [users[0].id],
+    );
+    const opponent = await connect(1);
+    await join(1).expect(201);
+    await app.get(MatchmakingWorker).tick();
+    expect(await activeSeats()).toHaveLength(0);
+    await request(app.getHttpServer())
+      .post('/v1/matchmaking/heartbeat')
+      .auth(tokens[0], { type: 'bearer' })
+      .expect(200)
+      .expect(({ body }) => expect(body.status).toBe('CANCELLED'));
+    await request(app.getHttpServer())
+      .post('/v1/matchmaking/heartbeat')
+      .auth(tokens[1], { type: 'bearer' })
+      .expect(200)
+      .expect(({ body }) => expect(body.status).toBe('WAITING'));
+    await join(2).expect(201);
+    await opponent.take('MATCH_FOUND');
+    const seats = await activeSeats();
+    expect(new Set(seats.map((seat) => seat.userId))).toEqual(
+      new Set([users[1].id, users[2].id]),
+    );
   });
 
   it('withholds private match delivery from revoked sessions while preserving recovery', async () => {

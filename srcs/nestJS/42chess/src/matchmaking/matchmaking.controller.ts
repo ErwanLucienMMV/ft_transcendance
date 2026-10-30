@@ -27,6 +27,12 @@ export class MatchmakingController {
     return this.matchmaking.status(gameActor(request));
   }
 
+  @Post('heartbeat')
+  @HttpCode(200)
+  heartbeat(@Req() request: Request): Promise<QueueStatus> {
+    return this.matchmaking.heartbeat(gameActor(request));
+  }
+
   @Post('leave')
   @HttpCode(200)
   leave(@Req() request: Request): Promise<QueueStatus> {

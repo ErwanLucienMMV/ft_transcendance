@@ -150,6 +150,35 @@ describe('MATCH-01 queue join on PostgreSQL and Nest HTTP', () => {
     expect(await queue()).toEqual(original);
   });
 
+  it('authenticates heartbeats, renews only the actor, and reports expiry without reviving it', async () => {
+    await service.join(actor, control);
+    const original = await queue();
+    await request(app.getHttpServer())
+      .post('/v1/matchmaking/heartbeat')
+      .expect(401);
+    expect(await queue()).toEqual(original);
+    const accessToken = await token();
+    await request(app.getHttpServer())
+      .post('/v1/matchmaking/heartbeat')
+      .auth(accessToken, { type: 'bearer' })
+      .send({ userId: randomUUID() })
+      .expect(200)
+      .expect(({ body }) => expect(body.status).toBe('WAITING'));
+    expect((await queue()).leaseExpiresAt.getTime()).toBeGreaterThan(
+      original.leaseExpiresAt.getTime(),
+    );
+    expect((await queue()).createdAt).toEqual(original.createdAt);
+    await source.query(
+      `UPDATE matchmaking_queue SET "leaseExpiresAt" = clock_timestamp() WHERE "userId" = $1`,
+      [actor],
+    );
+    await request(app.getHttpServer())
+      .post('/v1/matchmaking/heartbeat')
+      .auth(accessToken, { type: 'bearer' })
+      .expect(200)
+      .expect(({ body }) => expect(body.status).toBe('CANCELLED'));
+  });
+
   it.each(['MATCHED', 'CANCELLED'])(
     'atomically reuses a %s entry with fresh rating and FIFO age',
     async (status) => {

@@ -21,7 +21,7 @@ export async function findCompatible(
     throw new Error('Candidate selection requires an active transaction.');
   }
   const window = eloWindow(seeker.createdAt, now);
-  if (seeker.status !== 'WAITING') return null;
+  if (seeker.status !== 'WAITING' || seeker.leaseExpiresAt <= now) return null;
 
   // Match Date's millisecond precision even when PostgreSQL stored microseconds.
   const candidateWindow = `LEAST(:maximumWindow, :initialWindow + :windowStep *
@@ -40,6 +40,7 @@ export async function findCompatible(
     manager
       .createQueryBuilder(MatchmakingEntry, 'candidate')
       .where('candidate.status = :waiting', { waiting: 'WAITING' })
+      .andWhere('candidate."leaseExpiresAt" > :now', { now })
       .andWhere('candidate.id != :seekerId', { seekerId: seeker.id })
       .andWhere('candidate."userId" != :seekerUserId', {
         seekerUserId: seeker.userId,
