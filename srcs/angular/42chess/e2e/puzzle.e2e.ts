@@ -27,9 +27,18 @@ test('shows the daily puzzle and checks a move on the server', async ({ browser,
     if (await targets.count()) break;
   }
   await targets.first().click();
-  await expect(title).toHaveText(
-    /^(Correct! Keep going\.|Not the best move\. Try again\.|Puzzle solved!)$/,
-  );
+  // The daily puzzle differs between runs, so the move may be a promotion: the board then
+  // waits for a piece choice before sending anything to the server.
+  const judged = /^(Correct! Keep going\.|Not the best move\. Try again\.|Puzzle solved!)$/;
+  const promotion = page.getByRole('dialog', { name: 'Choose a promotion piece' });
+  await expect(title.filter({ hasText: judged }).or(promotion)).toBeVisible();
+  if (await promotion.isVisible()) {
+    await promotion
+      .getByRole('button', { name: /^Promote to / })
+      .first()
+      .click();
+  }
+  await expect(title).toHaveText(judged);
   const position = await page.locator('.square svg').count();
   await page.reload();
   await expect(title).toHaveText(/^(Find the best move for (White|Black)\.|Puzzle solved!)$/);
