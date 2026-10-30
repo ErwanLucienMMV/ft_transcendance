@@ -33,12 +33,20 @@ import { User } from '../users/user.entity.js';
   ['initialTime', 'increment', 'rating', 'createdAt', 'id'],
   { where: `"status" = 'WAITING'` },
 )
+@Index('IDX_matchmaking_expiry', ['leaseExpiresAt'], {
+  where: `"status" = 'WAITING'`,
+})
 @Entity('matchmaking_queue')
 export class MatchmakingEntry {
   @PrimaryGeneratedColumn('uuid')
   id: string;
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
+  @Column({
+    type: 'timestamptz',
+    default: () => "clock_timestamp() + interval '30 seconds'",
+  })
+  leaseExpiresAt: Date;
   @Column({ type: 'uuid' })
   userId: string;
   @Column({ type: 'integer' })
