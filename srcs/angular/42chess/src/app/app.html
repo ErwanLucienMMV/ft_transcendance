@@ -13,6 +13,7 @@
       <a routerLink="/board" routerLinkActive="active" ariaCurrentWhenActive="page">Board</a>
       @if (session.user(); as user) {
         <a routerLink="/history" routerLinkActive="active" ariaCurrentWhenActive="page">History</a>
+        <a routerLink="/friends" routerLinkActive="active" ariaCurrentWhenActive="page">Friends</a>
         <a routerLink="/session" routerLinkActive="active" ariaCurrentWhenActive="page">{{
           user.username
         }}</a>

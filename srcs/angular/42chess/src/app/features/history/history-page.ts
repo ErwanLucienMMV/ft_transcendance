@@ -4,15 +4,10 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
-import { endReason, playerLabel } from '../../shared/chess/game-text';
+import { endReason, outcomeText, playerLabel } from '../../shared/chess/game-text';
 import { GameHistoryItem, GamesApi, Page, timeControlLabel } from '../game/games-api';
 
 export const HISTORY_PAGE_SIZE = 10;
-const OUTCOMES: Record<GameHistoryItem['outcome'], string> = {
-  WIN: 'Won',
-  LOSS: 'Lost',
-  DRAW: 'Draw',
-};
 
 /** The signed-in player's finished games, newest first, ten per page (`?page=` keeps the place). */
 @Component({
@@ -51,7 +46,7 @@ export class HistoryPage {
   }
 
   outcome(item: GameHistoryItem): string {
-    return OUTCOMES[item.outcome];
+    return outcomeText(item.outcome);
   }
 
   opponent(item: GameHistoryItem): string {
