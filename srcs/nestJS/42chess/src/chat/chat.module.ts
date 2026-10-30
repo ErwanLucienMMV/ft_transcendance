@@ -5,6 +5,7 @@ import { Message } from '../messages/messages.entity.js';
 import { User } from '../users/user.entity.js';
 import { ConversationsController } from './conversations.controller.js';
 import { PrivateMessagesService } from './private-messages.service.js';
+import { PrivateMessageRealtime } from './private-message-realtime.js';
 
 /**
  * In-game chat and private messages between users, delivered over
@@ -15,7 +16,7 @@ import { PrivateMessagesService } from './private-messages.service.js';
 @Module({
   imports: [HttpAuthModule, TypeOrmModule.forFeature([Message, User])],
   controllers: [ConversationsController],
-  providers: [PrivateMessagesService],
-  exports: [PrivateMessagesService],
+  providers: [PrivateMessagesService, PrivateMessageRealtime],
+  exports: [PrivateMessagesService, PrivateMessageRealtime],
 })
 export class ChatModule {}

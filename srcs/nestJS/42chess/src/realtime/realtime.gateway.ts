@@ -19,6 +19,7 @@ import { MetricsService } from '../metrics/metrics.service.js';
 import { RealtimeAuthenticator } from './realtime-authenticator.js';
 import type { RealtimePrincipal } from './realtime-authenticator.js';
 import { parseRealtimeMessage, RealtimeMessages } from './realtime-messages.js';
+import { PrivateMessageRealtime } from '../chat/private-message-realtime.js';
 
 @Injectable()
 export class RealtimeGateway
@@ -38,6 +39,7 @@ export class RealtimeGateway
     metrics: MetricsService,
     @Optional() private readonly presence?: PresenceGateway,
     @Optional() private readonly matchmaking?: MatchmakingEvents,
+    @Optional() private readonly privateMessages?: PrivateMessageRealtime,
   ) {
     this.connectionsActive = metrics.gauge({
       name: 'websocket_connections_active',
@@ -154,6 +156,7 @@ export class RealtimeGateway
       this.presence?.disconnect(connectionId);
       this.messages.disconnect(connectionId);
       this.matchmaking?.disconnect(connectionId);
+      this.privateMessages?.disconnect(connectionId);
     });
     socket.on('message', (raw, binary) => {
       if (socket.readyState !== WebSocket.OPEN) return;
@@ -250,6 +253,7 @@ export class RealtimeGateway
               };
               this.presence?.connect(connectionId, authenticatedClient);
               this.matchmaking?.connect(connectionId, authenticatedClient);
+              this.privateMessages?.connect(connectionId, authenticatedClient);
             } else {
               if (
                 principal.expiresAt <= Date.now() ||
@@ -260,6 +264,13 @@ export class RealtimeGateway
                 );
               await principal.validate?.();
               if (socket.readyState !== WebSocket.OPEN) return;
+              if (
+                message.event === 'SEND_PRIVATE_MESSAGE' &&
+                this.privateMessages
+              ) {
+                await this.privateMessages.send(principal.userId, message.data);
+                return;
+              }
               await this.messages.handle(
                 {
                   userId: principal.userId,

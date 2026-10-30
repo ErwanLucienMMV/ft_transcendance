@@ -48,3 +48,39 @@ These tests exercise real sessions, controllers and PostgreSQL, including an
 independent connection reading a newly sent message, account isolation,
 equal-timestamp pagination, exact public projections, unread counts, input
 validation and the storage length boundary.
+
+## WebSocket send and delivery
+
+SCRUM-256 uses the existing authenticated `/ws` transport (also spec §22):
+
+```json
+{ "event": "SEND_PRIVATE_MESSAGE", "data": { "receiverId": "uuid", "content": "Hello!" } }
+```
+
+The authenticated session supplies the sender. Additional fields, including
+client-supplied IDs, timestamps or authors, are rejected. On successful commit,
+`PRIVATE_MESSAGE` contains the public message shape above. It is sent to all
+connected, still-valid sessions of the sender and receiver. No room join,
+friendship or online recipient is required. Existing game/presence/matchmaking
+events continue on the same socket.
+
+A failed save emits only `ERROR` to the sending connection. Once saved, a broken
+or revoked receiving socket does not make the send fail or stop delivery to
+another valid session. Socket delivery is best effort on the current backend
+process; HTTP history is authoritative, including after reconnect or restart.
+No read receipt is inferred from delivery, and reconnect does not replay events
+automatically: retrieve history and deduplicate by message ID. Retransmitting a
+send is a new message (there is no client idempotency key in this contract).
+
+The realtime acceptance suite uses production session authentication and verifies
+multiple tabs, an offline receiver and a complete application restart, revoked
+receiving/sending sessions, invalid/spoofed payloads and injected save failure:
+
+```sh
+npm run build
+npx vitest run --config vitest.config.e2e.ts test/private-message-history.e2e-spec.ts test/private-message-realtime.e2e-spec.ts
+npm test -- src/chat/private-message-realtime.spec.ts
+```
+
+The unit tests additionally hold persistence pending to prove nothing is emitted
+before commit, and simulate broken transports and disconnects during validation.
