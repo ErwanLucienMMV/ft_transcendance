@@ -35,9 +35,14 @@ describe('Upgrade from the previous private-message schema', () => {
             (m) => (m.name ?? m.constructor.name) === upgradeName,
           ),
         ).toBe(true);
-        previous.migrations = previous.migrations.filter(
+        const precedingMigrations = previous.migrations.filter(
           (m) =>
             Number((m.name ?? m.constructor.name).slice(-13)) < 1793392000000,
+        );
+        previous.migrations.splice(
+          0,
+          previous.migrations.length,
+          ...precedingMigrations,
         );
         expect((await previous.runMigrations()).length).toBeGreaterThan(0);
         const [sender, receiver] = await previous
