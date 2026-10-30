@@ -99,6 +99,14 @@ They cannot target an arbitrary database name or host. Ordinary unit tests
 do not require PostgreSQL. Integration tests use a random schema and remove
 only that schema on completion; no production migration fixture is installed.
 
+`test/database-upgrade.integration-spec.ts` builds the actual migration chain
+preceding private-message validation, stores users and messages (including emoji,
+Unicode whitespace and legacy blank content), and reconnects through the same
+automatic-migration path as Nest. It checks exact row and UTF8 byte preservation,
+migration history, idempotency and enforcement of the new constraint. When adding
+migrations, keep this upgrade fixture representative of the supported previous
+schema alongside the fresh-database tests.
+
 With Podman, the equivalent disposable fixture is:
 
 ```sh
