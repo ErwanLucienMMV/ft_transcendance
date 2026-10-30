@@ -13,6 +13,11 @@ import { User } from '../users/user.entity.js';
 /** DB-14; constraints and indexes are owned by migrations. */
 @Check('CHK_messages_0', `"senderId" <> "recipientId"`)
 @Check('CHK_messages_1', `length(btrim("content")) > 0`)
+// Explicit ECMAScript trim whitespace, independent of the PostgreSQL locale.
+@Check(
+  'CHK_messages_content_nonblank',
+  String.raw`length(btrim("content", U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF')) > 0`,
+)
 @Index('IDX_messages_conversation', [
   'senderId',
   'recipientId',

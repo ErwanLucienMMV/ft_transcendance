@@ -51,11 +51,14 @@ export class PrivateMessagesService {
     content: unknown,
   ): Promise<PrivateMessageResponse> {
     // PostgreSQL varchar counts Unicode code points, rather than UTF-16 units.
+    // In Unicode regex mode, this range matches only unpaired surrogates;
+    // valid surrogate pairs (including emoji) are single code points.
     if (
       typeof content !== 'string' ||
       !content.trim() ||
       Array.from(content).length > 2000 ||
-      content.includes('\0')
+      content.includes('\0') ||
+      /[\uD800-\uDFFF]/u.test(content)
     )
       throw new BadRequestException(
         'Message content must contain 1 to 2000 characters.',

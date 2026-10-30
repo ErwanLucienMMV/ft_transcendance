@@ -1,8 +1,8 @@
 # Private messages
 
 Implements SCRUM-249, SCRUM-252, SCRUM-253 and SCRUM-254 using the existing
-`messages` PostgreSQL table and spec §22 (`Proposition spec.md`). No new schema
-or migration is needed: `Message` already stores both participants, content,
+`messages` PostgreSQL table and spec §22 (`Proposition spec.md`).
+`Message` already stores both participants, content,
 creation time and optional read time, with foreign keys and content constraints.
 
 Messages belong to accounts. Neither persistence nor retrieval depends on
@@ -30,7 +30,9 @@ exposed. Conversation unread counts include only incoming rows with no `readAt`;
 fetching history does not mark them read. Read receipts are outside these tickets.
 
 The persistence service accepts nonblank text of at most 2000 Unicode code
-points, preserving the original content and rejecting NUL. It checks the peer
+points, preserving the original content and rejecting NUL and unpaired UTF-16
+surrogates before any database write. Valid emoji and literal U+FFFD are accepted.
+It checks the peer
 exists and rejects self-messages. IDs and timestamps come from PostgreSQL. A
 successful send returns only after the row is committed; a recipient can be
 offline throughout.
@@ -64,9 +66,13 @@ connected, still-valid sessions of the sender and receiver. No room join,
 friendship or online recipient is required. Existing game/presence/matchmaking
 events continue on the same socket.
 
-A failed save emits only `ERROR` to the sending connection. Once saved, a broken
-or revoked receiving socket does not make the send fail or stop delivery to
-another valid session. Socket delivery is best effort on the current backend
+A failed save emits only `ERROR` to the sending connection. Once saved, each
+eligible connection validates independently, in parallel, with a one-second
+deadline. A broken, revoked or stalled receiving socket does not make the send
+fail or delay delivery to healthy sessions. Timeout releases the sending command
+queue; a late validation result cannot emit the timed-out notification. The
+underlying session query is not cancelled by this deadline.
+Socket delivery is best effort on the current backend
 process; HTTP history is authoritative, including after reconnect or restart.
 No read receipt is inferred from delivery, and reconnect does not replay events
 automatically: retrieve history and deduplicate by message ID. Retransmitting a
@@ -84,3 +90,19 @@ npm test -- src/chat/private-message-realtime.spec.ts
 
 The unit tests additionally hold persistence pending to prove nothing is emitted
 before commit, and simulate broken transports and disconnects during validation.
+
+## Database whitespace enforcement
+
+The forward migration `1793392000000-CheckPrivateMessageContent` adds
+`CHK_messages_content_nonblank`, retaining the original constraint and migration.
+It explicitly enumerates ECMAScript `trim()` whitespace, including tabs,
+newlines, NBSP, Unicode spaces, line separators and BOM, without relying on the
+database locale. New or updated rows cannot contain only those characters.
+
+Existing rows are preserved byte for byte. If no historical violations exist,
+the migration validates the constraint immediately. Otherwise, PostgreSQL keeps
+the new constraint `NOT VALID`: it still enforces future writes, while retaining
+legacy blank messages for explicit review. Updating such a legacy row also
+requires content satisfying the new check. There is no automatic deletion or
+rewriting of historical messages. The migration tests verify both upgrade paths
+and all 25 whitespace characters.
