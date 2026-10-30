@@ -15,6 +15,7 @@ import type { QueueStatus } from './matchmaking.types.js';
 import type { JoinMatchmakingResponse } from './matchmaking.types.js';
 import { GamesService } from '../games/games.service.js';
 import { findCompatible } from './matchmaking-candidate.js';
+import { MATCHMAKING_LEASE_MS } from './matchmaking-lease.js';
 
 @Injectable()
 export class MatchmakingService {
@@ -29,10 +30,51 @@ export class MatchmakingService {
     await manager.query('SELECT pg_advisory_xact_lock(42004, 1)');
   }
 
+  private async now(manager: EntityManager): Promise<Date> {
+    const [clock]: { now: Date }[] = await manager.query(
+      'SELECT clock_timestamp() AS now',
+    );
+    return clock.now;
+  }
+
+  private async expire(manager: EntityManager, userId?: string): Promise<void> {
+    const update = manager
+      .createQueryBuilder()
+      .update(MatchmakingEntry)
+      .set({ status: 'CANCELLED' })
+      .where('status = :status', { status: 'WAITING' })
+      .andWhere('"leaseExpiresAt" <= clock_timestamp()');
+    if (userId) update.andWhere('"userId" = :userId', { userId });
+    await update.execute();
+  }
+
   async status(userId: string): Promise<QueueStatus> {
     const id = this.actor(userId);
     return this.source.transaction(async (manager) => {
       await this.serialize(manager);
+      await this.expire(manager, id);
+      return this.queueStatus(manager, id);
+    });
+  }
+
+  /** Only explicit search heartbeats renew a live lease, never an expired one. */
+  async heartbeat(userId: string): Promise<QueueStatus> {
+    const id = this.actor(userId);
+    return this.source.transaction(async (manager) => {
+      await this.serialize(manager);
+      // Compare and renew in SQL to retain PostgreSQL's sub-millisecond precision.
+      await manager
+        .createQueryBuilder()
+        .update(MatchmakingEntry)
+        .set({
+          leaseExpiresAt: () =>
+            "clock_timestamp() + (:leaseMs * interval '1 millisecond')",
+        })
+        .where('"userId" = :id AND status = :status', { id, status: 'WAITING' })
+        .andWhere('"leaseExpiresAt" > clock_timestamp()')
+        .setParameter('leaseMs', MATCHMAKING_LEASE_MS)
+        .execute();
+      await this.expire(manager, id);
       return this.queueStatus(manager, id);
     });
   }
@@ -75,21 +117,36 @@ export class MatchmakingService {
     if (!this.games) throw new Error('GamesService is required for matching.');
     return this.source.transaction(async (manager) => {
       await this.serialize(manager);
+      // Expiration and selection share the cross-replica queue mutation lock.
+      await this.expire(manager);
       const waiting = await manager.find(MatchmakingEntry, {
         where: { status: 'WAITING' },
         order: { createdAt: 'ASC', id: 'ASC' },
       });
-      const [clock]: { now: Date }[] = await manager.query(
-        'SELECT clock_timestamp() AS now',
-      );
       for (const observed of waiting) {
         const seeker = await manager.findOne(MatchmakingEntry, {
           where: { id: observed.id, status: 'WAITING' },
           lock: { mode: 'pessimistic_write' },
         });
         if (!seeker) continue;
-        const opponent = await this.findCompatible(manager, seeker, clock.now);
+        // A long scan must not keep using the time sampled before the scan.
+        const opponent = await this.findCompatible(
+          manager,
+          seeker,
+          await this.now(manager),
+        );
         if (!opponent) continue;
+        // Selection may take time. Recheck both reserved leases with the full DB
+        // timestamp immediately before creating a game, while still holding the lock.
+        const live: { id: string }[] = await manager.query(
+          `SELECT id FROM matchmaking_queue WHERE id = ANY($1::uuid[])
+           AND status = 'WAITING' AND "leaseExpiresAt" > clock_timestamp()`,
+          [[seeker.id, opponent.id]],
+        );
+        if (live.length !== 2) {
+          await this.expire(manager);
+          continue;
+        }
         const state = await this.games!.createMatched(
           manager,
           seeker.userId,
@@ -173,6 +230,7 @@ export class MatchmakingService {
         });
       // A matcher can finish while we wait on its queue lock. Check active games
       // only after that wait, so a just-MATCHED row cannot immediately be requeued.
+      await this.expire(manager, user.id);
       const existing = await manager.findOne(MatchmakingEntry, {
         where: { userId: user.id },
         lock: { mode: 'pessimistic_write' },
@@ -193,10 +251,8 @@ export class MatchmakingService {
           code: 'ALREADY_IN_QUEUE',
           message: 'You are already waiting in the matchmaking queue.',
         });
-      const [clock]: { now: Date }[] = await manager.query(
-        'SELECT clock_timestamp() AS now',
-      );
-      // A user's single durable row is reused after MATCHED/CANCELLED, with a fresh FIFO age.
+      const now = await this.now(manager);
+      // Reuse the durable row after MATCHED/CANCELLED/expiry, with a fresh FIFO age.
       const entry = manager.create(MatchmakingEntry, {
         ...(existing ? { id: existing.id } : {}),
         userId: user.id,
@@ -206,7 +262,8 @@ export class MatchmakingService {
         status: 'WAITING',
         matchedGameId: null,
         matchedAt: null,
-        createdAt: clock.now,
+        createdAt: now,
+        leaseExpiresAt: new Date(now.getTime() + MATCHMAKING_LEASE_MS),
       });
       await manager.save(entry);
       return { status: 'WAITING', joinedAt: entry.createdAt };

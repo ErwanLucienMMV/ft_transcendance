@@ -57,6 +57,7 @@ describe('MATCH-05 transactional opponent selection on PostgreSQL', () => {
       initialTime: 300000,
       increment: 2000,
       createdAt: now,
+      leaseExpiresAt: new Date(+now + 30000),
       status: 'WAITING',
       ...patch,
     });
@@ -93,6 +94,20 @@ describe('MATCH-05 transactional opponent selection on PostgreSQL', () => {
     expect(rows).toHaveLength(3);
     expect(rows.every((row) => row.status === 'WAITING')).toBe(true);
     expect(await source.query('SELECT id FROM games')).toHaveLength(0);
+  });
+
+  it('excludes an opponent at the expiry boundary even before worker cleanup', async () => {
+    await entry({ createdAt: age(10000), leaseExpiresAt: now });
+    const live = await entry();
+    expect((await select())?.id).toBe(live.id);
+  });
+
+  it('rejects a seeker at the expiry boundary even with a live opponent', async () => {
+    await entry();
+    await source.getRepository(MatchmakingEntry).update(seeker.id, {
+      leaseExpiresAt: now,
+    });
+    expect(await select()).toBeNull();
   });
 
   it('breaks identical timestamp ties by UUID', async () => {

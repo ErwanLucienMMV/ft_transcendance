@@ -64,3 +64,38 @@ For a running stack, verify these behaviors in Grafana:
 
 Runtime smoke checks require Grafana, Prometheus, and NestJS running together;
 the offline check does not validate rendering or connectivity.
+
+## Matchmaking and durable inventories (Sprint 4)
+
+Open `/d/transcendence-matchmaking` (with `/grafana/` prefix in production).
+Metrics use the existing Prometheus registry and the provisioned `nestjs` scrape job.
+
+| Metric | Meaning |
+| --- | --- |
+| `games_finished` | Retained FINISHED game rows |
+| `matchmaking_queue_size` | Currently WAITING queue entries |
+| `puzzle_attempts{outcome="solved|unsolved"}` | Retained training sessions grouped by current solved state, including legacy rows; not submitted moves or retries |
+| `puzzle_move_submissions` | Sum of recorded move submissions (correct and incorrect) across retained sessions; legacy NULL measurements excluded |
+| `matchmaking_wait_seconds_bucket{le="..."}` | Cumulative count of retained committed player waits at fixed second boundaries |
+| `matchmaking_wait_seconds_count` | Two player observations per retained committed match |
+| `matchmaking_wait_seconds_sum` | Total seconds waited by those retained players |
+
+All of these are **gauges of database inventory**, including the bucket/count/sum
+families. No scrape increments a counter or replays events. Purging a game cascades
+its match journal observations; removing puzzle sessions decreases their inventory.
+Requeue does not erase previous match observations because the journal is independent
+of the reusable queue rows. Rollbacks contribute no committed observations.
+
+The dashboard uses `max` across replicas sharing one PostgreSQL database; never sum
+those duplicate inventories. For independent database shards, add an infrastructure
+shard label before aggregation. Current replicas may read successive committed states
+near a transaction boundary. Wait buckets/count/sum share one SQL snapshot within a
+scrape. `histogram_quantile` estimates the retained distribution directly without
+`rate`; this is not a time-window event throughput metric. An empty distribution has
+no mean/quantile. Units are seconds, bucket labels are fixed, puzzle outcome has exactly
+two allowed values, and there are no user/game/token labels.
+
+Collectors scan retained inventories at scrape time (SQL aggregate, no row payloads
+loaded into Node). Plan retention and scrape frequency for large tables. Database
+errors fail the scrape; they do not fabricate zero. Provider rebuilds rebind collectors
+without retaining closed connections. Restart does not alter durable inventories.

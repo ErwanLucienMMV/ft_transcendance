@@ -114,11 +114,35 @@ def main():
     for metric in ('opened_total', 'closed_total'):
         check(('rate', f'websocket_connections_{metric}') in covered,
               f'Missing rate panel for websocket_connections_{metric}')
+    matchmaking = loaded.get('matchmaking.json', {})
+    check(bool(matchmaking), 'Missing matchmaking dashboard')
+    expected = {
+        'max(matchmaking_queue_size{job="nestjs"})': 'short',
+        'max(matchmaking_wait_seconds_count{job="nestjs"})': 'short',
+        'histogram_quantile(0.5, max by (le) (matchmaking_wait_seconds_bucket{job="nestjs"}))': 's',
+        'histogram_quantile(0.95, max by (le) (matchmaking_wait_seconds_bucket{job="nestjs"}))': 's',
+        'max(matchmaking_wait_seconds_sum{job="nestjs"}) / max(matchmaking_wait_seconds_count{job="nestjs"})': 's',
+        'max(games_finished{job="nestjs"})': 'short',
+        'max by (outcome) (puzzle_attempts{job="nestjs"})': 'short',
+        'min(up{job="nestjs"})': 'short',
+    }
+    found = set()
+    for panel in matchmaking.get('panels', []):
+        if panel.get('type') == 'text':
+            continue
+        defaults = panel.get('fieldConfig', {}).get('defaults', {})
+        check(defaults.get('noValue') == 'No data', 'Matchmaking missing data must remain unknown')
+        for target in panel.get('targets', []):
+            expr = target.get('expr', '')
+            check(expr in expected, f'Unexpected inventory PromQL: {expr}')
+            check(defaults.get('unit') == expected.get(expr), f'Inventory unit mismatch: {expr}')
+            found.add(expr)
+    check(found == set(expected), 'Incomplete matchmaking inventory dashboard')
     if ERRORS:
         print('\n'.join(ERRORS), file=sys.stderr)
         return 1
     print(f'Validated {len(loaded)} dashboards: provisioning, unique IDs, grid, datasource, '
-          'WebSocket metric registrations, PromQL contract and units.')
+          'WebSocket metric registrations, inventory PromQL contracts and units.')
     return 0
 
 

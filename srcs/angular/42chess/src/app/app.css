@@ -128,6 +128,19 @@ main {
 .site-footer span:last-child {
   font-weight: 400;
 }
+.footer-links {
+  display: flex;
+  gap: 20px;
+}
+.footer-links a {
+  color: inherit;
+  font-size: inherit;
+  text-transform: uppercase;
+}
+.footer-links a:hover,
+.footer-links a:focus-visible {
+  color: var(--text);
+}
 .skip-link {
   position: fixed;
   z-index: 10;
@@ -167,6 +180,7 @@ main {
   }
   .site-footer {
     padding: 28px 20px;
+    flex-wrap: wrap;
   }
   .site-footer span:last-child {
     display: none;

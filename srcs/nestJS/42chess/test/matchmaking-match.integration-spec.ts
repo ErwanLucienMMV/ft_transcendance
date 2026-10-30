@@ -113,6 +113,141 @@ describe('MATCH-02..12 atomic queue to game lifecycle', () => {
     expect(await count('games')).toBe(0);
   });
 
+  it.each([0, 1])(
+    'excludes an expired player in queue position %i and still matches live players',
+    async (position) => {
+      const ids = await pair();
+      await source.query(
+        `UPDATE matchmaking_queue SET "leaseExpiresAt" = clock_timestamp()
+         WHERE "userId" = $1`,
+        [ids[position]],
+      );
+      expect(await service.matchNext()).toBeNull();
+      expect(await service.status(ids[position])).toMatchObject({
+        status: 'CANCELLED',
+      });
+      expect(await count('games')).toBe(0);
+      const replacement = await user();
+      await service.join(replacement, control);
+      const gameId = await service.matchNext();
+      expect(gameId).not.toBeNull();
+      const state = await games.get(gameId!);
+      expect(new Set(state.players.map((p) => p.userId))).toEqual(
+        new Set([ids[1 - position], replacement]),
+      );
+    },
+  );
+
+  it('renews a live lease without resetting FIFO age, and status reads do not renew it', async () => {
+    const id = await user();
+    const joined = await service.join(id, control);
+    await source.query(
+      `UPDATE matchmaking_queue SET "leaseExpiresAt" = clock_timestamp() + interval '15 seconds'
+       WHERE "userId" = $1`,
+      [id],
+    );
+    const row = () =>
+      source.getRepository(MatchmakingEntry).findOneByOrFail({ userId: id });
+    const before = await row();
+    expect(await service.heartbeat(id)).toEqual(joined);
+    const renewed = await row();
+    expect(renewed.createdAt).toEqual(before.createdAt);
+    expect(renewed.leaseExpiresAt.getTime()).toBeGreaterThan(
+      before.leaseExpiresAt.getTime(),
+    );
+    await service.status(id);
+    expect((await row()).leaseExpiresAt).toEqual(renewed.leaseExpiresAt);
+  });
+
+  it('rechecks leases when a reserved opponent expires during selection', async () => {
+    await pair();
+    const original = service.findCompatible.bind(service);
+    vi.spyOn(service, 'findCompatible').mockImplementationOnce(
+      async (manager, seeker, now) => {
+        const opponent = await original(manager, seeker, now);
+        expect(opponent).not.toBeNull();
+        await manager.query(
+          `UPDATE matchmaking_queue SET "leaseExpiresAt" = clock_timestamp() WHERE id = $1`,
+          [opponent!.id],
+        );
+        return opponent;
+      },
+    );
+    expect(await service.matchNext()).toBeNull();
+    expect(await count('games')).toBe(0);
+    const rows = await source.getRepository(MatchmakingEntry).find();
+    expect(rows.map((row) => row.status).sort()).toEqual([
+      'CANCELLED',
+      'WAITING',
+    ]);
+  });
+
+  it('expires without a worker and cannot be revived by a late heartbeat', async () => {
+    const id = await user();
+    expect(await service.heartbeat(id)).toEqual({ status: 'IDLE' });
+    await service.join(id, control);
+    await source.query(
+      `UPDATE matchmaking_queue SET "leaseExpiresAt" = clock_timestamp() WHERE "userId" = $1`,
+      [id],
+    );
+    expect(await service.heartbeat(id)).toMatchObject({ status: 'CANCELLED' });
+    expect(await service.heartbeat(id)).toMatchObject({ status: 'CANCELLED' });
+    expect(await service.status(id)).toMatchObject({ status: 'CANCELLED' });
+    await service.join(id, control);
+    expect(await service.status(id)).toMatchObject({ status: 'WAITING' });
+    await service.leave(id);
+    expect(await service.heartbeat(id)).toMatchObject({ status: 'CANCELLED' });
+  });
+
+  it('allows a fresh join after expiry even before a worker or status read', async () => {
+    const id = await user();
+    await service.join(id, control);
+    await source.query(
+      `UPDATE matchmaking_queue SET "leaseExpiresAt" = clock_timestamp(),
+       "createdAt" = clock_timestamp() - interval '1 hour' WHERE "userId" = $1`,
+      [id],
+    );
+    const joined = await service.join(id, control);
+    expect(await service.heartbeat(id)).toEqual(joined);
+    const entry = await source
+      .getRepository(MatchmakingEntry)
+      .findOneByOrFail({ userId: id });
+    expect(
+      entry.leaseExpiresAt.getTime() - entry.createdAt.getTime(),
+    ).toBeGreaterThanOrEqual(30000);
+  });
+
+  it('reports expiry on status without requiring a running worker', async () => {
+    const id = await user();
+    await service.join(id, control);
+    await source.query(
+      `UPDATE matchmaking_queue SET "leaseExpiresAt" = clock_timestamp() WHERE "userId" = $1`,
+      [id],
+    );
+    expect(await service.status(id)).toMatchObject({ status: 'CANCELLED' });
+    const entry = await source
+      .getRepository(MatchmakingEntry)
+      .findOneByOrFail({ userId: id });
+    expect(entry.status).toBe('CANCELLED');
+  });
+
+  it('serializes expiry, heartbeats and matching across service instances without reviving stale players', async () => {
+    const [a, b] = await pair();
+    await source.query(
+      `UPDATE matchmaking_queue SET "leaseExpiresAt" = clock_timestamp() WHERE "userId" = $1`,
+      [a],
+    );
+    const replica = new MatchmakingService(source, games);
+    const [heartbeat, match] = await Promise.all([
+      replica.heartbeat(a),
+      service.matchNext(),
+    ]);
+    expect(heartbeat).toMatchObject({ status: 'CANCELLED' });
+    expect(match).toBeNull();
+    expect(await count('games')).toBe(0);
+    expect(await replica.status(b)).toMatchObject({ status: 'WAITING' });
+  });
+
   it('creates two seats, running server clock, durable assignment and real waits atomically', async () => {
     const [a, b] = await pair();
     await source.query(
@@ -334,6 +469,14 @@ describe('MATCH-02..12 atomic queue to game lifecycle', () => {
   it('keeps exact matched assignment after game completion and clears it on a new queue cycle', async () => {
     const [a] = await pair();
     const first = await service.matchNext();
+    await source.query(
+      `UPDATE matchmaking_queue SET "leaseExpiresAt" = clock_timestamp() WHERE "userId" = $1`,
+      [a],
+    );
+    expect(await service.heartbeat(a)).toEqual({
+      status: 'MATCHED',
+      gameId: first,
+    });
     await games.resign(a, first!);
     // A later unrelated game must never replace the completed matching assignment.
     await source.query('INSERT INTO games ("initialTime") VALUES (60000)');
@@ -361,7 +504,19 @@ describe('MATCH-02..12 atomic queue to game lifecycle', () => {
     expect(await service.status(a)).toEqual({ status: 'MATCHED' });
     expect(await count('matchmaking_matches')).toBe(0);
     await source.undoLastMigration();
+    const legacy = await user();
+    await source.query(
+      `INSERT INTO matchmaking_queue ("userId", rating, "initialTime") VALUES ($1, 1500, 300000)`,
+      [legacy],
+    );
     expect(await source.runMigrations()).toHaveLength(1);
-    expect(await count('users')).toBe(2);
+    const [lease] = await source.query(
+      `SELECT EXTRACT(EPOCH FROM ("leaseExpiresAt" - clock_timestamp())) AS remaining
+       FROM matchmaking_queue WHERE "userId" = $1`,
+      [legacy],
+    );
+    expect(Number(lease.remaining)).toBeGreaterThan(25);
+    expect(Number(lease.remaining)).toBeLessThanOrEqual(30);
+    expect(await count('users')).toBe(3);
   });
 });
