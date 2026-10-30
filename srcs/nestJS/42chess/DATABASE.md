@@ -58,8 +58,10 @@ The check does not apply migrations or create a missing migration history table.
 Add entities as `src/<feature>/*.entity.ts`. Register them with
 `TypeOrmModule.forFeature([YourEntity])` in their feature module to inject
 repositories. Both the application and CLI discover compiled `*.entity.js`.
-`synchronize`, automatic migrations on startup and automatic schema dropping
-are disabled in every environment.
+`synchronize` and automatic schema dropping are disabled in every environment.
+API startup applies pending migrations transactionally after the database
+preflight. Initializing the CLI data source alone does not apply migrations;
+the CLI's `migration:run` command applies them explicitly after the same check.
 
 Create an empty migration:
 
@@ -85,8 +87,9 @@ These commands rebuild the backend and use `dist/database/data-source.js`.
 They connect using the same configuration as Nest. Migration history is stored
 in `typeorm_migrations`, and pending migrations run in a transaction. Existing
 migrations create users, games and the feature tables documented in the model.
-Apply them explicitly before API startup. New business migrations should
-accompany their entities; changing PostgreSQL's initialization script is unnecessary.
+They may also be applied explicitly before API startup. New business migrations
+should accompany their entities. If a migration introduces a database requirement,
+update the preflight, production fixture and upgrade tests together.
 
 ## Isolated database tests
 
@@ -98,9 +101,10 @@ npm run test:e2e
 npm run test:db:down
 ```
 
-The test Compose project runs official PostgreSQL 15 on `127.0.0.1:55432`, with
-database `transcendence_test` and disposable data in tmpfs. Its credentials are
-test fixtures. It does not mount the application's `postgres_data` volume.
+The test Compose project builds the production PostgreSQL 15 image and exposes
+it at `127.0.0.1:55432`, with database `transcendence_test` and disposable data in
+tmpfs. Its credentials are test fixtures. It does not mount the application's
+`postgres_data` volume.
 If that host port is occupied, set `TEST_DATABASE_PORT` to the same free port
 for both the Compose and test commands.
 
@@ -121,16 +125,33 @@ schema alongside the fresh-database tests.
 With Podman, the equivalent disposable fixture is:
 
 ```sh
+podman build --tag localhost/transcendence-postgres-test ../../postgreSQL
 podman run --detach --name transcendence-backend-tests \
   --publish 127.0.0.1:55432:5432 \
   --tmpfs /var/lib/postgresql/data:rw \
   --env POSTGRES_DB=transcendence_test \
   --env POSTGRES_USER=foundation_test \
-  --env POSTGRES_PASSWORD=foundation_test_only docker.io/library/postgres:15
+  --env POSTGRES_PASSWORD=foundation_test_only \
+  --env POSTGRES_BACKUP_USER=foundation_backup \
+  --env POSTGRES_BACKUP_PASSWORD=foundation_backup_test_only \
+  localhost/transcendence-postgres-test
 podman exec transcendence-backend-tests pg_isready -U foundation_test -d transcendence_test
 # Run npm tests only once PostgreSQL is ready.
 podman rm --force transcendence-backend-tests
 ```
+
+Production, backend database tests and browser E2E tests all build
+`srcs/postgreSQL/Dockerfile` and use its initialization script. The test projects
+use separate tmpfs data directories and test-only application and backup roles.
+The regression suite asserts UTF8 and a Unicode round trip; the browser API must
+apply the same migrations before it becomes healthy.
+
+For existing installations, inspect the application database with
+`SHOW server_encoding;` and `SHOW server_version;` before upgrading. The
+initializer only creates a cluster when `PG_VERSION` is absent, so rebuilding
+does not convert existing volumes. Preserve a non-UTF8 database, back up and
+validate its data, and plan a restore into a separate UTF8 database before
+switching services. Never delete a persistent volume as an encoding fix.
 
 Reference: [Nest configuration](https://docs.nestjs.com/techniques/configuration),
 [Nest database integration](https://docs.nestjs.com/techniques/database),
