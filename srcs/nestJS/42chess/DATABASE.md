@@ -42,6 +42,17 @@ retry these configuration errors. Temporary connection failures still use the
 existing retry policy. No automatic encoding conversion or data deletion is
 performed. Rebuilding an image does not change an existing database's encoding.
 
+After startup, the CI Docker job runs the following inside the Nest container:
+
+```sh
+node dist/database/run-readiness-check.js
+```
+
+It requests `/v1/health` on the configured API port with a five-second timeout,
+checks database requirements and compares the compiled migrations with recorded
+history. An unhealthy API, missing history or pending migration fails the job.
+The check does not apply migrations or create a missing migration history table.
+
 ## Entities and migrations
 
 Add entities as `src/<feature>/*.entity.ts`. Register them with
