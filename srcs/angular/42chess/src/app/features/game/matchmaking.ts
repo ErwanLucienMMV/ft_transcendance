@@ -16,8 +16,11 @@ export interface QueueStatus {
 }
 export type SearchState = 'idle' | 'joining' | 'waiting' | 'leaving';
 
-/** MATCH_FOUND is not replayed after a missed delivery, so the page also reads the status. */
-export const MATCHMAKING_POLL_MS = 5_000;
+/**
+ * A search lasts as long as its 30 s lease, which only POST heartbeat renews. The heartbeat also
+ * returns the queue status, so it doubles as the fallback for a missed MATCH_FOUND.
+ */
+export const MATCHMAKING_HEARTBEAT_MS = 5_000;
 
 const JOIN_ERRORS: Record<string, string> = {
   ACTIVE_GAME_EXISTS: 'You already have a game in progress. Finish it before looking for another.',
@@ -33,6 +36,10 @@ export class MatchmakingApi {
 
   join(timeControl: TimeControl): Observable<{ status: 'WAITING'; joinedAt: string }> {
     return this.api.post('matchmaking/join', { timeControl });
+  }
+
+  heartbeat(): Observable<QueueStatus> {
+    return this.api.post('matchmaking/heartbeat', {});
   }
 
   leave(): Observable<QueueStatus> {
@@ -55,8 +62,9 @@ export class MatchmakingSearch {
   readonly joinedAt = signal<number | null>(null);
   readonly timeControl = signal<TimeControl | null>(null);
   readonly error = signal<string | null>(null);
-  private poll?: ReturnType<typeof setInterval>;
+  private heartbeat?: ReturnType<typeof setInterval>;
   private opened = false;
+  private destroyed = false;
 
   constructor() {
     const browser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -67,9 +75,11 @@ export class MatchmakingSearch {
       )
       .subscribe(({ data }) => this.open(data['gameId'] as string));
     inject(DestroyRef).onDestroy(() => {
-      clearInterval(this.poll);
-      if (this.state() === 'waiting' && !this.opened)
-        this.api.leave().subscribe({ error: () => {} });
+      this.destroyed = true;
+      clearInterval(this.heartbeat);
+      // A join still in flight may land after this leave; its reply leaves again.
+      if ((this.state() === 'waiting' || this.state() === 'joining') && !this.opened)
+        this.leaveQuietly();
     });
     if (browser) this.resume();
   }
@@ -92,8 +102,12 @@ export class MatchmakingSearch {
     this.timeControl.set(timeControl);
     this.realtime.connect();
     this.api.join(timeControl).subscribe({
-      next: ({ joinedAt }) => this.waiting(joinedAt),
+      next: ({ joinedAt }) => {
+        if (this.destroyed) this.leaveQuietly();
+        else this.waiting(joinedAt);
+      },
       error: (error: unknown) => {
+        if (this.destroyed) return;
         const code = error instanceof ApiError ? error.code : '';
         this.state.set('idle');
         if (code === 'ALREADY_IN_QUEUE') {
@@ -108,7 +122,7 @@ export class MatchmakingSearch {
   cancel(): void {
     if (this.state() !== 'waiting') return;
     this.state.set('leaving');
-    clearInterval(this.poll);
+    clearInterval(this.heartbeat);
     this.api.leave().subscribe({
       next: (status) => {
         // A match committed just before the cancel wins: the game exists and is played.
@@ -117,30 +131,41 @@ export class MatchmakingSearch {
       },
       error: () => {
         this.state.set('waiting');
-        this.startPolling();
+        this.startHeartbeat();
         this.error.set('The search could not be cancelled. Try again.');
       },
     });
   }
 
   private waiting(joinedAt: string | undefined): void {
+    if (this.destroyed) return;
     this.state.set('waiting');
     this.joinedAt.set(joinedAt ? Date.parse(joinedAt) : Date.now());
-    this.startPolling();
+    this.startHeartbeat();
   }
 
-  private startPolling(): void {
-    clearInterval(this.poll);
-    this.poll = setInterval(() => {
-      this.api.status().subscribe({
+  private startHeartbeat(): void {
+    clearInterval(this.heartbeat);
+    if (this.destroyed) return;
+    this.heartbeat = setInterval(() => {
+      this.api.heartbeat().subscribe({
         next: (status) => {
-          if (this.state() !== 'waiting') return;
+          if (this.destroyed || this.state() !== 'waiting') return;
           if (status.status === 'MATCHED' && status.gameId) this.open(status.gameId);
-          else if (status.status !== 'WAITING') this.stop();
+          else if (status.status !== 'WAITING') {
+            // The lease ran out (a long sleep, a lost connection): the server cancelled it.
+            clearInterval(this.heartbeat);
+            this.stop();
+            this.error.set('The search expired. Start a new one.');
+          }
         },
         error: () => {},
       });
-    }, MATCHMAKING_POLL_MS);
+    }, MATCHMAKING_HEARTBEAT_MS);
+  }
+
+  private leaveQuietly(): void {
+    this.api.leave().subscribe({ error: () => {} });
   }
 
   /** Only a game still in progress is reopened; an old match stays in the history. */
@@ -154,9 +179,9 @@ export class MatchmakingSearch {
   }
 
   private open(gameId: string): void {
-    if (this.opened) return;
+    if (this.opened || this.destroyed) return;
     this.opened = true;
-    clearInterval(this.poll);
+    clearInterval(this.heartbeat);
     void this.router.navigate(['/game', gameId]);
   }
 

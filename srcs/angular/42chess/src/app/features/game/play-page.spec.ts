@@ -5,7 +5,7 @@ import { of, Subject, throwError } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
 import { RealtimeService, ServerEvent } from '../../core/realtime/realtime.service';
 import { GamesApi } from './games-api';
-import { MATCHMAKING_POLL_MS, MatchmakingApi } from './matchmaking';
+import { MATCHMAKING_HEARTBEAT_MS, MatchmakingApi } from './matchmaking';
 import { PlayPage } from './play-page';
 
 function refusal(code: string, message = 'No.') {
@@ -26,6 +26,7 @@ describe('Play page', () => {
   let queue: {
     status: ReturnType<typeof vi.fn>;
     join: ReturnType<typeof vi.fn>;
+    heartbeat: ReturnType<typeof vi.fn>;
     leave: ReturnType<typeof vi.fn>;
   };
   let events: Subject<ServerEvent>;
@@ -34,6 +35,7 @@ describe('Play page', () => {
     queue = {
       status: vi.fn().mockReturnValue(of({ status: 'IDLE' })),
       join: vi.fn().mockReturnValue(of({ status: 'WAITING', joinedAt: new Date().toISOString() })),
+      heartbeat: vi.fn().mockReturnValue(of({ status: 'WAITING' })),
       leave: vi.fn().mockReturnValue(of({ status: 'CANCELLED' })),
     };
     events = new Subject();
@@ -189,15 +191,90 @@ describe('Play page', () => {
     expect(navigate).toHaveBeenCalledWith(['/game', 'g2']);
   });
 
-  it('finds a match missed on the socket by reading the status', () => {
+  it('finds a match missed on the socket through the heartbeat', () => {
     vi.useFakeTimers();
     try {
       const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
       const { press } = render();
       press('Find an opponent');
-      queue.status.mockReturnValue(of({ status: 'MATCHED', gameId: 'g3' }));
-      vi.advanceTimersByTime(MATCHMAKING_POLL_MS);
+      queue.heartbeat.mockReturnValue(of({ status: 'MATCHED', gameId: 'g3' }));
+      vi.advanceTimersByTime(MATCHMAKING_HEARTBEAT_MS);
       expect(navigate).toHaveBeenCalledWith(['/game', 'g3']);
+      vi.advanceTimersByTime(MATCHMAKING_HEARTBEAT_MS * 3);
+      expect(queue.heartbeat).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the search alive with heartbeats until it is cancelled', () => {
+    vi.useFakeTimers();
+    try {
+      const { press } = render();
+      press('Find an opponent');
+      // The 30 s lease only lasts if heartbeats keep coming; reading the status does not renew it.
+      vi.advanceTimersByTime(60_000);
+      expect(queue.heartbeat).toHaveBeenCalledTimes(60_000 / MATCHMAKING_HEARTBEAT_MS);
+      expect(queue.status).toHaveBeenCalledTimes(1);
+      press('Cancel search');
+      vi.advanceTimersByTime(60_000);
+      expect(queue.heartbeat).toHaveBeenCalledTimes(60_000 / MATCHMAKING_HEARTBEAT_MS);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('says so when the server let the search expire', () => {
+    vi.useFakeTimers();
+    try {
+      const { fixture, card, press } = render();
+      press('Find an opponent');
+      queue.heartbeat.mockReturnValue(of({ status: 'CANCELLED' }));
+      vi.advanceTimersByTime(MATCHMAKING_HEARTBEAT_MS);
+      fixture.detectChanges();
+      expect(card().querySelector('[role="alert"]')?.textContent).toContain('The search expired.');
+      expect(card().textContent).toContain('Find an opponent');
+      vi.advanceTimersByTime(MATCHMAKING_HEARTBEAT_MS * 3);
+      expect(queue.heartbeat).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaves the queue when the page closes while the join is still pending', () => {
+    vi.useFakeTimers();
+    try {
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      const joined = new Subject<{ status: 'WAITING'; joinedAt: string }>();
+      queue.join.mockReturnValue(joined);
+      const { fixture, press } = render();
+      press('Find an opponent');
+      fixture.destroy();
+      expect(queue.leave).toHaveBeenCalledTimes(1);
+      // The join lands after the first leave: leave again, and nothing keeps running.
+      joined.next({ status: 'WAITING', joinedAt: new Date().toISOString() });
+      expect(queue.leave).toHaveBeenCalledTimes(2);
+      vi.advanceTimersByTime(MATCHMAKING_HEARTBEAT_MS * 4);
+      expect(queue.heartbeat).not.toHaveBeenCalled();
+      events.next({
+        event: 'MATCH_FOUND',
+        data: { gameId: 'g4', color: 'WHITE', opponentId: 'o' },
+      });
+      expect(navigate).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops the heartbeat when the page closes during a search', () => {
+    vi.useFakeTimers();
+    try {
+      const { fixture, press } = render();
+      press('Find an opponent');
+      fixture.destroy();
+      expect(queue.leave).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(MATCHMAKING_HEARTBEAT_MS * 4);
+      expect(queue.heartbeat).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
