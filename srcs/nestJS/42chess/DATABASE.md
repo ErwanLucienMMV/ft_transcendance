@@ -32,6 +32,16 @@ PostgreSQL's health check. The database initializer also needs the existing
 When running Node on the host, override `DATABASE_HOST=127.0.0.1` and use the
 published PostgreSQL port instead of the Compose service hostname.
 
+## Database requirements
+
+The application requires PostgreSQL 15 or newer and database encoding `UTF8`.
+Before running migrations, both Nest startup and the TypeORM migration CLI
+perform a read-only check of `server_encoding` and `server_version_num`.
+Incompatible settings raise a `Database requirements:` error; Nest does not
+retry these configuration errors. Temporary connection failures still use the
+existing retry policy. No automatic encoding conversion or data deletion is
+performed. Rebuilding an image does not change an existing database's encoding.
+
 ## Entities and migrations
 
 Add entities as `src/<feature>/*.entity.ts`. Register them with
