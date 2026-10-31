@@ -244,6 +244,67 @@ describe('Realtime gateway over actual sockets', () => {
     socket.send(Buffer.from('binary'));
     expect((await closed)[0]).toBe(1003);
   });
+  it('bounds a complete fragmented message before authentication or dispatch', async () => {
+    const socket = await open();
+    const closed = once(socket, 'close');
+    socket.send('x'.repeat(9000), { fin: false });
+    socket.send('x'.repeat(9000), { fin: true });
+    expect((await closed)[0]).toBe(1009);
+    expect(auth.authenticate).not.toHaveBeenCalled();
+    expect(messages.handle).not.toHaveBeenCalled();
+  });
+  it('measures the payload bound in UTF-8 bytes', async () => {
+    const socket = await open();
+    const closed = once(socket, 'close');
+    // 10,000 UTF-16 code units but 20,000 wire bytes.
+    socket.send('💡'.repeat(5000));
+    expect((await closed)[0]).toBe(1009);
+    expect(auth.authenticate).not.toHaveBeenCalled();
+  });
+  it('enforces the rate budget even when commands finish between sends', async () => {
+    const socket = await open();
+    await request(socket, 'AUTHENTICATE', { accessToken: 'valid' });
+    for (let i = 0; i < 59; i++)
+      expect(await request(socket, 'JOIN_GAME', {})).toMatchObject({
+        event: 'ACK',
+      });
+    const closed = once(socket, 'close');
+    expect(await request(socket, 'JOIN_GAME', {})).toMatchObject({
+      event: 'ERROR',
+      data: { statusCode: 429, code: 'TOO_MANY_REQUESTS' },
+    });
+    expect((await closed)[0]).toBe(1013);
+    expect(messages.handle).toHaveBeenCalledTimes(59);
+    const healthy = await open();
+    expect(
+      await request(healthy, 'AUTHENTICATE', { accessToken: 'valid' }),
+    ).toMatchObject({ event: 'AUTHENTICATED' });
+    expect(await request(healthy, 'JOIN_GAME', {})).toMatchObject({
+      event: 'ACK',
+    });
+  });
+  it('bounds queued work while validation is pending', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(auth, 'authenticate').mockResolvedValue({
+      userId: 'verified-player',
+      expiresAt: Date.now() + 60000,
+      validate: () => pending,
+    });
+    const socket = await open();
+    await request(socket, 'AUTHENTICATE', { accessToken: 'valid' });
+    try {
+      const closed = once(socket, 'close');
+      for (let i = 0; i < 33; i++)
+        socket.send(JSON.stringify({ event: 'JOIN_GAME', data: {} }));
+      expect((await closed)[0]).toBe(1013);
+      expect(messages.handle).not.toHaveBeenCalled();
+    } finally {
+      release();
+    }
+  });
   it('bounds messages per connection', async () => {
     const socket = await open();
     await request(socket, 'AUTHENTICATE', { accessToken: 'valid' });
