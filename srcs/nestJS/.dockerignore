@@ -5,3 +5,5 @@
 42chess/coverage
 42chess/*.tsbuildinfo
 42chess/.env
+**/.env
+**/.env.*
