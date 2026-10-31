@@ -10,6 +10,7 @@ import { User } from '../dist/users/user.entity.js';
 import { Message } from '../dist/messages/messages.entity.js';
 import { SessionService } from '../dist/auth/session.service.js';
 import { PresenceService } from '../dist/presence/presence.service.js';
+import { PrivateMessagesService } from '../dist/chat/private-messages.service.js';
 
 interface Packet {
   event: string;
@@ -19,7 +20,11 @@ class Inbox {
   readonly packets: Packet[] = [];
   constructor(readonly socket: WebSocket) {
     socket.on('message', (raw) => {
-      const bytes = Array.isArray(raw) ? Buffer.concat(raw) : Buffer.from(raw);
+      const bytes = Array.isArray(raw)
+        ? Buffer.concat(raw)
+        : raw instanceof ArrayBuffer
+          ? Buffer.from(raw)
+          : raw;
       this.packets.push(JSON.parse(bytes.toString('utf8')) as Packet);
     });
   }
@@ -180,6 +185,151 @@ describe('Durable private messaging over the shared WebSocket (SCRUM-256)', () =
         },
       ],
     });
+  });
+
+  it('processes queued sends in order and continues past a missing recipient without duplicate delivery', async () => {
+    const sender = await connect(alice),
+      recipient = await connect(bob);
+    sender.send('SEND_PRIVATE_MESSAGE', {
+      receiverId: bob.id,
+      content: 'first queued',
+    });
+    sender.send('SEND_PRIVATE_MESSAGE', {
+      receiverId: randomUUID(),
+      content: 'rejected between sends',
+    });
+    sender.send('SEND_PRIVATE_MESSAGE', {
+      receiverId: bob.id,
+      content: 'last queued',
+    });
+
+    const first = await sender.take('PRIVATE_MESSAGE');
+    expect(await sender.take('ERROR')).toEqual({
+      event: 'ERROR',
+      data: {
+        statusCode: 404,
+        code: 'USER_NOT_FOUND',
+        message: 'User not found.',
+      },
+    });
+    const last = await sender.take('PRIVATE_MESSAGE');
+    expect([first.data.content, last.data.content]).toEqual([
+      'first queued',
+      'last queued',
+    ]);
+    expect(first.data.id).not.toBe(last.data.id);
+    expect(await recipient.take('PRIVATE_MESSAGE')).toEqual(first);
+    expect(await recipient.take('PRIVATE_MESSAGE')).toEqual(last);
+    const recovered = await history(bob, alice);
+    expect(recovered.total).toBe(2);
+    expect(recovered.messages).toEqual(
+      expect.arrayContaining([first.data, last.data]),
+    );
+    expect(await stored()).toHaveLength(2);
+    for (const client of [sender, recipient])
+      expect(
+        client.packets.filter((packet) => packet.event === 'PRIVATE_MESSAGE'),
+      ).toEqual([]);
+  });
+
+  it('finishes an accepted send when its sender disconnects while persistence is pending', async () => {
+    const sender = await connect(alice),
+      recipient = await connect(bob);
+    const service = app.get(PrivateMessagesService);
+    const originalSend = service.send.bind(service);
+    let release!: () => void, entered!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    let pending: ReturnType<PrivateMessagesService['send']> | undefined;
+    const send = vi.spyOn(service, 'send').mockImplementationOnce((...args) => {
+      entered();
+      pending = gate.then(() => originalSend(...args));
+      return pending;
+    });
+    try {
+      sender.send('SEND_PRIVATE_MESSAGE', {
+        receiverId: bob.id,
+        content: 'survives sender disconnect',
+      });
+      await started;
+      expect(await stored()).toEqual([]);
+      expect(
+        recipient.packets.filter(
+          (packet) => packet.event === 'PRIVATE_MESSAGE',
+        ),
+      ).toEqual([]);
+      await sender.close();
+      await vi.waitFor(() =>
+        expect(app.get(PresenceService).isOnline(alice.id)).toBe(false),
+      );
+      release();
+      const delivered = await recipient.take('PRIVATE_MESSAGE');
+      expect(delivered.data).toMatchObject({
+        senderId: alice.id,
+        receiverId: bob.id,
+        content: 'survives sender disconnect',
+      });
+      expect((await history(alice, bob)).messages).toEqual([delivered.data]);
+      expect((await history(bob, alice)).messages).toEqual([delivered.data]);
+      expect(await stored()).toHaveLength(1);
+    } finally {
+      release();
+      await pending;
+      send.mockRestore();
+    }
+  });
+
+  it('recovers an offline backlog through history and resumes live delivery after reconnect without replay', async () => {
+    const sender = await connect(alice),
+      previous = await connect(bob);
+    await previous.close();
+    await vi.waitFor(() =>
+      expect(app.get(PresenceService).isOnline(bob.id)).toBe(false),
+    );
+    const backlog: Packet[] = [];
+    for (const content of ['offline one', 'offline two']) {
+      sender.send('SEND_PRIVATE_MESSAGE', { receiverId: bob.id, content });
+      backlog.push(await sender.take('PRIVATE_MESSAGE'));
+    }
+    const recipient = await connect(bob);
+    const recovered = await history(bob, alice);
+    expect(recovered.total).toBe(2);
+    expect(recovered.messages).toEqual(
+      expect.arrayContaining(backlog.map((packet) => packet.data)),
+    );
+    // A reply on this same socket is a barrier after authentication: any replay
+    // would precede the reply's acknowledgement in its ordered command stream.
+    recipient.send('SEND_PRIVATE_MESSAGE', {
+      receiverId: alice.id,
+      content: 'back online',
+    });
+    const reply = await recipient.take('PRIVATE_MESSAGE');
+    expect(reply.data.content).toBe('back online');
+    expect(await sender.take('PRIVATE_MESSAGE')).toEqual(reply);
+    sender.send('SEND_PRIVATE_MESSAGE', {
+      receiverId: bob.id,
+      content: 'live after reconnect',
+    });
+    const live = await sender.take('PRIVATE_MESSAGE');
+    expect(await recipient.take('PRIVATE_MESSAGE')).toEqual(live);
+    expect(
+      recipient.packets.filter((packet) => packet.event === 'PRIVATE_MESSAGE'),
+    ).toEqual([]);
+    const finalHistory = await history(bob, alice);
+    expect(finalHistory.total).toBe(4);
+    expect(finalHistory.messages).toEqual(
+      expect.arrayContaining([
+        ...backlog.map((packet) => packet.data),
+        reply.data,
+        live.data,
+      ]),
+    );
+    expect(await stored()).toHaveLength(3);
+    expect((await stored()).every((row) => row.readAt === null)).toBe(true);
   });
 
   it('rejects spoofed authors, invalid recipients and invalid content without saving or broadcasting', async () => {
