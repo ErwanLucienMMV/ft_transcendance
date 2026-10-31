@@ -4,8 +4,8 @@ Reference: `origin/dev_test` at `b49b735`. Jira descriptions for SEC-01–09,
 SEC-11 and SEC-12 contain only epic and ticket labels. Expectations therefore
 come from the existing public contracts, service invariants and specification.
 
-The controls below already exist. This branch adds 128 regression cases
-(124 DTO/domain cases and four actual-socket cases) and records execution of
+The controls below already exist. This branch adds 129 regression cases
+(124 DTO/domain cases and five actual-socket cases) and records execution of
 the existing acceptance and database suites. It changes no production behavior.
 
 | Jira task                                                                    | Control and executable evidence                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -25,7 +25,7 @@ the existing acceptance and database suites. It changes no production behavior.
 ## Validation
 
 - NestJS build and public TypeScript contracts passed.
-- Complete backend unit suite: **664 passed**, 45 files.
+- Complete backend unit suite: **665 passed**, 45 files.
 - Complete PostgreSQL integration suite: **408 passed**, 28 files.
 - Complete HTTP/WebSocket acceptance suite: **344 passed**, 40 files.
 - Corrected nested-input test matrix rerun separately: **124 passed**.
@@ -37,9 +37,12 @@ builds also passed their existing C++ rules/protocol and WebSocket checks. The
 host compiler lacked Boost headers; no system dependencies were changed.
 An initial sandboxed socket run failed with `listen EPERM`; the subsequent
 complete unit run with local socket access passed. Vite reports its existing
-TypeScript path-plugin notice. The acceptance config reports its existing
-duplicate `hookTimeout` key warning. Injected database/engine outages produce
-expected error logs while the corresponding rollback tests pass.
+TypeScript path-plugin notice. The acceptance configuration contains an existing
+duplicate `hookTimeout` key; no warning about it appeared in this run.
+Observe telemetry logged a rate-limit response (429), without failing tests.
+Injected database/engine outages produce expected error logs while the
+corresponding rollback tests pass. The additional rate-window recovery case
+verifies the same socket can keep sending after its ten-second budget renews.
 
 From `srcs/nestJS/42chess`, with the dedicated fixtures running:
 

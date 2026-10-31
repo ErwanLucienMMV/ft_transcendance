@@ -283,6 +283,26 @@ describe('Realtime gateway over actual sockets', () => {
       event: 'ACK',
     });
   });
+  it('renews the message budget after the ten-second window', async () => {
+    const socket = await open();
+    await request(socket, 'AUTHENTICATE', { accessToken: 'valid' });
+    for (let i = 0; i < 59; i++) await request(socket, 'JOIN_GAME', {});
+    // Advance only the gateway's wall clock, preserving real socket IO and
+    // timers. The verified principal remains within its one-minute lifetime.
+    const nextWindow = Date.now() + 10_001;
+    const now = vi.spyOn(Date, 'now').mockReturnValue(nextWindow);
+    try {
+      expect(await request(socket, 'JOIN_GAME', {})).toMatchObject({
+        event: 'ACK',
+      });
+      expect(await request(socket, 'JOIN_GAME', {})).toMatchObject({
+        event: 'ACK',
+      });
+      expect(socket.readyState).toBe(WebSocket.OPEN);
+    } finally {
+      now.mockRestore();
+    }
+  });
   it('bounds queued work while validation is pending', async () => {
     let release!: () => void;
     const pending = new Promise<void>((resolve) => {
