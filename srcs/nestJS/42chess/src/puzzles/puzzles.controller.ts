@@ -14,6 +14,10 @@ import type { Request } from 'express';
 import { AccessTokenGuard } from '../auth/access-token.guard.js';
 import { gameActor } from '../games/game-actor.guard.js';
 import { PuzzleMoveDto } from './dto/puzzle-move.dto.js';
+import {
+  PUZZLE_PROMOTIONS,
+  PuzzleSquareMoveDto,
+} from './dto/puzzle-square-move.dto.js';
 import { PuzzlesService } from './puzzles.service.js';
 
 @Controller('v1/puzzles')
@@ -37,6 +41,22 @@ export class PuzzlesController {
   @UseGuards(AccessTokenGuard)
   state(@Req() request: Request, @Param('id', new ParseUUIDPipe()) id: string) {
     return this.puzzles.state(gameActor(request), id);
+  }
+
+  /** Spec §30. Plays on the caller's latest unfinished attempt, or starts one. */
+  @Post(':id/move')
+  @HttpCode(200)
+  @UseGuards(AccessTokenGuard)
+  move(
+    @Req() request: Request,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() input: PuzzleSquareMoveDto,
+  ) {
+    return this.puzzles.move(
+      gameActor(request),
+      id,
+      `${input.from}${input.to}${input.promotion ? PUZZLE_PROMOTIONS[input.promotion] : ''}`,
+    );
   }
 
   @Post('attempts/:id/moves')

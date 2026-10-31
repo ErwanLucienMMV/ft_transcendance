@@ -223,6 +223,80 @@ describe('Daily puzzle HTTP flow (E2E-14)', () => {
     expect(state.body).toEqual(attempt);
   });
 
+  it('plays through the spec route on the latest unfinished attempt (PUZZLE-14)', async () => {
+    const [stored] = await f.source.query(
+      'SELECT fen, solution FROM puzzles WHERE id=$1',
+      [puzzleId],
+    );
+    const path = `/v1/puzzles/${puzzleId}/move`;
+    const square = (uci: string) => ({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+    });
+    const wrong = await http()
+      .post(path)
+      .auth(otherToken, { type: 'bearer' })
+      .send({ from: 'a1', to: 'a8' })
+      .expect(200);
+    expect(wrong.body).toMatchObject({
+      correct: false,
+      completed: false,
+      attempts: 1,
+    });
+    expect(wrong.body).not.toHaveProperty('solution');
+    for (let ply = 0; ply < stored.solution.length; ply += 2) {
+      const response = await http()
+        .post(path)
+        .auth(otherToken, { type: 'bearer' })
+        .send(square(stored.solution[ply]))
+        .expect(200);
+      // Every move lands on the attempt the wrong move started.
+      expect(response.body).toMatchObject({
+        attemptId: wrong.body.attemptId,
+        correct: true,
+        completed: ply + 1 === stored.solution.length,
+      });
+    }
+    // A finished attempt is left alone: the next move starts a new one.
+    const again = await http()
+      .post(path)
+      .auth(otherToken, { type: 'bearer' })
+      .send(square(stored.solution[0]))
+      .expect(200);
+    expect(again.body.attemptId).not.toBe(wrong.body.attemptId);
+    expect(again.body).toMatchObject({ correct: true, attempts: 1 });
+  });
+
+  it.each([
+    {},
+    { from: 'a2' },
+    { from: 'a9', to: 'e6' },
+    { from: 'a2', to: 'e6', promotion: 'q' },
+    { from: 'a2', to: 'e6', move: 'a2e6' },
+  ])('rejects a malformed spec move body: %j', async (body) => {
+    expect(
+      (
+        await http()
+          .post(`/v1/puzzles/${puzzleId}/move`)
+          .auth(otherToken, { type: 'bearer' })
+          .send(body)
+          .expect(400)
+      ).body.code,
+    ).toBe('VALIDATION_ERROR');
+  });
+
+  it('requires a session and a validated puzzle on the spec route', async () => {
+    await http()
+      .post(`/v1/puzzles/${puzzleId}/move`)
+      .send({ from: 'a2', to: 'e6' })
+      .expect(401);
+    await http()
+      .post(`/v1/puzzles/${randomUUID()}/move`)
+      .auth(otherToken, { type: 'bearer' })
+      .send({ from: 'a2', to: 'e6' })
+      .expect(404);
+  });
+
   it('does not reveal or mutate another user attempt', async () => {
     const attempt = await start();
     await http()
