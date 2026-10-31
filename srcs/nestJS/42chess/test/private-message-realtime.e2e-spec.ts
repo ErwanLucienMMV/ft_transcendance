@@ -244,6 +244,60 @@ describe('Durable private messaging over the shared WebSocket (SCRUM-256)', () =
     expect(await stored()).toHaveLength(1);
   });
 
+  it('reports USER_NOT_FOUND if the recipient is deleted between validation and persistence', async () => {
+    const sender = await connect(alice),
+      recipient = await connect(bob);
+    const users = source.getRepository(User);
+    const disappearing = await users.save({
+      username: `pmws_deleted_${randomUUID().slice(0, 8)}`,
+      emailVerifiedAt: new Date(),
+    });
+    const existsBy = users.existsBy.bind(users);
+    const check = vi
+      .spyOn(users, 'existsBy')
+      .mockImplementationOnce(async (where) => {
+        const exists = await existsBy(where);
+        // Delete only this test's fresh account, after the real existence query.
+        await users.delete(disappearing.id);
+        return exists;
+      });
+    try {
+      sender.send('SEND_PRIVATE_MESSAGE', {
+        receiverId: disappearing.id,
+        content: 'must not be accepted',
+      });
+      expect(await sender.take('ERROR')).toEqual({
+        event: 'ERROR',
+        data: {
+          statusCode: 404,
+          code: 'USER_NOT_FOUND',
+          message: 'User not found.',
+        },
+      });
+      expect(check).toHaveBeenCalledWith({ id: disappearing.id });
+      expect(await stored()).toEqual([]);
+      expect(
+        sender.packets.filter((packet) => packet.event === 'PRIVATE_MESSAGE'),
+      ).toEqual([]);
+      expect(
+        recipient.packets.filter(
+          (packet) => packet.event === 'PRIVATE_MESSAGE',
+        ),
+      ).toEqual([]);
+      check.mockRestore();
+      sender.send('SEND_PRIVATE_MESSAGE', {
+        receiverId: bob.id,
+        content: 'still usable',
+      });
+      const sent = await sender.take('PRIVATE_MESSAGE');
+      expect(await recipient.take('PRIVATE_MESSAGE')).toEqual(sent);
+      expect(await stored()).toHaveLength(1);
+    } finally {
+      check.mockRestore();
+      await users.delete(disappearing.id);
+    }
+  });
+
   it('revalidates receiving sessions and preserves delivery to another valid session of the same user', async () => {
     const sender = await connect(alice);
     const { accessToken } = await sessions.issue(bob);

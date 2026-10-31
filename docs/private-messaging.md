@@ -14,7 +14,7 @@ Routes use the normal `/api` reverse proxy prefix and require a revocable bearer
 session. Nest handles the following paths:
 
 - `GET /v1/conversations` returns `{ conversations: [{ user: { id, username },
-  lastMessage, unreadCount }] }`, one entry per peer, newest message first.
+lastMessage, unreadCount }] }`, one entry per peer, newest message first.
 - `GET /v1/conversations/:userId/messages?limit=20&offset=0` returns
   `{ messages, total, limit, offset }` for the authenticated account and that
   peer, in both directions. An unrelated account receives only its own history.
@@ -37,6 +37,12 @@ exists and rejects self-messages. IDs and timestamps come from PostgreSQL. A
 successful send returns only after the row is committed; a recipient can be
 offline throughout.
 
+A nonexistent recipient returns `404 USER_NOT_FOUND`, including when that account
+is deleted between the existence check and the insert. The recipient foreign key
+still prevents orphan messages; other persistence failures retain their original
+error handling. A rejected send emits no `PRIVATE_MESSAGE` and the sender can
+continue using the same connection.
+
 ## Validation
 
 From `srcs/nestJS/42chess`, with the isolated PostgreSQL test fixture running:
@@ -56,7 +62,10 @@ validation and the storage length boundary.
 SCRUM-256 uses the existing authenticated `/ws` transport (also spec §22):
 
 ```json
-{ "event": "SEND_PRIVATE_MESSAGE", "data": { "receiverId": "uuid", "content": "Hello!" } }
+{
+  "event": "SEND_PRIVATE_MESSAGE",
+  "data": { "receiverId": "uuid", "content": "Hello!" }
+}
 ```
 
 The authenticated session supplies the sender. Additional fields, including
