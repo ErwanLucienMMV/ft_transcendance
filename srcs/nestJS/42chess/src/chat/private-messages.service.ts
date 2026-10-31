@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { isUUID } from 'class-validator';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { PaginationQueryDto } from '../common/pagination.js';
 import { Message } from '../messages/messages.entity.js';
 import { toPrivateMessage } from '../messages/message-presenter.js';
@@ -22,6 +22,14 @@ export interface PrivateMessageHistory {
   offset: number;
 }
 
+function userNotFound(): NotFoundException {
+  return new NotFoundException({
+    statusCode: 404,
+    code: 'USER_NOT_FOUND',
+    message: 'User not found.',
+  });
+}
+
 @Injectable()
 export class PrivateMessagesService {
   constructor(
@@ -36,12 +44,7 @@ export class PrivateMessagesService {
     const id = value.toLowerCase();
     if (id === actorId.toLowerCase())
       throw new BadRequestException('Cannot message yourself.');
-    if (!(await this.users.existsBy({ id })))
-      throw new NotFoundException({
-        statusCode: 404,
-        code: 'USER_NOT_FOUND',
-        message: 'User not found.',
-      });
+    if (!(await this.users.existsBy({ id }))) throw userNotFound();
     return id;
   }
 
@@ -64,9 +67,24 @@ export class PrivateMessagesService {
         'Message content must contain 1 to 2000 characters.',
       );
     const recipientId = await this.peer(senderId, receiver);
-    const saved = await this.messages.save(
-      this.messages.create({ senderId, recipientId, content, readAt: null }),
-    );
+    let saved: Message;
+    try {
+      saved = await this.messages.save(
+        this.messages.create({ senderId, recipientId, content, readAt: null }),
+      );
+    } catch (error: unknown) {
+      // The recipient can disappear after peer() checks it. The foreign key
+      // prevents an orphan; expose the same error as an initially missing peer.
+      if (error instanceof QueryFailedError) {
+        const { code, constraint } = error.driverError as {
+          code?: string;
+          constraint?: string;
+        };
+        if (code === '23503' && constraint === 'FK_messages_recipientId')
+          throw userNotFound();
+      }
+      throw error;
+    }
     // save() has committed before the caller may announce this message.
     return toPrivateMessage(saved);
   }
