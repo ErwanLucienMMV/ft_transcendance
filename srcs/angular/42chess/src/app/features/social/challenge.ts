@@ -9,8 +9,8 @@ import { GamesApi } from '../game/games-api';
 export const CHALLENGE_TIME_CONTROL = { initialTime: 600_000, increment: 0 };
 
 /**
- * A challenge is an ordinary game plus a private message with its link: the friend opens it to
- * take the other seat. Declining is simply not opening it, and the game page always shows the
+ * A challenge is a game reserved for the friend plus a private message with its link: the friend
+ * opens it to take the other seat. Declining is simply not opening it, and the game page always shows the
  * link, so a message that could not be sent does not lose the challenge.
  */
 @Injectable({ providedIn: 'root' })
@@ -21,7 +21,7 @@ export class Challenges {
   private readonly origin = inject(DOCUMENT).location.origin;
 
   send(userId: string): Observable<void> {
-    return this.games.create(CHALLENGE_TIME_CONTROL).pipe(
+    return this.games.create(CHALLENGE_TIME_CONTROL, userId).pipe(
       tap(({ gameId }) => {
         this.messages.send(userId, challengeMessage(this.origin, gameId));
         void this.router.navigate(['/game', gameId]);

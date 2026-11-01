@@ -84,8 +84,12 @@ export interface Page<T> {
 export class GamesApi {
   private readonly api = inject(ApiClient);
 
-  create(timeControl: TimeControl): Observable<{ gameId: string; status: 'WAITING' }> {
-    return this.api.post('games', { timeControl });
+  /** With an opponent, the free seat is reserved for them. */
+  create(
+    timeControl: TimeControl,
+    opponentId?: string,
+  ): Observable<{ gameId: string; status: 'WAITING' }> {
+    return this.api.post('games', opponentId ? { timeControl, opponentId } : { timeControl });
   }
 
   createBot(game: {

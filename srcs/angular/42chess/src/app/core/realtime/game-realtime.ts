@@ -61,6 +61,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   GAME_NOT_ACTIVE: 'This game is not in progress.',
   GAME_ALREADY_FINISHED: 'This game has already finished.',
   NOT_A_PLAYER: 'Only the players of this game can join it.',
+  NOT_INVITED: 'This game is reserved for the invited player.',
   SPECTATOR_READ_ONLY: 'Spectators cannot play in this game.',
   GAME_NOT_FOUND: 'This game does not exist.',
   GAME_BUSY: 'The bot is still thinking. Try again in a moment.',

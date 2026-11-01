@@ -150,6 +150,19 @@ describe('Game chat', () => {
     expect(box().readOnly).toBe(false);
   });
 
+  it('clears the draft when the message arrives after an unrelated error', () => {
+    const { fixture, element, box, type, submit } = setup();
+    type('Hello');
+    submit();
+    events.next({ event: 'ERROR', data: { code: 'ILLEGAL_MOVE' } });
+    fixture.detectChanges();
+    expect(box().value).toBe('Hello');
+    push(message('m3', 'me', 'Hello', 3));
+    fixture.detectChanges();
+    expect(box().value).toBe('');
+    expect(element.querySelector('[role="alert"]')).toBeNull();
+  });
+
   it('stops waiting for a confirmation that never comes, and reads the chat again', () => {
     vi.useFakeTimers();
     const { fixture, element, type, submit } = setup();

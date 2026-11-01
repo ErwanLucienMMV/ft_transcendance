@@ -26,7 +26,7 @@ describe('Challenges', () => {
   it('creates a game, sends its link to the friend and opens it', () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     TestBed.inject(Challenges).send('bob').subscribe();
-    expect(create).toHaveBeenCalledWith(CHALLENGE_TIME_CONTROL);
+    expect(create).toHaveBeenCalledWith(CHALLENGE_TIME_CONTROL, 'bob');
     expect(send).toHaveBeenCalledWith('bob', expect.stringContaining(`/game/${id}`));
     expect(navigate).toHaveBeenCalledWith(['/game', id]);
   });

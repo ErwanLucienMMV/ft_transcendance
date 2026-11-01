@@ -234,9 +234,11 @@ export class GameChat {
     this.messages.update((list) => merge(list, [message]));
     if (this.messages().length > before) this.total.update((total) => total + 1);
     if (follow) this.scrollToEnd();
-    if (mine && this.pending() === message.content) {
+    // An unrelated error may have been taken for a refusal: the message itself settles it.
+    if (mine && this.draft() === message.content && (this.pending() !== null || this.sendError())) {
       this.settle();
       this.draft.set('');
+      this.sendError.set(null);
     }
   }
 

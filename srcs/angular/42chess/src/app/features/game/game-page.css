@@ -137,7 +137,7 @@
   gap: 16px;
   justify-items: start;
 }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .game-page {
     grid-template-columns: minmax(0, 1fr);
   }

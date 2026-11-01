@@ -32,8 +32,8 @@ message comes back. Bot games have the chat too, for their spectators.
 
 ## Challenge
 
-**Challenge** on the friend list and on a friend's profile creates an ordinary 10-minute game,
-sends the friend its link by private message and opens the game. The messages page shows
+**Challenge** on the friend list and on a friend's profile creates a 10-minute game reserved for
+that friend (`opponentId`), sends the friend its link by private message and opens the game. The messages page shows
 "Open the game" under a challenge, only for the exact text with this site's address; the friend
 takes the other seat by opening it. No backend was added, so there is no accept or decline
 event: declining is not opening the link. If the socket is down the message is not sent, and the

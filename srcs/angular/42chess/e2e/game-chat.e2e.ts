@@ -43,6 +43,11 @@ test('a friend is challenged by message, and players and a spectator chat until 
   await expect(bob).toHaveURL(/\/game\/[0-9a-f-]{36}$/);
   await expect(bob.locator('#game-title')).toHaveText('Waiting for an opponent');
 
+  // The seat is reserved for Alice: nobody else takes it with the link.
+  await carol.goto(new URL(bob.url()).pathname);
+  await expect(carol.getByText('This game is reserved for the invited player.')).toBeVisible();
+  await expect(bob.locator('#game-title')).toHaveText('Waiting for an opponent');
+
   // Alice finds the challenge in her messages and opens it: the game starts.
   await alice.getByRole('navigation').getByRole('link', { name: 'Messages' }).click();
   await alice
