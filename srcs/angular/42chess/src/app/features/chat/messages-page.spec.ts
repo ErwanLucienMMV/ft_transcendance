@@ -481,6 +481,107 @@ describe('Messages page', () => {
     expect(button(element, 'Load older messages')?.disabled).toBe(false);
   });
 
+  it('keeps the highest total when an older page was read before a live message', async () => {
+    const m1 = message('m1', 'me', 'bob', 'Hi', 1);
+    const m2 = message('m2', 'bob', 'me', 'See you', 2);
+    const m3 = message('m3', 'bob', 'me', 'Three', 3);
+    history.mockReturnValueOnce(of({ messages: [m3], total: 3, limit: 1, offset: 0 }));
+    const { harness, element } = await open('/messages/bob');
+    const older = new Subject<unknown>();
+    history.mockReturnValueOnce(older);
+    button(element, 'Load older messages').click();
+    harness.detectChanges();
+    events.next({ event: 'PRIVATE_MESSAGE', data: message('m4', 'bob', 'me', 'Four', 4) });
+    older.next({ messages: [m2], total: 3, limit: 1, offset: 1 });
+    harness.detectChanges();
+    expect(bubbles(element)).toEqual(['< See you', '< Three', '< Four']);
+    history.mockReturnValueOnce(of({ messages: [m1], total: 4, limit: 1, offset: 3 }));
+    button(element, 'Load older messages').click();
+    harness.detectChanges();
+    expect(bubbles(element)).toEqual(['> Hi', '< See you', '< Three', '< Four']);
+    expect(button(element, 'Load older messages')).toBeUndefined();
+  });
+
+  it('says so when the reload after a reconnect fails, and can try again', async () => {
+    const { harness, element } = await open('/messages/bob');
+    history.mockReturnValueOnce(throwError(() => new Error('down')));
+    state.set('reconnecting');
+    harness.detectChanges();
+    state.set('connected');
+    harness.detectChanges();
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('may be missing');
+    expect(bubbles(element)).toEqual(['> Hi', '< See you']);
+    button(element, 'Try again').click();
+    harness.detectChanges();
+    expect(element.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('ignores answers for a conversation opened before, after coming back to it', async () => {
+    const { harness, element } = await open('/messages/bob');
+    const stale = new Subject<unknown>();
+    history.mockReturnValueOnce(stale);
+    state.set('reconnecting');
+    harness.detectChanges();
+    state.set('connected');
+    harness.detectChanges();
+    await harness.navigateByUrl('/messages/carol');
+    await harness.navigateByUrl('/messages/bob');
+    harness.detectChanges();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    stale.next({
+      messages: [message('old', 'bob', 'me', 'Stale', 9)],
+      total: 9,
+      limit: 30,
+      offset: 0,
+    });
+    harness.detectChanges();
+    expect(bubbles(element)).not.toContain('< Stale');
+  });
+
+  it('accepts an address with an upper-case id and still shows live messages', async () => {
+    const id = 'ABCDEF00-0000-4000-8000-000000000000';
+    const { harness, element } = await open(`/messages/${id}`);
+    events.next({
+      event: 'PRIVATE_MESSAGE',
+      data: message('m9', id.toLowerCase(), 'me', 'Live', 9),
+    });
+    harness.detectChanges();
+    expect(bubbles(element)).toContain('< Live');
+  });
+
+  it('asks for the list again when a message arrives while it is loading', async () => {
+    const { harness } = await open('/messages');
+    const conversationsMock = TestBed.inject(MessagesApi).conversations as ReturnType<typeof vi.fn>;
+    const slow = new Subject<unknown>();
+    const fresh = new Subject<unknown>();
+    conversationsMock.mockReturnValueOnce(slow).mockReturnValueOnce(fresh);
+    const calls = conversationsMock.mock.calls.length;
+    state.set('reconnecting');
+    harness.detectChanges();
+    state.set('connected');
+    harness.detectChanges();
+    events.next({ event: 'PRIVATE_MESSAGE', data: message('m8', 'bob', 'me', 'New', 8) });
+    expect(conversationsMock.mock.calls.length).toBe(calls + 2);
+  });
+
+  it('keeps the place of a reader who scrolled up when a message arrives', async () => {
+    const { harness, element } = await open('/messages/bob');
+    const log = element.querySelector('[role="log"]') as HTMLElement;
+    Object.defineProperty(log, 'scrollHeight', { configurable: true, value: 1000 });
+    Object.defineProperty(log, 'clientHeight', { configurable: true, value: 200 });
+    log.scrollTop = 100;
+    events.next({ event: 'PRIVATE_MESSAGE', data: message('m7', 'bob', 'me', 'Seven', 7) });
+    harness.detectChanges();
+    await harness.fixture.whenStable();
+    expect(log.scrollTop).toBe(100);
+    log.scrollTop = 790;
+    events.next({ event: 'PRIVATE_MESSAGE', data: message('m8', 'bob', 'me', 'Eight', 8) });
+    harness.detectChanges();
+    await harness.fixture.whenStable();
+    expect(log.scrollTop).toBe(1000);
+  });
+
   it('explains an unknown player and refuses a conversation with yourself', async () => {
     const { harness, element } = await open('/messages/ghost');
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('does not exist');

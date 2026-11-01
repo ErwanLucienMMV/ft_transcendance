@@ -38,10 +38,16 @@ it was not changed.
 - A message pushed while a conversation's first page is loading is kept, even if that page
   was read before the message was saved. Switching conversations drops any page still on its
   way for the previous one.
+- A reader who scrolled up keeps their place when a message arrives or older ones load. Your
+  own messages always bring you back to the end.
+- If the reload after a reconnection fails, the page says messages may be missing and offers
+  to try again.
 - Under 720px the list and the conversation take turns on the screen.
 
 ## Known limits of the API
 
+- Delivery is best effort: a message lost while the socket stays connected only shows after
+  the next reload or reconnection.
 - Nothing marks messages read, so an unread count comes back after a reload. The page
   shows 0 for conversations opened during the visit.
 - `ERROR` events carry no correlation id. While a message is pending, the page treats an
@@ -49,6 +55,8 @@ it was not changed.
 
 ## Tests
 
-- Unit: `messages-api.spec.ts` (3) and `messages-page.spec.ts` (16), plus the profile link.
+- Unit: `messages-api.spec.ts` and `messages-page.spec.ts`, plus the profile link.
 - Playwright `e2e/messages.e2e.ts`: Alice and Bob exchange messages live (unread count,
   multi-line, 2001 characters refused), and Carol reads a message sent while offline.
+  A second test cuts Alice's connection while 40 messages arrive, and checks that all 71 are
+  reachable afterwards.

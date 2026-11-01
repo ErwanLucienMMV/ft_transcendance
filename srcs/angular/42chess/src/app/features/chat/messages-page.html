@@ -73,6 +73,12 @@
             <button type="button" class="button secondary" (click)="retry()">Try again</button>
           </div>
         } @else if (thread(); as messages) {
+          @if (refreshFailed()) {
+            <div class="error" role="alert">
+              <p>Recent messages could not be loaded, so some may be missing.</p>
+              <button type="button" class="button secondary" (click)="reload()">Try again</button>
+            </div>
+          }
           <div class="log" #log role="log" [attr.aria-label]="'Messages with ' + player.username">
             @if (hasOlder()) {
               <button

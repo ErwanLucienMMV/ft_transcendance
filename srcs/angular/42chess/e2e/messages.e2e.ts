@@ -85,3 +85,48 @@ test('two players exchange private messages live, and an offline player reads th
   );
   expect(errors).toEqual([]);
 });
+
+test('a long disconnection leaves every message reachable', async ({ browser, request }) => {
+  test.setTimeout(120_000);
+  const aliceName = await verifiedAccount(request);
+  const bobName = await verifiedAccount(request);
+  const alice = await signedIn(browser, aliceName);
+  const bob = await signedIn(browser, bobName);
+  const say = async (from: number, to: number) => {
+    const box = bob.getByLabel(`Message ${aliceName}`);
+    for (let n = from; n <= to; n++) {
+      await box.fill(`message ${n}`);
+      await box.press('Enter');
+      await expect(bob.getByRole('log').getByRole('listitem').last()).toContainText(`message ${n}`);
+      // The socket allows 60 messages per 10 s and closes above that.
+      await bob.waitForTimeout(200);
+    }
+  };
+  await openProfile(bob, aliceName);
+  await bob.getByRole('link', { name: 'Message', exact: true }).click();
+  await say(1, 30);
+
+  await openProfile(alice, bobName);
+  await alice.getByRole('link', { name: 'Message', exact: true }).click();
+  const log = alice.getByRole('log', { name: `Messages with ${bobName}` });
+  await expect(log.getByRole('listitem')).toHaveCount(30);
+
+  // The connection drops: 40 messages arrive that Alice cannot see.
+  await alice.context().setOffline(true);
+  await say(31, 70);
+  await expect(log.getByRole('listitem')).toHaveCount(30);
+  await alice.context().setOffline(false);
+  // One more is sent as the socket comes back, so it can land during the reload.
+  await say(71, 71);
+  await expect(log.getByRole('listitem').last()).toContainText('message 71', { timeout: 20_000 });
+
+  const items = log.getByRole('listitem');
+  const older = alice.getByRole('button', { name: 'Load older messages' });
+  while (await older.isVisible()) {
+    const shown = await items.count();
+    await older.click();
+    await expect(items).not.toHaveCount(shown);
+  }
+  await expect(items).toHaveCount(71);
+  await expect(items.first()).toContainText('message 1');
+});

@@ -1,11 +1,13 @@
 import { DatePipe } from '@angular/common';
 import {
+  afterNextRender,
   Component,
   computed,
   DestroyRef,
   effect,
   ElementRef,
   inject,
+  Injector,
   signal,
   untracked,
   viewChild,
@@ -26,6 +28,9 @@ import {
   PrivateMessage,
   privateMessages,
 } from './messages-api';
+
+/** Closer to the end of the log than this counts as following the conversation. */
+const FOLLOW_MARGIN_PX = 48;
 
 /** How long a sent message may wait for its PRIVATE_MESSAGE before the page says so. */
 export const SEND_CONFIRM_MS = 10_000;
@@ -65,16 +70,21 @@ export class MessagesPage {
   private readonly users = inject(UsersApi);
   private readonly realtime = inject(RealtimeService);
   private readonly session = inject(AuthSession);
+  private readonly injector = inject(Injector);
   readonly maxLength = MESSAGE_MAX_LENGTH;
   readonly me = computed(() => this.session.user()?.id ?? null);
 
   readonly peerId = toSignal(
-    inject(ActivatedRoute).paramMap.pipe(map((params) => params.get('userId'))),
+    inject(ActivatedRoute).paramMap.pipe(
+      map((params) => params.get('userId')?.toLowerCase() ?? null),
+    ),
     { initialValue: null },
   );
 
   readonly conversations = signal<Conversation[] | null>(null);
   readonly listFailed = signal(false);
+  private listRequest = 0;
+  private listLoading = false;
   /** Conversations opened on this page; there is no read receipt API to tell the server. */
   private readonly seen = signal<ReadonlySet<string>>(new Set());
 
@@ -92,6 +102,8 @@ export class MessagesPage {
   /** Messages pushed for the open conversation before its first page arrived. */
   private early: PrivateMessage[] = [];
   readonly threadFailed = signal(false);
+  /** The reload after a reconnect failed, so messages may be missing from what is shown. */
+  readonly refreshFailed = signal(false);
   readonly loadingOlder = signal(false);
   readonly hasOlder = computed(() => (this.thread()?.length ?? 0) < this.total());
 
@@ -154,10 +166,20 @@ export class MessagesPage {
   }
 
   loadConversations(): void {
+    const request = ++this.listRequest;
+    this.listLoading = true;
     this.listFailed.set(false);
     this.messages.conversations().subscribe({
-      next: ({ conversations }) => this.conversations.set(conversations),
-      error: () => this.listFailed.set(true),
+      next: ({ conversations }) => {
+        if (request !== this.listRequest) return;
+        this.listLoading = false;
+        this.conversations.set(conversations);
+      },
+      error: () => {
+        if (request !== this.listRequest) return;
+        this.listLoading = false;
+        this.listFailed.set(true);
+      },
     });
   }
 
@@ -172,8 +194,13 @@ export class MessagesPage {
         if (start !== this.historyStart) return;
         this.loadingOlder.set(false);
         if (id !== this.peerId()) return;
+        const log = this.log()?.nativeElement;
+        const fromEnd = log ? log.scrollHeight - log.scrollTop : 0;
         this.thread.update((list) => merge(list ?? [], page.messages));
-        this.total.set(page.total);
+        // A message pushed while this page was on its way is not in its total.
+        this.total.update((total) => Math.max(total, page.total));
+        // Keep the messages being read in place while older ones appear above them.
+        this.afterRender((element) => (element.scrollTop = element.scrollHeight - fromEnd));
       },
       error: () => {
         if (start === this.historyStart) this.loadingOlder.set(false);
@@ -227,8 +254,11 @@ export class MessagesPage {
     this.thread.set(null);
     this.total.set(0);
     this.threadFailed.set(false);
-    // Pages requested for the conversation shown before no longer apply.
+    this.refreshFailed.set(false);
+    // Answers still on their way belong to the conversation shown before, even if the player
+    // comes back to it.
     this.historyStart++;
+    this.newestRequest++;
     this.loadingOlder.set(false);
     this.early = [];
     if (!id) return;
@@ -254,12 +284,19 @@ export class MessagesPage {
     });
   }
 
+  reload(): void {
+    const id = this.peerId();
+    if (id) this.loadNewest(id);
+  }
+
   private loadNewest(id: string): void {
     const request = ++this.newestRequest;
     this.threadFailed.set(false);
+    this.refreshFailed.set(false);
     this.messages.history(id).subscribe({
       next: (page) => {
         if (id !== this.peerId() || request !== this.newestRequest) return;
+        const follow = this.following();
         // Before the first page, live messages wait in `early`: the page may have been read
         // before they were saved.
         const list = this.thread() ?? this.early;
@@ -272,7 +309,7 @@ export class MessagesPage {
         // other shared message could be a live one, with a hole just before it.
         const joined =
           page.messages.length >= page.total ||
-          list.some((message) => message.id === ordered[0].id);
+          list.some((message) => message.id === ordered[0]?.id);
         if (joined) {
           this.thread.set(merge(list, page.messages));
         } else {
@@ -283,10 +320,12 @@ export class MessagesPage {
           this.thread.set(merge(page.messages, later));
         }
         this.total.set(page.total + later.length);
-        this.scrollToEnd();
+        if (follow) this.scrollToEnd();
       },
       error: () => {
-        if (id === this.peerId() && !this.thread()) this.threadFailed.set(true);
+        if (id !== this.peerId() || request !== this.newestRequest) return;
+        if (this.thread()) this.refreshFailed.set(true);
+        else this.threadFailed.set(true);
       },
     });
   }
@@ -294,6 +333,8 @@ export class MessagesPage {
   private receive(message: PrivateMessage): void {
     const me = this.me();
     if (!me) return;
+    // The answer on its way may have been read before this message: ask again.
+    if (this.listLoading) this.loadConversations();
     const peerId = message.senderId === me ? message.receiverId : message.senderId;
     const open = peerId === this.peerId();
     const list = this.conversations();
@@ -317,10 +358,11 @@ export class MessagesPage {
     }
     if (open && !this.thread()) this.early = merge(this.early, [message]);
     if (open && this.thread()) {
+      const follow = message.senderId === me || this.following();
       const before = this.thread()!.length;
       this.thread.update((thread) => merge(thread ?? [], [message]));
       if (this.thread()!.length > before) this.total.update((total) => total + 1);
-      this.scrollToEnd();
+      if (follow) this.scrollToEnd();
     }
     if (message.senderId === me && open && this.pending() === message.content) {
       clearTimeout(this.confirmTimer);
@@ -341,10 +383,23 @@ export class MessagesPage {
     );
   }
 
+  /** True until the player scrolls up to read older messages, and before the log exists. */
+  private following(): boolean {
+    const log = this.log()?.nativeElement;
+    return !log || log.scrollHeight - log.scrollTop - log.clientHeight <= FOLLOW_MARGIN_PX;
+  }
+
   private scrollToEnd(): void {
-    setTimeout(() => {
-      const log = this.log()?.nativeElement;
-      if (log) log.scrollTop = log.scrollHeight;
-    });
+    this.afterRender((log) => (log.scrollTop = log.scrollHeight));
+  }
+
+  private afterRender(action: (log: HTMLElement) => void): void {
+    afterNextRender(
+      () => {
+        const log = this.log()?.nativeElement;
+        if (log) action(log);
+      },
+      { injector: this.injector },
+    );
   }
 }
