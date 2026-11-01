@@ -250,6 +250,8 @@ describe('View-independent game adapter', () => {
     expect(service.pending()).toBe(false);
   });
   it('ignores errors while no game is watched', () => {
+    events.next({ event: 'ERROR', data: { code: 'ROOM_REQUIRED', event: 'SEND_GAME_MESSAGE' } });
+    expect(service.error()).toBeNull();
     events.next({ event: 'ERROR', data: { code: 'UNKNOWN_EVENT' } });
     expect(service.error()).toBeNull();
   });

@@ -177,12 +177,14 @@ export class RealtimeGateway
       queue = queue
         .then(async () => {
           if (socket.readyState !== WebSocket.OPEN) return;
+          let command: string | undefined;
           try {
             if (binary) {
               socket.close(1003, 'Text JSON messages required');
               return;
             }
             const message = parseRealtimeMessage(raw.toString());
+            command = message.event;
             if (!principal) {
               if (message.event !== 'AUTHENTICATE')
                 throw new UnauthorizedException(
@@ -285,7 +287,14 @@ export class RealtimeGateway
             }
           } catch (error: unknown) {
             const response = apiError(error);
-            this.send(socket, 'ERROR', response);
+            // The chat must not take an error for a move's, nor the board one of the chat's.
+            this.send(
+              socket,
+              'ERROR',
+              command === 'SEND_GAME_MESSAGE'
+                ? { ...response, event: command }
+                : response,
+            );
             if (!principal || response.statusCode === 401) {
               this.presence?.disconnect(connectionId);
               socket.close(4401, 'Authentication failed');

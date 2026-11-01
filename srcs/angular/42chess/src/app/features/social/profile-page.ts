@@ -96,6 +96,7 @@ export class ProfilePage {
         this.challenging.set(false);
         this.challengeFailed.set(true);
       },
+      complete: () => this.challenging.set(false),
     });
   }
 

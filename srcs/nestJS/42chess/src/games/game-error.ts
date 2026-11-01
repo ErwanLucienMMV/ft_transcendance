@@ -8,6 +8,7 @@ export type GameErrorCode =
   | 'GAME_ALREADY_FINISHED'
   | 'NOT_A_PLAYER'
   | 'NOT_INVITED'
+  | 'OPPONENT_AWAY'
   | 'WRONG_TURN'
   | 'ILLEGAL_MOVE'
   | 'DRAW_NOT_CLAIMABLE'

@@ -98,6 +98,19 @@ export class GameRealtimeService
       });
     const id = identifier(message.data.gameId);
     this.validate(message);
+    // Half of the queue stays free, so chat can never get a player's move refused.
+    if (
+      message.event === 'SEND_GAME_MESSAGE' &&
+      (this.queues.get(id)?.depth ?? 0) >= 32
+    )
+      throw new HttpException(
+        {
+          statusCode: 429,
+          code: 'TOO_MANY_REQUESTS',
+          message: 'The game chat is busy.',
+        },
+        429,
+      );
     await this.inGame(id, async () => {
       if (!client.connected()) return;
       if (message.event === 'JOIN_GAME') {
@@ -266,6 +279,17 @@ export class GameRealtimeService
         throw new GameError(
           'NOT_A_PLAYER',
           'Only seated players may subscribe.',
+        );
+      // An old challenge link must not start a clock against someone who left.
+      if (
+        state.game.invitedOpponentId &&
+        ![...(this.rooms.get(id)?.clients.values() ?? [])].some((other) =>
+          state.players.some((player) => player.userId === other.userId),
+        )
+      )
+        throw new GameError(
+          'OPPONENT_AWAY',
+          'The player who created this game is not here.',
         );
       try {
         state = await this.games.join(client.userId, id);

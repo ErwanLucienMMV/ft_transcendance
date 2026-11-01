@@ -119,6 +119,7 @@ export class FriendsPage {
         this.challenging.set(null);
         this.challengeFailed.set(true);
       },
+      complete: () => this.challenging.set(null),
     });
   }
 

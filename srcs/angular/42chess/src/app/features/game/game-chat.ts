@@ -136,10 +136,12 @@ export class GameChat {
         takeUntilDestroyed(destroy),
       )
       .subscribe(({ data }) => this.receive(data as unknown as GameMessage));
-    // Errors carry no correlation id: while a message is pending, one is the answer to it.
     this.realtime.events
       .pipe(
-        filter(({ event }) => event === 'ERROR' && this.pending() !== null),
+        filter(
+          ({ event, data }) =>
+            event === 'ERROR' && data['event'] === 'SEND_GAME_MESSAGE' && this.pending() !== null,
+        ),
         takeUntilDestroyed(destroy),
       )
       .subscribe(() => {
