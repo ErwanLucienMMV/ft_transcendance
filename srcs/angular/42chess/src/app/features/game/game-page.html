@@ -156,6 +156,8 @@
             <p>No moves yet.</p>
           }
         </section>
+
+        <app-game-chat [gameId]="current.id" [open]="current.status !== 'FINISHED'" />
       }
     </div>
   </section>

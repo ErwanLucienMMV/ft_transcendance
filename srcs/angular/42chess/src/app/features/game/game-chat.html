@@ -1,0 +1,63 @@
+<section class="game-chat" aria-labelledby="chat-title">
+  <h3 id="chat-title">Chat</h3>
+  @if (loadFailed()) {
+    <div class="error" role="alert">
+      <p>Chat messages could not be loaded, so some may be missing.</p>
+      <button type="button" class="button secondary" (click)="retry()">Try again</button>
+    </div>
+  }
+  <div class="log" #log role="log" aria-label="Game chat">
+    @if (truncated()) {
+      <p class="muted">Only the latest messages are shown.</p>
+    }
+    @if (loaded() && messages().length === 0) {
+      <p class="muted">No message yet.</p>
+    }
+    <ol>
+      @for (message of messages(); track message.id) {
+        <li [class.mine]="mine(message)">
+          <strong>{{ message.sender.username }}</strong>
+          <p>{{ message.content }}</p>
+          <time [attr.datetime]="message.createdAt">{{
+            message.createdAt | date: 'shortTime'
+          }}</time>
+        </li>
+      }
+    </ol>
+  </div>
+  @if (open()) {
+    <form (submit)="$event.preventDefault(); send()">
+      <label for="game-chat-input">Message the game</label>
+      <textarea
+        id="game-chat-input"
+        rows="2"
+        [value]="draft()"
+        [readOnly]="pending() !== null"
+        [attr.aria-invalid]="tooLong()"
+        aria-describedby="game-chat-count"
+        (input)="input($event)"
+        (keydown)="keydown($event)"
+      ></textarea>
+      <div class="row">
+        <span id="game-chat-count" class="count" [class.over]="tooLong()"
+          >{{ length() }} / {{ maxLength }}</span
+        >
+        <button
+          type="submit"
+          class="button secondary"
+          [disabled]="blank() || tooLong() || pending() !== null"
+        >
+          {{ pending() !== null ? 'Sending…' : 'Send' }}
+        </button>
+      </div>
+      @if (tooLong()) {
+        <p class="error" role="alert">A message can have at most {{ maxLength }} characters.</p>
+      }
+      @if (sendError(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+    </form>
+  } @else {
+    <p class="muted" role="status">The chat closed when the game ended.</p>
+  }
+</section>

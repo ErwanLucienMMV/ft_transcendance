@@ -9,6 +9,7 @@ import { CurrentUser, SessionLifecycle } from '../../core/auth/session-lifecycle
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { PresenceBadge } from '../../shared/presence-badge';
 import { outcomeText, playerLabel } from '../../shared/chess/game-text';
+import { Challenges } from './challenge';
 import { GameHistoryItem, GamesApi } from '../game/games-api';
 import {
   PresenceStatus,
@@ -36,6 +37,9 @@ export class ProfilePage {
   private readonly games = inject(GamesApi);
   private readonly lifecycle = inject(SessionLifecycle);
   private readonly session = inject(AuthSession);
+  private readonly challenges = inject(Challenges);
+  readonly challenging = signal(false);
+  readonly challengeFailed = signal(false);
 
   readonly userId = toSignal(
     inject(ActivatedRoute).paramMap.pipe(map((params) => params.get('id') ?? '')),
@@ -81,6 +85,18 @@ export class ProfilePage {
       .subscribe(({ userId, status }) => {
         if (userId === this.userId()) this.pushed.set(status);
       });
+  }
+
+  challenge(id: string): void {
+    if (this.challenging()) return;
+    this.challenging.set(true);
+    this.challengeFailed.set(false);
+    this.challenges.send(id).subscribe({
+      error: () => {
+        this.challenging.set(false);
+        this.challengeFailed.set(true);
+      },
+    });
   }
 
   addFriend(): void {

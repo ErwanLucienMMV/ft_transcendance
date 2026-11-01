@@ -8,6 +8,7 @@ import { isUUID } from 'class-validator';
 import { QueryFailedError, Repository } from 'typeorm';
 import { PaginationQueryDto } from '../common/pagination.js';
 import { Message } from '../messages/messages.entity.js';
+import { isMessageContent } from '../messages/message-content.js';
 import { toPrivateMessage } from '../messages/message-presenter.js';
 import type {
   ConversationResponse,
@@ -53,16 +54,7 @@ export class PrivateMessagesService {
     receiver: unknown,
     content: unknown,
   ): Promise<PrivateMessageResponse> {
-    // PostgreSQL varchar counts Unicode code points, rather than UTF-16 units.
-    // In Unicode regex mode, this range matches only unpaired surrogates;
-    // valid surrogate pairs (including emoji) are single code points.
-    if (
-      typeof content !== 'string' ||
-      !content.trim() ||
-      Array.from(content).length > 2000 ||
-      content.includes('\0') ||
-      /[\uD800-\uDFFF]/u.test(content)
-    )
+    if (!isMessageContent(content))
       throw new BadRequestException(
         'Message content must contain 1 to 2000 characters.',
       );

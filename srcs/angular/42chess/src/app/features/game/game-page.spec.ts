@@ -4,6 +4,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { of, Subject, throwError } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { RealtimeService, ServerEvent } from '../../core/realtime/realtime.service';
+import { GameChatApi } from './game-chat';
 import { GamePage } from './game-page';
 import { GamesApi } from './games-api';
 
@@ -48,6 +49,10 @@ describe('Live game page', () => {
         provideRouter([]),
         { provide: RealtimeService, useValue: transport },
         { provide: GamesApi, useValue: api },
+        {
+          provide: GameChatApi,
+          useValue: { history: () => of({ messages: [], total: 0, limit: 100, offset: 0 }) },
+        },
         {
           provide: ActivatedRoute,
           useFactory: () => ({

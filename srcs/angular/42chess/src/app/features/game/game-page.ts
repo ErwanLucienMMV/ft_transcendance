@@ -16,6 +16,7 @@ import { AuthSession } from '../../core/auth/auth-session';
 import { GameMove, GamePlayer, GameRealtime, PlayerColor } from '../../core/realtime/game-realtime';
 import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
 import { botName, moveRows, resultText, seatOf } from '../../shared/chess/game-text';
+import { GameChat } from './game-chat';
 import { GameClock } from './game-clock';
 import { GamesApi } from './games-api';
 
@@ -32,7 +33,7 @@ interface Seat {
  */
 @Component({
   selector: 'app-game-page',
-  imports: [ChessBoard, GameClock, RouterLink],
+  imports: [ChessBoard, GameChat, GameClock, RouterLink],
   templateUrl: './game-page.html',
   styleUrl: './game-page.css',
 })

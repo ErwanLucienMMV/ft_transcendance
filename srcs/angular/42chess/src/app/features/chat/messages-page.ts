@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DOCUMENT } from '@angular/common';
 import {
   afterNextRender,
   Component,
@@ -21,6 +21,7 @@ import { RealtimeService } from '../../core/realtime/realtime.service';
 import { PresenceBadge } from '../../shared/presence-badge';
 import { PresenceStatus, presenceChanges, UsersApi } from '../social/users-api';
 import {
+  challengedGame,
   Conversation,
   MESSAGE_MAX_LENGTH,
   messageLength,
@@ -70,6 +71,7 @@ export class MessagesPage {
   private readonly users = inject(UsersApi);
   private readonly realtime = inject(RealtimeService);
   private readonly session = inject(AuthSession);
+  private readonly origin = inject(DOCUMENT).location.origin;
   private readonly injector = inject(Injector);
   readonly maxLength = MESSAGE_MAX_LENGTH;
   readonly me = computed(() => this.session.user()?.id ?? null);
@@ -159,6 +161,11 @@ export class MessagesPage {
 
   unread(conversation: Conversation): number {
     return this.seen().has(conversation.user.id) ? 0 : conversation.unreadCount;
+  }
+
+  /** The game to join when this message is a challenge. */
+  challenge(message: PrivateMessage): string | null {
+    return challengedGame(message.content, this.origin);
   }
 
   mine(message: PrivateMessage): boolean {

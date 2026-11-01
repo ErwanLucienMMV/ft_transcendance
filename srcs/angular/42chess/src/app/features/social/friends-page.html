@@ -82,6 +82,9 @@
 
   <section class="panel" aria-labelledby="list-title">
     <h3 id="list-title">Your friends</h3>
+    @if (challengeFailed()) {
+      <p class="error" role="alert">The challenge could not be sent. Try again.</p>
+    }
     @if (friendsFailed()) {
       <div class="error" role="alert">
         <p>Your friends could not be loaded.</p>
@@ -102,6 +105,15 @@
               <span class="elo">{{ friend.elo }}</span>
               <app-presence-badge [status]="friend.status" />
               <span class="actions">
+                <button
+                  type="button"
+                  class="button secondary"
+                  [attr.aria-label]="'Challenge ' + friend.username"
+                  [disabled]="challenging() !== null"
+                  (click)="challenge(friend)"
+                >
+                  Challenge
+                </button>
                 @if (confirmingRemoval() === friend.id) {
                   <button
                     type="button"

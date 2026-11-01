@@ -6,6 +6,7 @@ import { GameError } from '../games/game-error.js';
 import { apiError } from '../common/api-error.js';
 import { SpectatorRegistry } from '../games/spectator-registry.js';
 import type { DataSource } from 'typeorm';
+import type { GameMessagesService } from '../chat/game-messages.service.js';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const white = '00000000-0000-4000-8000-000000000002';
@@ -18,7 +19,19 @@ describe('Game realtime routing and rooms', () => {
   let source: { query: ReturnType<typeof vi.fn> };
   let a: RealtimeClient, b: RealtimeClient;
   let registry: SpectatorRegistry;
+  let chat: {
+    content: ReturnType<typeof vi.fn>;
+    send: ReturnType<typeof vi.fn>;
+  };
   beforeEach(() => {
+    chat = {
+      content: vi.fn((value: string) => value),
+      send: vi.fn(async (_user, gameId, content) => ({
+        id: 'm',
+        gameId,
+        content,
+      })),
+    };
     registry = new SpectatorRegistry();
     state = {
       game: {
@@ -60,6 +73,7 @@ describe('Game realtime routing and rooms', () => {
       presenter as unknown as GamePresenterService,
       registry,
       source as unknown as DataSource,
+      chat as unknown as GameMessagesService,
     );
     a = {
       userId: white,
@@ -81,6 +95,55 @@ describe('Game realtime routing and rooms', () => {
   async function command(event: string, client = a, extra = {}) {
     await service.handle(client, { event, data: { gameId: id, ...extra } });
   }
+  describe('game chat', () => {
+    const message = { id: 'm', gameId: id, content: 'Good luck!' };
+    it('saves, then broadcasts to everyone in the room', async () => {
+      await join();
+      await join(b);
+      await command('SEND_GAME_MESSAGE', a, { content: 'Good luck!' });
+      expect(chat.send).toHaveBeenCalledWith(white, id, 'Good luck!');
+      expect(a.send).toHaveBeenCalledWith('GAME_MESSAGE', message);
+      expect(b.send).toHaveBeenCalledWith('GAME_MESSAGE', message);
+    });
+    it('lets a spectator talk, and refuses a connection outside the room', async () => {
+      const watcher: RealtimeClient = {
+        userId: '00000000-0000-4000-8000-000000000009',
+        connectionId: 'w',
+        connected: () => true,
+        send: vi.fn(),
+      };
+      await expect(
+        command('SEND_GAME_MESSAGE', watcher, { content: 'Hi' }),
+      ).rejects.toMatchObject({ response: { code: 'ROOM_REQUIRED' } });
+      expect(chat.send).not.toHaveBeenCalled();
+      await join();
+      await command('START_SPECTATING', watcher);
+      await command('SEND_GAME_MESSAGE', watcher, { content: 'Good luck!' });
+      expect(chat.send).toHaveBeenCalledWith(watcher.userId, id, 'Good luck!');
+      expect(a.send).toHaveBeenCalledWith('GAME_MESSAGE', message);
+    });
+    it('refuses a message once the game has ended, even if ended by the clock', async () => {
+      await join();
+      state.game.status = 'FINISHED';
+      await expect(
+        command('SEND_GAME_MESSAGE', a, { content: 'Too late' }),
+      ).rejects.toMatchObject({ code: 'GAME_ALREADY_FINISHED' });
+      expect(chat.send).not.toHaveBeenCalled();
+    });
+    it('refuses unexpected fields and invalid text before queueing', async () => {
+      await join();
+      await expect(
+        command('SEND_GAME_MESSAGE', a, { content: 'x', sender: black }),
+      ).rejects.toThrow('Unexpected command fields');
+      chat.content.mockImplementationOnce(() => {
+        throw new Error('invalid');
+      });
+      await expect(
+        command('SEND_GAME_MESSAGE', a, { content: ' ' }),
+      ).rejects.toThrow('invalid');
+      expect(chat.send).not.toHaveBeenCalled();
+    });
+  });
   it('sends a full snapshot and permits idempotent reconnects for seated players', async () => {
     await join();
     await join();

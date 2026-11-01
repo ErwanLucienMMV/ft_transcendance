@@ -17,6 +17,7 @@ import { ApiError } from '../../core/api/api-error';
 import { AuthSession } from '../../core/auth/auth-session';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { PresenceBadge } from '../../shared/presence-badge';
+import { Challenges } from './challenge';
 import {
   Friend,
   FriendRequest,
@@ -49,6 +50,9 @@ export class FriendsPage {
   private readonly users = inject(UsersApi);
   private readonly router = inject(Router);
   private readonly session = inject(AuthSession);
+  private readonly challenges = inject(Challenges);
+  readonly challenging = signal<string | null>(null);
+  readonly challengeFailed = signal(false);
   readonly maxLength = SEARCH_MAX_LENGTH;
   private readonly signedInId = computed(() => this.session.user()?.id);
 
@@ -104,6 +108,18 @@ export class FriendsPage {
   submit(): void {
     const q = this.form.getRawValue().q.trim();
     void this.router.navigate([], { queryParams: { q: q || null } });
+  }
+
+  challenge(friend: { id: string }): void {
+    if (this.challenging()) return;
+    this.challenging.set(friend.id);
+    this.challengeFailed.set(false);
+    this.challenges.send(friend.id).subscribe({
+      error: () => {
+        this.challenging.set(null);
+        this.challengeFailed.set(true);
+      },
+    });
   }
 
   loadFriends(): void {
