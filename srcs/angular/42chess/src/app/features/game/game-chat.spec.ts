@@ -143,20 +143,20 @@ describe('Game chat', () => {
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('offline');
     expect(box().value).toBe('Hello');
     submit();
-    events.next({ event: 'ERROR', data: { code: 'VALIDATION_ERROR' } });
+    events.next({ event: 'ERROR', data: { code: 'VALIDATION_ERROR', event: 'SEND_GAME_MESSAGE' } });
     fixture.detectChanges();
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('not sent');
     expect(box().value).toBe('Hello');
     expect(box().readOnly).toBe(false);
   });
 
-  it('clears the draft when the message arrives after an unrelated error', () => {
+  it('does not take the error of another command for a refusal', () => {
     const { fixture, element, box, type, submit } = setup();
     type('Hello');
     submit();
     events.next({ event: 'ERROR', data: { code: 'ILLEGAL_MOVE' } });
     fixture.detectChanges();
-    expect(box().value).toBe('Hello');
+    expect(element.querySelector('[role="alert"]')).toBeNull();
     push(message('m3', 'me', 'Hello', 3));
     fixture.detectChanges();
     expect(box().value).toBe('');

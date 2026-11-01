@@ -16,7 +16,10 @@ game's room. Once the row is committed, the room receives
   points, no NUL or unpaired surrogate. Any other field is refused.
 - A finished game refuses messages with `409 GAME_ALREADY_FINISHED`. The clock is settled
   first, so a game lost on time is closed even before the next tick.
-- Commands of one game run in its queue, so messages keep their order.
+- Commands of one game run in its queue, so messages keep their order. Chat may use only half
+  of that queue (`429 TOO_MANY_REQUESTS` beyond), so it cannot get a move refused.
+- An `ERROR` answering this command carries `event: "SEND_GAME_MESSAGE"`: the chat handles it, and
+  the board ignores it.
 
 The spec has no history route, but a page that opens or reconnects needs one:
 `GET /v1/games/:id/messages?limit=20&offset=0` returns `{ messages, total, limit, offset }`,
@@ -36,8 +39,9 @@ message comes back. Bot games have the chat too, for their spectators.
 that friend (`opponentId`), sends the friend its link by private message and opens the game. The messages page shows
 "Open the game" under a challenge, only for the exact text with this site's address; the friend
 takes the other seat by opening it. No backend was added, so there is no accept or decline
-event: declining is not opening the link. If the socket is down the message is not sent, and the
-game page still shows the link to share.
+event: declining is not opening the link. Offline, the button says so and creates nothing. The seat is taken only
+while the creator is on the game (`409 OPPONENT_AWAY` otherwise), so an old link cannot start a
+clock against someone who left.
 
 ## Tests
 

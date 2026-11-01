@@ -204,6 +204,36 @@ describe('Game chat (SCRUM-261 to 267)', () => {
     });
   });
 
+  it('says which command an error answers', async () => {
+    const { gameId, white } = await table();
+    white.send('SEND_GAME_MESSAGE', { gameId, content: '   ' });
+    expect((await white.take('ERROR')).data.event).toBe('SEND_GAME_MESSAGE');
+    white.send('RESIGN', { gameId: randomUUID() });
+    expect((await white.take('ERROR')).data.event).toBeUndefined();
+  });
+
+  it('starts a challenge only while its creator is there', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/v1/games')
+      .auth(await token(alice), { type: 'bearer' })
+      .send({
+        timeControl: { initialTime: 600000, increment: 0 },
+        opponentId: bob.id,
+      })
+      .expect(201);
+    const gameId = created.body.gameId as string;
+    games.push(gameId);
+    const invited = await connect(bob);
+    invited.send('JOIN_GAME', { gameId });
+    expect((await invited.take('ERROR')).data.code).toBe('OPPONENT_AWAY');
+
+    const creator = await connect(alice);
+    creator.send('JOIN_GAME', { gameId });
+    await creator.take('GAME_STATE');
+    invited.send('JOIN_GAME', { gameId });
+    expect((await invited.take('GAME_STATE')).data.status).toBe('ACTIVE');
+  });
+
   it('pages the history newest first, for signed-in users only', async () => {
     const { gameId, white } = await table();
     for (const content of ['one', 'two', 'three']) {

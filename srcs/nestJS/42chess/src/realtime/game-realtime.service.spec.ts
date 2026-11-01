@@ -130,6 +130,23 @@ describe('Game realtime routing and rooms', () => {
       ).rejects.toMatchObject({ code: 'GAME_ALREADY_FINISHED' });
       expect(chat.send).not.toHaveBeenCalled();
     });
+    it('leaves half of the game queue free for moves', async () => {
+      await join();
+      let release = () => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      chat.send.mockImplementation(async () => {
+        await gate;
+        return message;
+      });
+      const queued = Array.from({ length: 32 }, () =>
+        command('SEND_GAME_MESSAGE', a, { content: 'Good luck!' }),
+      );
+      await expect(
+        command('SEND_GAME_MESSAGE', a, { content: 'One more' }),
+      ).rejects.toMatchObject({ response: { code: 'TOO_MANY_REQUESTS' } });
+      release();
+      await Promise.all(queued);
+    });
     it('refuses unexpected fields and invalid text before queueing', async () => {
       await join();
       await expect(
