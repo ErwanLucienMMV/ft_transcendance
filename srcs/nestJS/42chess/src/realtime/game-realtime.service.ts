@@ -7,6 +7,7 @@ import {
   OnModuleInit,
   HttpException,
 } from '@nestjs/common';
+import { GameMessagesService } from '../chat/game-messages.service.js';
 import { GamesService } from '../games/games.service.js';
 import { GamePresenterService } from '../games/game-presenter.service.js';
 import { GameError } from '../games/game-error.js';
@@ -45,6 +46,7 @@ const commands = new Set([
   'DECLINE_DRAW',
   'START_SPECTATING',
   'STOP_SPECTATING',
+  'SEND_GAME_MESSAGE',
 ]);
 const promotions: Record<string, string> = {
   QUEEN: 'q',
@@ -69,6 +71,7 @@ export class GameRealtimeService
     private readonly presenter: GamePresenterService,
     private readonly spectators: SpectatorRegistry,
     private readonly source: DataSource,
+    private readonly chat: GameMessagesService,
   ) {
     super();
   }
@@ -142,6 +145,21 @@ export class GameRealtimeService
           turn: view.board.turn,
           status: view.status,
         });
+        return;
+      }
+      if (message.event === 'SEND_GAME_MESSAGE') {
+        // Players and spectators may talk: being in the room is what counts.
+        const { game } = await this.games.settle(id);
+        if (game.status === 'FINISHED')
+          throw new GameError(
+            'GAME_ALREADY_FINISHED',
+            'The chat closes when the game ends.',
+          );
+        this.broadcast(
+          room,
+          'GAME_MESSAGE',
+          await this.chat.send(client.userId, id, message.data.content),
+        );
         return;
       }
       const spectating = room.spectators.has(client.connectionId);
@@ -449,7 +467,9 @@ export class GameRealtimeService
         ? ['gameId', 'from', 'to', 'promotion']
         : message.event === 'SYNC_CLOCK'
           ? ['gameId', 'requestId']
-          : ['gameId'];
+          : message.event === 'SEND_GAME_MESSAGE'
+            ? ['gameId', 'content']
+            : ['gameId'];
     if (Object.keys(message.data).some((key) => !allowed.includes(key)))
       throw new BadRequestException('Unexpected command fields.');
     if (
@@ -461,6 +481,8 @@ export class GameRealtimeService
         'Expected a non-negative clock request identifier.',
       );
     if (message.event === 'MAKE_MOVE') this.uci(message.data);
+    if (message.event === 'SEND_GAME_MESSAGE')
+      this.chat.content(message.data.content);
   }
   private uci(data: Record<string, unknown>): string {
     if (
