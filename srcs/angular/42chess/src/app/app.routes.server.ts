@@ -12,6 +12,8 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'replay/:id', renderMode: RenderMode.Client },
   { path: 'players/:id', renderMode: RenderMode.Client },
   { path: 'friends', renderMode: RenderMode.Client },
+  { path: 'messages', renderMode: RenderMode.Client },
+  { path: 'messages/:userId', renderMode: RenderMode.Client },
   { path: 'oauth/callback', renderMode: RenderMode.Client },
   {
     path: '**',

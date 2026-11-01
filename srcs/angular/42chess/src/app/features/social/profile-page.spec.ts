@@ -197,6 +197,16 @@ describe('Player profile page', () => {
     const { element } = await open('/players/alice');
     expect(friends).not.toHaveBeenCalled();
     expect(element.textContent).not.toContain('Add friend');
+    expect(element.querySelector('a[href^="/messages"]')).toBeNull();
+  });
+
+  it('links a signed-in visitor to a conversation, but not on their own profile', async () => {
+    signIn('me');
+    const { harness, element } = await open('/players/alice');
+    expect(element.querySelector('a[href="/messages/alice"]')?.textContent?.trim()).toBe('Message');
+    await harness.navigateByUrl('/players/me');
+    harness.detectChanges();
+    expect(element.querySelector('a[href^="/messages"]')).toBeNull();
   });
 
   it('sends a friend request from the profile of a non-friend', async () => {

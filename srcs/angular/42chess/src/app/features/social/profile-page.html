@@ -79,6 +79,12 @@
       }
     }
 
+    @if (canMessage()) {
+      <p class="actions">
+        <a class="button secondary" [routerLink]="['/messages', player.id]">Message</a>
+      </p>
+    }
+
     @if (mine()) {
       <p class="actions">
         <a class="button secondary" routerLink="/history">All your games</a>

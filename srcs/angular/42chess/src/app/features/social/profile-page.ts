@@ -54,6 +54,8 @@ export class ProfilePage {
   /** Only the id: refreshing the signed-in user's counters must not reload the page. */
   private readonly signedInId = computed(() => this.session.user()?.id);
   readonly mine = computed(() => this.signedInId() === this.userId());
+  /** Any signed-in visitor can write to another player; no friendship is required. */
+  readonly canMessage = computed(() => Boolean(this.signedInId()) && !this.mine());
   readonly status = computed<PresenceStatus>(
     () => this.pushed() ?? (this.profile()?.online ? 'ONLINE' : 'OFFLINE'),
   );

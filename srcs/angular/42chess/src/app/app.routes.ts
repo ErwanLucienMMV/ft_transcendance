@@ -58,6 +58,18 @@ export const routes: Routes = [
     loadComponent: () => import('./features/social/friends-page').then((m) => m.FriendsPage),
   },
   {
+    path: 'messages',
+    title: 'Messages | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/chat/messages-page').then((m) => m.MessagesPage),
+  },
+  {
+    path: 'messages/:userId',
+    title: 'Messages | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/chat/messages-page').then((m) => m.MessagesPage),
+  },
+  {
     path: 'login',
     title: 'Sign in | 42 Chess',
     loadComponent: () => import('./features/auth/login-page').then((m) => m.LoginPage),
