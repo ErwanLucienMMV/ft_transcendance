@@ -87,6 +87,8 @@ export class MessagesPage {
 
   readonly thread = signal<PrivateMessage[] | null>(null);
   readonly total = signal(0);
+  private newestRequest = 0;
+  private historyStart = 0;
   readonly threadFailed = signal(false);
   readonly loadingOlder = signal(false);
   readonly hasOlder = computed(() => (this.thread()?.length ?? 0) < this.total());
@@ -162,10 +164,11 @@ export class MessagesPage {
     const loaded = this.thread();
     if (!id || !loaded || this.loadingOlder()) return;
     this.loadingOlder.set(true);
+    const start = this.historyStart;
     this.messages.history(id, loaded.length).subscribe({
       next: (page) => {
         this.loadingOlder.set(false);
-        if (id !== this.peerId()) return;
+        if (id !== this.peerId() || start !== this.historyStart) return;
         this.thread.update((list) => merge(list ?? [], page.messages));
         this.total.set(page.total);
       },
@@ -243,29 +246,30 @@ export class MessagesPage {
   }
 
   private loadNewest(id: string): void {
+    const request = ++this.newestRequest;
     this.threadFailed.set(false);
     this.messages.history(id).subscribe({
       next: (page) => {
-        if (id !== this.peerId()) return;
+        if (id !== this.peerId() || request !== this.newestRequest) return;
         const list = this.thread() ?? [];
-        const ids = new Set(page.messages.map((message) => message.id));
+        const ordered = [...page.messages].sort(chronological);
+        const newest = ordered.at(-1);
+        // What the socket delivered after this page was read; its messages are not in the page.
+        const later = newest ? list.filter((message) => chronological(message, newest) > 0) : [];
+        // The page continues what is shown only if its oldest message is already there. Any
+        // other shared message could be a live one, with a hole just before it.
         const joined =
-          page.messages.length >= page.total || list.some((message) => ids.has(message.id));
+          page.messages.length >= page.total ||
+          list.some((message) => message.id === ordered[0].id);
         if (joined) {
           this.thread.set(merge(list, page.messages));
-          this.total.set(page.total);
         } else {
-          // More messages arrived than one page holds (say, during a disconnection): what is
-          // shown would have a hole, and offsets count from the newest. Start again from this
-          // page, keeping only what the socket delivered after it.
-          const newest = page.messages.reduce<PrivateMessage | null>(
-            (latest, message) => (!latest || chronological(message, latest) > 0 ? message : latest),
-            null,
-          );
-          const later = newest ? list.filter((message) => chronological(message, newest) > 0) : [];
+          // Offsets count from the newest, so a hole would make older pages unreachable. Start
+          // again from this page; any older page still on its way used the previous offsets.
+          this.historyStart++;
           this.thread.set(merge(page.messages, later));
-          this.total.set(page.total + later.length);
         }
+        this.total.set(page.total + later.length);
         this.scrollToEnd();
       },
       error: () => {

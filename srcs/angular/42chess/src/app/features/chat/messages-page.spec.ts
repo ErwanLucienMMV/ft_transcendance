@@ -337,6 +337,106 @@ describe('Messages page', () => {
     expect(button(element, 'Load older messages')).toBeUndefined();
   });
 
+  it('starts paging again when a live message overlaps the page reloaded after a reconnect', async () => {
+    const { harness, element } = await open('/messages/bob');
+    const reloaded = new Subject<unknown>();
+    history.mockReturnValueOnce(reloaded);
+    state.set('reconnecting');
+    harness.detectChanges();
+    state.set('connected');
+    harness.detectChanges();
+    // The newest message lands on the socket before the reload answers, and is also in its page.
+    const m3 = message('m3', 'bob', 'me', 'Three', 3);
+    const m4 = message('m4', 'bob', 'me', 'Four', 4);
+    const m5 = message('m5', 'bob', 'me', 'Five', 5);
+    events.next({ event: 'PRIVATE_MESSAGE', data: m5 });
+    reloaded.next({ messages: [m5, m4], total: 5, limit: 2, offset: 0 });
+    harness.detectChanges();
+    expect(bubbles(element)).toEqual(['< Four', '< Five']);
+
+    history.mockReturnValueOnce(
+      of({
+        messages: [m3, message('m2', 'bob', 'me', 'See you', 2)],
+        total: 5,
+        limit: 2,
+        offset: 2,
+      }),
+    );
+    button(element, 'Load older messages').click();
+    harness.detectChanges();
+    expect(history).toHaveBeenLastCalledWith('bob', 2);
+    expect(bubbles(element)).toEqual(['< See you', '< Three', '< Four', '< Five']);
+  });
+
+  it('keeps a live message newer than the reloaded page, and counts it', async () => {
+    const { harness, element } = await open('/messages/bob');
+    const reloaded = new Subject<unknown>();
+    history.mockReturnValueOnce(reloaded);
+    state.set('reconnecting');
+    harness.detectChanges();
+    state.set('connected');
+    harness.detectChanges();
+    const m4 = message('m4', 'bob', 'me', 'Four', 4);
+    const m5 = message('m5', 'bob', 'me', 'Five', 5);
+    const m6 = message('m6', 'bob', 'me', 'Six', 6);
+    events.next({ event: 'PRIVATE_MESSAGE', data: m6 });
+    reloaded.next({ messages: [m5, m4], total: 5, limit: 2, offset: 0 });
+    harness.detectChanges();
+    expect(bubbles(element)).toEqual(['< Four', '< Five', '< Six']);
+    history.mockReturnValueOnce(of({ messages: [], total: 6, limit: 2, offset: 3 }));
+    button(element, 'Load older messages').click();
+    expect(history).toHaveBeenLastCalledWith('bob', 3);
+  });
+
+  it('ignores an older page requested before the history restarted', async () => {
+    const m1 = message('m1', 'me', 'bob', 'Hi', 1);
+    const m2 = message('m2', 'bob', 'me', 'See you', 2);
+    const m3 = message('m3', 'bob', 'me', 'Three', 3);
+    history.mockReturnValueOnce(of({ messages: [m3, m2], total: 3, limit: 2, offset: 0 }));
+    const { harness, element } = await open('/messages/bob');
+    const older = new Subject<unknown>();
+    history.mockReturnValueOnce(older);
+    button(element, 'Load older messages').click();
+    harness.detectChanges();
+    const m5 = message('m5', 'bob', 'me', 'Five', 5);
+    const m6 = message('m6', 'bob', 'me', 'Six', 6);
+    history.mockReturnValueOnce(of({ messages: [m6, m5], total: 6, limit: 2, offset: 0 }));
+    state.set('reconnecting');
+    harness.detectChanges();
+    state.set('connected');
+    harness.detectChanges();
+    older.next({ messages: [m1], total: 3, limit: 2, offset: 2 });
+    harness.detectChanges();
+    expect(bubbles(element)).toEqual(['< Five', '< Six']);
+    history.mockReturnValueOnce(of({ messages: [], total: 6, limit: 2, offset: 2 }));
+    button(element, 'Load older messages').click();
+    expect(history).toHaveBeenLastCalledWith('bob', 2);
+  });
+
+  it('applies only the latest reload when two reconnects overlap', async () => {
+    const { harness, element } = await open('/messages/bob');
+    const first = new Subject<unknown>();
+    const second = new Subject<unknown>();
+    history.mockReturnValueOnce(first).mockReturnValueOnce(second);
+    for (let round = 0; round < 2; round++) {
+      state.set('reconnecting');
+      harness.detectChanges();
+      state.set('connected');
+      harness.detectChanges();
+    }
+    const m5 = message('m5', 'bob', 'me', 'Five', 5);
+    const m6 = message('m6', 'bob', 'me', 'Six', 6);
+    second.next({ messages: [m6, m5], total: 6, limit: 2, offset: 0 });
+    first.next({
+      messages: [message('m4', 'bob', 'me', 'Four', 4), message('m3', 'bob', 'me', 'Three', 3)],
+      total: 4,
+      limit: 2,
+      offset: 0,
+    });
+    harness.detectChanges();
+    expect(bubbles(element)).toEqual(['< Five', '< Six']);
+  });
+
   it('explains an unknown player and refuses a conversation with yourself', async () => {
     const { harness, element } = await open('/messages/ghost');
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('does not exist');
