@@ -12,7 +12,7 @@ import {
   ServerEvent,
 } from '../../core/realtime/realtime.service';
 import { UsersApi } from '../social/users-api';
-import { MESSAGE_MAX_LENGTH, MessagesApi, PrivateMessage } from './messages-api';
+import { MESSAGE_MAX_LENGTH, MessagePage, MessagesApi, PrivateMessage } from './messages-api';
 import { MessagesPage, SEND_CONFIRM_MS } from './messages-page';
 
 function message(
@@ -435,6 +435,50 @@ describe('Messages page', () => {
     });
     harness.detectChanges();
     expect(bubbles(element)).toEqual(['< Five', '< Six']);
+  });
+
+  it('keeps a message pushed before the first page arrives', async () => {
+    const first = new Subject<MessagePage>();
+    history.mockReturnValueOnce(first);
+    const { harness, element } = await open('/messages/bob');
+    events.next({ event: 'PRIVATE_MESSAGE', data: message('m3', 'bob', 'me', 'Early', 3) });
+    // The page was read before m3 was saved.
+    first.next({
+      messages: [message('m2', 'bob', 'me', 'See you', 2), message('m1', 'me', 'bob', 'Hi', 1)],
+      total: 2,
+      limit: 30,
+      offset: 0,
+    });
+    first.complete();
+    harness.detectChanges();
+    expect(bubbles(element)).toEqual(['> Hi', '< See you', '< Early']);
+    expect(button(element, 'Load older messages')).toBeUndefined();
+  });
+
+  it('drops an older page of the previous conversation after switching', async () => {
+    history.mockReturnValueOnce(
+      of({ messages: [message('m2', 'bob', 'me', 'See you', 2)], total: 2, limit: 30, offset: 0 }),
+    );
+    const { harness, element } = await open('/messages/bob');
+    const older = new Subject<MessagePage>();
+    history.mockReturnValueOnce(older);
+    button(element, 'Load older messages').click();
+    history.mockReturnValueOnce(
+      of({ messages: [message('m8', 'dave', 'me', 'Yo', 8)], total: 2, limit: 30, offset: 0 }),
+    );
+    await harness.navigateByUrl('/messages/dave');
+    harness.detectChanges();
+    history.mockReturnValueOnce(
+      of({ messages: [message('m2', 'bob', 'me', 'See you', 2)], total: 2, limit: 30, offset: 0 }),
+    );
+    await harness.navigateByUrl('/messages/bob');
+    harness.detectChanges();
+    older.next({ messages: [message('m1', 'me', 'bob', 'Hi', 1)], total: 2, limit: 30, offset: 1 });
+    older.complete();
+    harness.detectChanges();
+    expect(bubbles(element)).not.toContain('> Hi');
+    // The button is usable again for the conversation now shown.
+    expect(button(element, 'Load older messages')?.disabled).toBe(false);
   });
 
   it('explains an unknown player and refuses a conversation with yourself', async () => {

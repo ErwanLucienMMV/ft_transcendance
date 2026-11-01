@@ -89,6 +89,8 @@ export class MessagesPage {
   readonly total = signal(0);
   private newestRequest = 0;
   private historyStart = 0;
+  /** Messages pushed for the open conversation before its first page arrived. */
+  private early: PrivateMessage[] = [];
   readonly threadFailed = signal(false);
   readonly loadingOlder = signal(false);
   readonly hasOlder = computed(() => (this.thread()?.length ?? 0) < this.total());
@@ -167,12 +169,15 @@ export class MessagesPage {
     const start = this.historyStart;
     this.messages.history(id, loaded.length).subscribe({
       next: (page) => {
+        if (start !== this.historyStart) return;
         this.loadingOlder.set(false);
-        if (id !== this.peerId() || start !== this.historyStart) return;
+        if (id !== this.peerId()) return;
         this.thread.update((list) => merge(list ?? [], page.messages));
         this.total.set(page.total);
       },
-      error: () => this.loadingOlder.set(false),
+      error: () => {
+        if (start === this.historyStart) this.loadingOlder.set(false);
+      },
     });
   }
 
@@ -222,6 +227,10 @@ export class MessagesPage {
     this.thread.set(null);
     this.total.set(0);
     this.threadFailed.set(false);
+    // Pages requested for the conversation shown before no longer apply.
+    this.historyStart++;
+    this.loadingOlder.set(false);
+    this.early = [];
     if (!id) return;
     if (id === this.me()) {
       this.peerError.set('You cannot send messages to yourself.');
@@ -251,7 +260,10 @@ export class MessagesPage {
     this.messages.history(id).subscribe({
       next: (page) => {
         if (id !== this.peerId() || request !== this.newestRequest) return;
-        const list = this.thread() ?? [];
+        // Before the first page, live messages wait in `early`: the page may have been read
+        // before they were saved.
+        const list = this.thread() ?? this.early;
+        this.early = [];
         const ordered = [...page.messages].sort(chronological);
         const newest = ordered.at(-1);
         // What the socket delivered after this page was read; its messages are not in the page.
@@ -267,6 +279,7 @@ export class MessagesPage {
           // Offsets count from the newest, so a hole would make older pages unreachable. Start
           // again from this page; any older page still on its way used the previous offsets.
           this.historyStart++;
+          this.loadingOlder.set(false);
           this.thread.set(merge(page.messages, later));
         }
         this.total.set(page.total + later.length);
@@ -302,6 +315,7 @@ export class MessagesPage {
     } else if (list) {
       this.loadConversations();
     }
+    if (open && !this.thread()) this.early = merge(this.early, [message]);
     if (open && this.thread()) {
       const before = this.thread()!.length;
       this.thread.update((thread) => merge(thread ?? [], [message]));

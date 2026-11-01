@@ -35,6 +35,9 @@ it was not changed.
   hole and the offsets would be wrong, so the page starts again from that newest page, plus
   any message the socket delivered after it. Older messages stay reachable with "Load older
   messages", and an older page still on its way is ignored.
+- A message pushed while a conversation's first page is loading is kept, even if that page
+  was read before the message was saved. Switching conversations drops any page still on its
+  way for the previous one.
 - Under 720px the list and the conversation take turns on the screen.
 
 ## Known limits of the API
