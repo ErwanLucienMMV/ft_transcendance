@@ -302,6 +302,41 @@ describe('Messages page', () => {
     expect(history).toHaveBeenCalledWith('bob');
   });
 
+  it('starts paging again when a reconnect leaves a hole in the conversation', async () => {
+    const { harness, element } = await open('/messages/bob');
+    expect(bubbles(element)).toEqual(['> Hi', '< See you']);
+    // Three messages arrived while the socket was down; the newest page holds only two.
+    const m3 = message('m3', 'bob', 'me', 'Three', 3);
+    const m4 = message('m4', 'bob', 'me', 'Four', 4);
+    const m5 = message('m5', 'bob', 'me', 'Five', 5);
+    history.mockReturnValueOnce(of({ messages: [m5, m4], total: 5, limit: 2, offset: 0 }));
+    state.set('reconnecting');
+    harness.detectChanges();
+    state.set('connected');
+    harness.detectChanges();
+    expect(bubbles(element)).toEqual(['< Four', '< Five']);
+
+    history.mockReturnValueOnce(
+      of({
+        messages: [m3, message('m2', 'bob', 'me', 'See you', 2)],
+        total: 5,
+        limit: 2,
+        offset: 2,
+      }),
+    );
+    button(element, 'Load older messages').click();
+    harness.detectChanges();
+    expect(history).toHaveBeenLastCalledWith('bob', 2);
+    history.mockReturnValueOnce(
+      of({ messages: [message('m1', 'me', 'bob', 'Hi', 1)], total: 5, limit: 2, offset: 4 }),
+    );
+    button(element, 'Load older messages').click();
+    harness.detectChanges();
+    expect(history).toHaveBeenLastCalledWith('bob', 4);
+    expect(bubbles(element)).toEqual(['> Hi', '< See you', '< Three', '< Four', '< Five']);
+    expect(button(element, 'Load older messages')).toBeUndefined();
+  });
+
   it('explains an unknown player and refuses a conversation with yourself', async () => {
     const { harness, element } = await open('/messages/ghost');
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('does not exist');

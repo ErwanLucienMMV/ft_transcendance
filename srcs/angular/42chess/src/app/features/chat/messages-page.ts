@@ -247,8 +247,25 @@ export class MessagesPage {
     this.messages.history(id).subscribe({
       next: (page) => {
         if (id !== this.peerId()) return;
-        this.thread.update((list) => merge(list ?? [], page.messages));
-        this.total.set(page.total);
+        const list = this.thread() ?? [];
+        const ids = new Set(page.messages.map((message) => message.id));
+        const joined =
+          page.messages.length >= page.total || list.some((message) => ids.has(message.id));
+        if (joined) {
+          this.thread.set(merge(list, page.messages));
+          this.total.set(page.total);
+        } else {
+          // More messages arrived than one page holds (say, during a disconnection): what is
+          // shown would have a hole, and offsets count from the newest. Start again from this
+          // page, keeping only what the socket delivered after it.
+          const newest = page.messages.reduce<PrivateMessage | null>(
+            (latest, message) => (!latest || chronological(message, latest) > 0 ? message : latest),
+            null,
+          );
+          const later = newest ? list.filter((message) => chronological(message, newest) > 0) : [];
+          this.thread.set(merge(page.messages, later));
+          this.total.set(page.total + later.length);
+        }
         this.scrollToEnd();
       },
       error: () => {

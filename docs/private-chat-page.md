@@ -30,7 +30,10 @@ it was not changed.
 - A peer who is offline gets the note "X is offline. They will find your messages when
   they come back." Presence uses the `online` field of the profile, then the pushed
   presence events.
-- After a reconnection the list and the open history are reloaded.
+- After a reconnection the list and the open history are reloaded. If more messages arrived
+  than the newest page holds, the shown history would have a hole and the offsets would be
+  wrong, so the page starts again from that newest page; older messages stay reachable with
+  "Load older messages".
 - Under 720px the list and the conversation take turns on the screen.
 
 ## Known limits of the API
