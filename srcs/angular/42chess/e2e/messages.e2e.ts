@@ -3,12 +3,16 @@ import { signedIn, verifiedAccount } from './players';
 
 async function openProfile(page: Page, username: string): Promise<void> {
   await page.getByRole('navigation').getByRole('link', { name: 'Friends' }).click();
-  await page.getByRole('searchbox').fill(username);
-  await page.getByRole('button', { name: 'Search' }).click();
-  await page
+  const result = page
     .getByRole('list', { name: 'Search results' })
-    .getByRole('link', { name: username })
-    .click();
+    .getByRole('link', { name: username });
+  // The page resets its search box while it opens, which can erase text typed that early.
+  await expect(async () => {
+    await page.getByRole('searchbox').fill(username);
+    await page.getByRole('button', { name: 'Search' }).click();
+    await expect(result).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await result.click();
 }
 
 test('two players exchange private messages live, and an offline player reads them later', async ({
