@@ -98,6 +98,9 @@
                 <li [class.mine]="mine(message)">
                   <span class="sr-only">{{ mine(message) ? 'You' : player.username }}:</span>
                   <p>{{ message.content }}</p>
+                  @if (challenge(message); as game) {
+                    <a class="button secondary" [routerLink]="['/game', game]">Open the game</a>
+                  }
                   <time [attr.datetime]="message.createdAt">{{
                     message.createdAt | date: 'short'
                   }}</time>

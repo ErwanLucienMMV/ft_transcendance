@@ -33,6 +33,20 @@ export function messageLength(text: string): number {
   return [...text].length;
 }
 
+const CHALLENGE_TEXT = 'I challenge you to a game: ';
+
+/** The private message a challenge sends: plain text, readable in any client. */
+export function challengeMessage(origin: string, gameId: string): string {
+  return `${CHALLENGE_TEXT}${origin}/game/${gameId}`;
+}
+
+/** The game of a challenge from this site; any other text stays an ordinary message. */
+export function challengedGame(content: string, origin: string): string | null {
+  if (!content.startsWith(`${CHALLENGE_TEXT}${origin}/game/`)) return null;
+  const id = content.slice(CHALLENGE_TEXT.length + origin.length + '/game/'.length);
+  return /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id) ? id : null;
+}
+
 function isMessage(data: Record<string, unknown>): boolean {
   return ['id', 'senderId', 'receiverId', 'content', 'createdAt'].every(
     (key) => typeof data[key] === 'string',

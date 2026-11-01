@@ -82,6 +82,19 @@
     @if (canMessage()) {
       <p class="actions">
         <a class="button secondary" [routerLink]="['/messages', player.id]">Message</a>
+        @if (friendship() === 'friends') {
+          <button
+            type="button"
+            class="button secondary"
+            [disabled]="challenging()"
+            (click)="challenge(player.id)"
+          >
+            Challenge
+          </button>
+        }
+        @if (challengeFailed()) {
+          <span class="note" role="alert">The challenge could not be sent. Try again.</span>
+        }
       </p>
     }
 
