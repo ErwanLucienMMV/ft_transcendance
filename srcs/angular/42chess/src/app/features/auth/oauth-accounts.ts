@@ -13,7 +13,7 @@ import { authFeedback } from './auth-feedback';
   selector: 'app-oauth-accounts',
   template: `
     <section class="card settings-section" aria-labelledby="sign-in-methods-title">
-      <h3 id="sign-in-methods-title" class="section-title">Sign-in methods</h3>
+      <h2 id="sign-in-methods-title" class="section-title">Sign-in methods</h2>
       <p class="muted">Link an account to sign in with one click.</p>
       @if (oauth.providers().length || linked().length) {
         <ul class="methods">

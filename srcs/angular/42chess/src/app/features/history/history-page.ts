@@ -6,13 +6,16 @@ import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { endReason, outcomeText, playerLabel } from '../../shared/chess/game-text';
 import { GameHistoryItem, GamesApi, Page, timeControlLabel } from '../game/games-api';
+import { Alert } from '../../shared/ui/alert';
+import { EmptyState } from '../../shared/ui/empty-state';
+import { Pager } from '../../shared/ui/pager';
 
 export const HISTORY_PAGE_SIZE = 10;
 
 /** The signed-in player's finished games, newest first, ten per page (`?page=` keeps the place). */
 @Component({
   selector: 'app-history-page',
-  imports: [DatePipe, RouterLink],
+  imports: [Pager, EmptyState, Alert, DatePipe, RouterLink],
   templateUrl: './history-page.html',
   styleUrl: './history-page.css',
 })

@@ -2,7 +2,7 @@
   <header class="page-head">
     <div>
       <span class="eyebrow">Progression</span>
-      <h2 id="rules-title">How progression works</h2>
+      <h1 id="rules-title">How progression works</h1>
       <p>
         Your rating measures your strength against other players. Experience (XP) rewards everything
         you play: it raises your level and never goes down.
@@ -11,7 +11,7 @@
   </header>
 
   <section aria-labelledby="rating-rules" class="card">
-    <h3 id="rating-rules">Rating and leaderboard</h3>
+    <h2 id="rating-rules">Rating and leaderboard</h2>
     <ul>
       <li>Every account starts at 1200. Only rated games against other players change it.</li>
       <li>
@@ -25,10 +25,10 @@
   </section>
 
   @if (failed()) {
-    <p class="alert" role="alert">The XP table could not be loaded. Try again later.</p>
+    <app-alert><p>The XP table could not be loaded. Try again later.</p></app-alert>
   } @else if (rules(); as r) {
     <section aria-labelledby="xp-rules" class="card">
-      <h3 id="xp-rules">Experience</h3>
+      <h2 id="xp-rules">Experience</h2>
       <table>
         <caption class="sr-only">
           XP earned
@@ -96,7 +96,7 @@
     </section>
 
     <section aria-labelledby="streak-rules" class="card">
-      <h3 id="streak-rules">Daily puzzle streak</h3>
+      <h2 id="streak-rules">Daily puzzle streak</h2>
       <p>
         Solve the daily puzzle on its day, on your first attempt, to add a day to your streak. Miss
         a day, or fail the attempt, and the next solved daily puzzle starts a new streak. Days
@@ -105,7 +105,7 @@
     </section>
 
     <section aria-labelledby="level-rules" class="card">
-      <h3 id="level-rules">Levels</h3>
+      <h2 id="level-rules">Levels</h2>
       <p>Each level needs a little more XP than the one before.</p>
       <ol class="levels">
         @for (level of r.levels; track level.level) {
@@ -117,7 +117,7 @@
     </section>
 
     <section aria-labelledby="achievement-rules" class="card">
-      <h3 id="achievement-rules">Achievements</h3>
+      <h2 id="achievement-rules">Achievements</h2>
       <ul class="achievements">
         @for (achievement of r.achievements; track achievement.code) {
           <li>
@@ -129,6 +129,6 @@
       </ul>
     </section>
   } @else {
-    <p class="empty" role="status">Loading the rules…</p>
+    <app-empty-state [loading]="true"><p>Loading the rules…</p></app-empty-state>
   }
 </section>

@@ -41,7 +41,7 @@ test('changes the picture, the username and the password from the settings page'
   const page = await signedIn(browser, username);
   await page.getByRole('link', { name: 'Settings', exact: true }).click();
   await expect(page).toHaveURL(/\/settings$/);
-  await expect(page.getByRole('heading', { name: 'Settings', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible();
 
   // Picture: a preview first, then the saved picture everywhere, including the header.
   await expect(page.locator('.account-link app-avatar')).toHaveText(username[0].toUpperCase());

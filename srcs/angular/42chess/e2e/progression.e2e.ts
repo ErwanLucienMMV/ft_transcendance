@@ -15,7 +15,7 @@ test('a rated win earns XP, achievements and a rank, announced live', async ({
   await host.getByRole('navigation').getByRole('link', { name: 'Play', exact: true }).click();
   await host.getByText('5 + 0').click();
   await host.getByLabel('Rated game: the result changes both Elo ratings').check();
-  await host.getByRole('button', { name: 'Create game' }).click();
+  await host.getByRole('button', { name: /^Create a (casual|rated) game$/ }).click();
   await expect(host).toHaveURL(/\/game\/[0-9a-f-]{36}$/);
   const link = await host.getByLabel('Game link').inputValue();
   await guest.goto(new URL(link).pathname);
@@ -47,7 +47,7 @@ test('a rated win earns XP, achievements and a rank, announced live', async ({
     .getByRole('link', { name: 'See your achievements' })
     .click();
   await expect(black).toHaveURL(/\/players\/[0-9a-f-]{36}#achievements$/);
-  await expect(black.locator('#achievements h3')).toContainText('2 of 14 unlocked');
+  await expect(black.locator('#achievements h2')).toContainText('2 of 14 unlocked');
   // 30 for the win, 10 and 20 for the two achievements.
   await expect(black.locator('app-level-bar')).toContainText('60 / 100 XP');
   await expect(black.locator('.results tbody tr').first()).toContainText('Rated');
@@ -92,7 +92,7 @@ test('the daily puzzle gives a hint, shows the solution and keeps the archive', 
   await expect(replay.locator('span')).toHaveText(`Move ${total} of ${total}`);
   await replay.getByRole('button', { name: 'Previous move' }).click();
   await expect(replay.locator('span')).toHaveText(`Move ${total - 1} of ${total}`);
-  await expect(page.locator('.square:not([disabled])')).toHaveCount(0);
+  await expect(page.locator('.square:not([aria-disabled="true"])')).toHaveCount(0);
 
   // The attempt is over on every device, and a new one is practice.
   await page.reload();

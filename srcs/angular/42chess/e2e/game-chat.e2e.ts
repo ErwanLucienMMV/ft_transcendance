@@ -14,7 +14,7 @@ async function befriend(alice: Page, bob: Page, bobName: string): Promise<void> 
   }).toPass();
   await result.click();
   await alice.getByRole('button', { name: 'Add friend' }).click();
-  await expect(alice.getByRole('status')).toHaveText('Friend request sent.');
+  await expect(alice.getByRole('status').filter({ hasText: 'Friend request sent.' })).toBeVisible();
   await bob.getByRole('navigation').getByRole('link', { name: 'Friends' }).click();
   await bob
     .getByRole('list', { name: 'Friend requests' })

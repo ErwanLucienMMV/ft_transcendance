@@ -42,7 +42,7 @@
 @if (stats(); as s) {
   <div class="stat-columns">
     <section aria-labelledby="results-title">
-      <h3 id="results-title" class="section-title">Results</h3>
+      <h2 id="results-title" class="section-title">Results</h2>
       <table class="results">
         <thead>
           <tr>
@@ -71,7 +71,7 @@
       </p>
     </section>
     <section id="progression" aria-labelledby="level-title">
-      <h3 id="level-title" class="section-title">Progression</h3>
+      <h2 id="level-title" class="section-title">Progression</h2>
       <app-level-bar [progress]="s.progression" />
       <p class="muted small">
         Games, puzzles and achievements earn XP.
@@ -83,9 +83,9 @@
 
 @if (achievements(); as list) {
   <section id="achievements" class="achievements" aria-labelledby="achievements-title">
-    <h3 id="achievements-title" class="section-title">
+    <h2 id="achievements-title" class="section-title">
       Achievements <small>{{ unlocked() }} of {{ list.length }} unlocked</small>
-    </h3>
+    </h2>
     <ul>
       @for (achievement of list; track achievement.code) {
         <li [class.unlocked]="achievement.unlockedAt">

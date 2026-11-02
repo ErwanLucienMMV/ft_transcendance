@@ -2,13 +2,13 @@
   <header class="page-head">
     <div>
       <span class="eyebrow">Community</span>
-      <h2 id="messages-title">Messages</h2>
+      <h1 id="messages-title">Messages</h1>
     </div>
   </header>
 
   <div class="layout" [class.open]="peerId()">
     <nav class="inbox" aria-labelledby="inbox-title">
-      <h3 id="inbox-title" class="pane-title">Conversations</h3>
+      <h2 id="inbox-title" class="pane-title">Conversations</h2>
       @if (listFailed()) {
         <div class="error" role="alert">
           <p>Your conversations could not be loaded.</p>
@@ -49,19 +49,19 @@
           </ul>
         }
       } @else {
-        <p class="muted" role="status">Loading your conversations…</p>
+        <app-spinner label="Loading your conversations…" [showLabel]="true" />
       }
     </nav>
 
     <section class="conversation" aria-labelledby="conversation-title">
       @if (!peerId()) {
-        <h3 id="conversation-title" class="sr-only">Conversation</h3>
+        <h2 id="conversation-title" class="sr-only">Conversation</h2>
         <div class="placeholder">
           <svg viewBox="0 0 64 64" aria-hidden="true"><use href="/chess-pieces.svg#knight" /></svg>
           <p>Choose a conversation to read it and reply.</p>
         </div>
       } @else if (peerError(); as message) {
-        <h3 id="conversation-title">Conversation</h3>
+        <h2 id="conversation-title">Conversation</h2>
         <p class="error" role="alert">{{ message }}</p>
       } @else if (peer(); as player) {
         <header class="peer">
@@ -69,9 +69,9 @@
             ><span aria-hidden="true">←</span> All conversations</a
           >
           <app-avatar class="peer-initial" [username]="player.username" [url]="player.avatarUrl" />
-          <h3 id="conversation-title">
+          <h2 id="conversation-title">
             <a [routerLink]="['/players', player.id]">{{ player.username }}</a>
-          </h3>
+          </h2>
           <app-presence-badge [status]="status()" />
           @if (blocked() === false) {
             <span class="peer-actions">
@@ -184,7 +184,7 @@
             }
           </div>
         } @else {
-          <p class="muted" role="status">Loading the conversation…</p>
+          <app-spinner label="Loading the conversation…" [showLabel]="true" />
         }
 
         @if (blocked()) {
@@ -236,8 +236,8 @@
           </form>
         }
       } @else {
-        <h3 id="conversation-title" class="sr-only">Conversation</h3>
-        <p class="muted" role="status">Loading the conversation…</p>
+        <h2 id="conversation-title" class="sr-only">Conversation</h2>
+        <app-spinner label="Loading the conversation…" [showLabel]="true" />
       }
     </section>
   </div>

@@ -2,7 +2,7 @@
   <header class="page-head">
     <div>
       <span class="eyebrow">Play</span>
-      <h2 id="play-title">Start a game</h2>
+      <h1 id="play-title">Start a game</h1>
       <p>Pick a time control, then play someone online, invite a friend or face the computer.</p>
     </div>
   </header>
@@ -31,10 +31,10 @@
 
   <div class="layout">
     <div class="online card">
-      <h3 class="card-title">Online</h3>
+      <h2 class="card-title">Online</h2>
 
       <article class="play-card" aria-labelledby="match-title">
-        <h3 id="match-title">Find an opponent</h3>
+        <h2 id="match-title">Find an opponent</h2>
         @if (searching()) {
           <p role="status" class="searching">
             @if (search.state() === 'joining') {
@@ -79,8 +79,32 @@
       </article>
 
       <article class="play-card" aria-labelledby="friend-title">
-        <h3 id="friend-title">Play a friend</h3>
-        <p>You get a link to send. The game starts when your friend opens it.</p>
+        <h2 id="friend-title">Play a friend</h2>
+        <p>
+          Choose who plays. With an open link, the first person to open it takes the other seat; a
+          friend you pick is told at once and the seat is theirs.
+        </p>
+        <div class="form-field friend-field">
+          <label for="friend-choice">Opponent</label>
+          <select
+            id="friend-choice"
+            [value]="friendId() ?? ''"
+            [disabled]="creating() || searching()"
+            (change)="friendId.set($any($event.target).value || null)"
+          >
+            <option value="">Anyone with the link</option>
+            @for (friend of friends(); track friend.id) {
+              <option [value]="friend.id">
+                {{ friend.username }} ({{ friend.elo }}){{
+                  friend.status === 'OFFLINE' ? ' · offline' : ''
+                }}
+              </option>
+            }
+          </select>
+          @if (!friends().length) {
+            <p><a routerLink="/friends">Add friends</a> to challenge them directly.</p>
+          }
+        </div>
         <label class="toggle">
           <input
             type="checkbox"
@@ -89,6 +113,13 @@
           />
           <span>Rated game: the result changes both Elo ratings</span>
         </label>
+        <p class="rated-note">
+          {{
+            rated()
+              ? 'Rated: the winner gains Elo and the loser loses some.'
+              : 'Casual: nobody’s rating changes.'
+          }}
+        </p>
         @if (error(); as message) {
           <p class="play-error" role="alert">{{ message }}</p>
         }
@@ -98,11 +129,19 @@
           [disabled]="creating() || searching()"
           (click)="create()"
         >
-          {{ creating() ? 'Creating…' : 'Create game' }}
+          {{
+            creating()
+              ? 'Creating…'
+              : friendId()
+                ? 'Challenge ' + friendName()
+                : rated()
+                  ? 'Create a rated game'
+                  : 'Create a casual game'
+          }}
         </button>
         @if (invitations().length) {
           <section class="invitations" aria-labelledby="invitations-title">
-            <h4 id="invitations-title">Your open invitations</h4>
+            <h3 id="invitations-title">Your open invitations</h3>
             <p>They are removed after 24 hours if nobody joins.</p>
             <ul>
               @for (invitation of invitations(); track invitation.id) {
@@ -132,7 +171,7 @@
     </div>
 
     <article class="play-card bot card" aria-labelledby="bot-title">
-      <h3 id="bot-title" class="card-title">Play the computer</h3>
+      <h2 id="bot-title" class="card-title">Play the computer</h2>
       <p>Not rated: a good place to practise an opening or a plan.</p>
       <fieldset>
         <legend>Difficulty</legend>

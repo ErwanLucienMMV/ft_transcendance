@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { map, Observable, tap, throwError } from 'rxjs';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { challengeMessage, MessagesApi } from '../chat/messages-api';
-import { GamesApi } from '../game/games-api';
+import { GamesApi, TimeControl } from '../game/games-api';
 
 /** Ten minutes each: the default choice of the play page. */
 export const CHALLENGE_TIME_CONTROL = { initialTime: 600_000, increment: 0 };
@@ -22,11 +22,18 @@ export class Challenges {
   private readonly realtime = inject(RealtimeService);
   private readonly origin = inject(DOCUMENT).location.origin;
 
-  send(userId: string): Observable<void> {
+  /** Casual 10 + 0 unless told otherwise, as from a profile or the chat. */
+  send(
+    userId: string,
+    {
+      timeControl = CHALLENGE_TIME_CONTROL,
+      rated = false,
+    }: { timeControl?: TimeControl; rated?: boolean } = {},
+  ): Observable<void> {
     // Offline, the friend would never hear of a game left waiting for them.
     if (this.realtime.state() !== 'connected')
       return throwError(() => new Error('Offline: the challenge cannot be sent.'));
-    return this.games.create(CHALLENGE_TIME_CONTROL, userId).pipe(
+    return this.games.create(timeControl, userId, rated).pipe(
       tap(({ gameId }) => {
         this.messages.send(userId, challengeMessage(this.origin, gameId));
         void this.router.navigate(['/game', gameId]);

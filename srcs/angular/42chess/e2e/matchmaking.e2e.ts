@@ -16,7 +16,9 @@ test('two players queue with the same time control and land in the same game', a
   await first.getByRole('radio', { name: /15 \+ 10/ }).check();
   await first.getByRole('button', { name: 'Find an opponent' }).click();
   await expect(first.getByRole('status')).toContainText('Searching for a 15 + 10 opponent');
-  await expect(first.getByRole('button', { name: 'Create game' })).toBeDisabled();
+  await expect(
+    first.getByRole('button', { name: /^Create a (casual|rated) game$/ }),
+  ).toBeDisabled();
   await first.getByRole('button', { name: 'Cancel search' }).click();
   await expect(first.getByRole('button', { name: 'Find an opponent' })).toBeVisible();
 

@@ -1,9 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
+import { Subject } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
-import { GamesApi, LiveGame } from '../game/games-api';
-import { LIVE_REFRESH_MS, LivePage } from './live-page';
+import { RealtimeService, ServerEvent } from '../../core/realtime/realtime.service';
+import { GamesApi, LiveGame, timeCategory } from '../game/games-api';
+import { LIVE_EVENT_DELAY_MS, LIVE_REFRESH_MS, LIVE_SLOW_REFRESH_MS, LivePage } from './live-page';
 
 const player = (id: string, color: 'WHITE' | 'BLACK', elo: number | null = 1200) => ({
   id,
@@ -106,5 +108,64 @@ describe('Live games page', () => {
     fixture.detectChanges();
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('could not be loaded');
     expect(element.querySelectorAll('.game')).toHaveLength(1);
+  });
+
+  it('filters the games by time control', () => {
+    live.mockReturnValue(
+      of({
+        games: [
+          game('blitz', { timeControl: { initialTime: 300_000, increment: 0 } }),
+          game('rapid', { timeControl: { initialTime: 600_000, increment: 0 } }),
+        ],
+      }),
+    );
+    const { fixture, element } = setup();
+    const choose = (value: string) => {
+      (element.querySelector(`[role="radio"][data-value="${value}"]`) as HTMLElement).click();
+      fixture.detectChanges();
+    };
+    choose('Rapid');
+    expect([...element.querySelectorAll('.game')].map((row) => row.textContent)).toEqual([
+      expect.stringContaining('10 + 0 · Rapid'),
+    ]);
+    choose('Classical');
+    expect(element.textContent).toContain('No classical game right now.');
+    (
+      [...element.querySelectorAll('button')].find(
+        (button) => button.textContent?.trim() === 'Show all games',
+      ) as HTMLButtonElement
+    ).click();
+    fixture.detectChanges();
+    expect(element.querySelectorAll('.game')).toHaveLength(2);
+  });
+
+  it('reloads when the server announces a game that starts or ends, instead of polling', () => {
+    vi.useRealTimers();
+    vi.useFakeTimers({
+      toFake: ['setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', 'Date'],
+    });
+    const realtime = TestBed.inject(RealtimeService);
+    const events = (realtime as unknown as { received: Subject<ServerEvent> }).received;
+    realtime.state.set('connected');
+    live.mockReturnValue(of({ games: [] }));
+    const { fixture } = setup();
+    expect(live).toHaveBeenCalledTimes(1);
+    // Connected: the 15-second poll does nothing until the slow refresh is due.
+    vi.advanceTimersByTime(LIVE_REFRESH_MS);
+    expect(live).toHaveBeenCalledTimes(1);
+    events.next({ event: 'LIVE_GAMES_CHANGED', data: { gameId: 'g1', active: true } });
+    events.next({ event: 'LIVE_GAMES_CHANGED', data: { gameId: 'g2', active: true } });
+    vi.advanceTimersByTime(LIVE_EVENT_DELAY_MS);
+    expect(live).toHaveBeenCalledTimes(2);
+    fixture.destroy();
+    realtime.state.set('disconnected');
+    expect(LIVE_SLOW_REFRESH_MS).toBeGreaterThan(LIVE_REFRESH_MS);
+  });
+
+  it('sorts time controls into their usual families', () => {
+    expect(timeCategory({ initialTime: 60_000, increment: 0 })).toBe('Bullet');
+    expect(timeCategory({ initialTime: 180_000, increment: 2_000 })).toBe('Blitz');
+    expect(timeCategory({ initialTime: 900_000, increment: 10_000 })).toBe('Rapid');
+    expect(timeCategory({ initialTime: 1_800_000, increment: 0 })).toBe('Classical');
   });
 });

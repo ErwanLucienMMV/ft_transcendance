@@ -31,7 +31,7 @@
   color: var(--accent);
 }
 .stats small,
-h3 small {
+h2 small {
   color: var(--muted);
   font-family: var(--font-text);
   font-size: 13px;

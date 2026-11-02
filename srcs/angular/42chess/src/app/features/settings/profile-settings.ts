@@ -22,7 +22,7 @@ export function avatarProblem(file: { type: string; size: number }): string | nu
   imports: [ReactiveFormsModule, UserAvatar],
   template: `
     <section class="card settings-section" aria-labelledby="profile-settings-title">
-      <h3 id="profile-settings-title" class="section-title">Profile</h3>
+      <h2 id="profile-settings-title" class="section-title">Profile</h2>
       @if (session.user(); as user) {
         <div class="avatar-editor">
           @if (preview(); as url) {

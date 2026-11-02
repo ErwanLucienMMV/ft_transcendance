@@ -7,7 +7,7 @@ import { AuthFrame } from '../../shared/auth-frame';
   imports: [RouterLink, AuthFrame],
   template: `
     <app-auth-frame [aside]="false">
-      <h2>Page not found</h2>
+      <h1>Page not found</h1>
       <p class="auth-intro">
         The page you requested does not exist. A new move is always possible.
       </p>

@@ -6,16 +6,17 @@ import { UserAvatar } from '../../shared/user-avatar';
 import { BlockedPlayer, UsersApi } from '../social/users-api';
 import { AccountApi } from './account-api';
 import { settingsError } from './settings-text';
+import { Spinner } from '../../shared/ui/spinner';
 
 /** Who may reach the player, and the players they blocked. */
 @Component({
   selector: 'app-privacy-settings',
-  imports: [DatePipe, RouterLink, UserAvatar],
+  imports: [Spinner, DatePipe, RouterLink, UserAvatar],
   template: `
     <section id="privacy" class="card settings-section" aria-labelledby="privacy-settings-title">
-      <h3 id="privacy-settings-title" class="section-title">Privacy</h3>
+      <h2 id="privacy-settings-title" class="section-title">Privacy</h2>
       <div class="subsection">
-        <h4>Messages and challenges</h4>
+        <h3>Messages and challenges</h3>
         <label class="switch">
           <input
             type="checkbox"
@@ -39,7 +40,7 @@ import { settingsError } from './settings-text';
       </div>
 
       <div class="subsection">
-        <h4>Blocked players</h4>
+        <h3>Blocked players</h3>
         <p class="muted">
           A blocked player cannot message you, challenge you or send you a friend request. They are
           not told. Block someone from their profile or from your conversation.
@@ -75,7 +76,7 @@ import { settingsError } from './settings-text';
             </ul>
           }
         } @else {
-          <p class="muted" role="status">Loading…</p>
+          <app-spinner label="Loading…" [showLabel]="true" />
         }
         @if (unblockError(); as message) {
           <p class="field-error" role="alert">{{ message }}</p>

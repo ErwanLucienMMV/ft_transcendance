@@ -19,7 +19,8 @@ describe('Application navigation', () => {
   it('opens each public page and updates its document title', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/', HomePage);
-    expect(harness.routeNativeElement?.querySelector('h2')?.textContent).toBe('Play chess');
+    expect(harness.routeNativeElement?.querySelector('.eyebrow')?.textContent).toBe('Play chess');
+    expect(harness.routeNativeElement?.querySelectorAll('h1').length).toBe(1);
     await harness.navigateByUrl('/login', LoginPage);
     expect(harness.routeNativeElement?.querySelector('label[for="login"]')?.textContent).toBe(
       'Username or email address',
@@ -34,15 +35,15 @@ describe('Application navigation', () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/privacy', PrivacyPage);
     const privacy = harness.routeNativeElement as HTMLElement;
-    expect(privacy.querySelector('h2')?.textContent).toBe('Privacy Policy');
+    expect(privacy.querySelector('h1')?.textContent).toBe('Privacy Policy');
     expect(TestBed.inject(Title).getTitle()).toBe('Privacy Policy | 42 Chess');
     expect(privacy.querySelector('time')?.getAttribute('datetime')).toBe('2026-11-02');
-    expect(privacy.querySelectorAll('h3').length).toBeGreaterThanOrEqual(8);
+    expect(privacy.querySelectorAll('h2').length).toBeGreaterThanOrEqual(8);
     expect(privacy.textContent).toContain('refresh_token');
     expect(privacy.querySelector('a[href="/terms"]')).not.toBeNull();
     await harness.navigateByUrl('/terms', TermsPage);
     const terms = harness.routeNativeElement as HTMLElement;
-    expect(terms.querySelector('h2')?.textContent).toBe('Terms of Service');
+    expect(terms.querySelector('h1')?.textContent).toBe('Terms of Service');
     expect(TestBed.inject(Title).getTitle()).toBe('Terms of Service | 42 Chess');
     expect(terms.textContent).toContain('Fair play');
     expect(terms.querySelector('a[href="/privacy"]')).not.toBeNull();
@@ -51,7 +52,7 @@ describe('Application navigation', () => {
   it('shows a useful not-found page for an unknown address', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/does-not-exist', NotFoundPage);
-    expect(harness.routeNativeElement?.querySelector('h2')?.textContent).toBe('Page not found');
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Page not found');
     expect(harness.routeNativeElement?.querySelector('a')?.getAttribute('href')).toBe('/');
     expect(TestBed.inject(Title).getTitle()).toBe('Page not found | 42 Chess');
   });

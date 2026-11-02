@@ -4,7 +4,7 @@ test('navigates between public pages and retains the active navigation state', a
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Play chess', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Every move/, level: 1 })).toBeVisible();
   await page.getByRole('navigation').getByRole('link', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(
@@ -47,7 +47,7 @@ test('loads unknown URLs as a useful not-found page', async ({ page }) => {
   await page.goto('/unknown-page');
   await expect(page.getByRole('heading', { name: 'Page not found', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Return home', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Play chess', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Every move/, level: 1 })).toBeVisible();
 });
 
 test('announces invalid registration values next to their fields', async ({ page }) => {

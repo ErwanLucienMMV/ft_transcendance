@@ -6,7 +6,7 @@ import {
 } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ErrorState } from '../errors/error-state';
+import { Toasts } from '../../shared/ui/toasts';
 import { API_BASE_URL } from './api-base-url';
 import { ApiClient } from './api-client';
 import { ApiError } from './api-error';
@@ -15,7 +15,9 @@ import { apiErrorInterceptor, handledErrors } from './api-error.interceptor';
 describe('API client and error boundary', () => {
   let api: ApiClient;
   let http: HttpTestingController;
-  let errors: ErrorState;
+  let toasts: Toasts;
+  /** The text of the error toast, or null when none is shown. */
+  const shown = () => toasts.items().find((toast) => toast.tone === 'error')?.text ?? null;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -26,7 +28,7 @@ describe('API client and error boundary', () => {
     });
     api = TestBed.inject(ApiClient);
     http = TestBed.inject(HttpTestingController);
-    errors = TestBed.inject(ErrorState);
+    toasts = TestBed.inject(Toasts);
   });
 
   afterEach(() => http.verify());
@@ -118,7 +120,7 @@ describe('API client and error boundary', () => {
       message: 'Username already exists.',
       details: ['Choose another username.'],
     });
-    expect(errors.message()).toBeNull();
+    expect(shown()).toBeNull();
   });
 
   it('uses the HTTP status even when the error body claims success', () => {
@@ -135,7 +137,7 @@ describe('API client and error boundary', () => {
     );
     expect(failure.mock.calls[0][0]).toMatchObject({ statusCode: 401, code: 'AUTH_REQUIRED' });
     expect(failure.mock.calls[0][0].details).toBeUndefined();
-    expect(errors.message()).toBeNull();
+    expect(shown()).toBeNull();
   });
 
   it('reports network failures while preserving the error for the caller', () => {
@@ -143,11 +145,10 @@ describe('API client and error boundary', () => {
     api.get('health').subscribe({ error: failure });
     http.expectOne('/api/v1/health').error(new ProgressEvent('error'));
     expect(failure.mock.calls[0][0]).toMatchObject({ statusCode: 0, code: 'NETWORK_ERROR' });
-    expect(errors.message()).toBe(
-      'Unable to reach the server. Check your connection, then try again.',
-    );
-    errors.dismiss();
-    expect(errors.message()).toBeNull();
+    expect(shown()).toBe('Unable to reach the server. Check your connection, then try again.');
+    expect(toasts.items()[0].link).toEqual({ label: 'Service status', path: '/status' });
+    toasts.clear();
+    expect(shown()).toBeNull();
   });
 
   it('shows a safe server failure message and does not retry a mutation', () => {
@@ -157,10 +158,8 @@ describe('API client and error boundary', () => {
       .expectOne('/api/v1/games')
       .flush('<html>private upstream details</html>', { status: 502, statusText: 'Bad Gateway' });
     expect(failure.mock.calls[0][0]).toMatchObject({ statusCode: 502, code: 'HTTP_ERROR' });
-    expect(errors.message()).toBe(
-      'The API is not responding (502). It may be restarting; try again in a moment.',
-    );
-    expect(errors.message()).not.toContain('private');
+    expect(shown()).toBe('The server is not responding right now. Please try again in a moment.');
+    expect(shown()).not.toContain('private');
     http.expectNone('/api/v1/games');
   });
 
@@ -179,7 +178,7 @@ describe('API client and error boundary', () => {
       statusCode: 503,
       code: 'PUZZLE_CATALOG_EMPTY',
     });
-    expect(errors.message()).toBeNull();
+    expect(shown()).toBeNull();
   });
 
   it('still reports server errors outside the codes a feature handles', () => {
@@ -191,9 +190,7 @@ describe('API client and error boundary', () => {
         { statusCode: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' },
         { status: 500, statusText: 'Internal Server Error' },
       );
-    expect(errors.message()).toBe(
-      'Unexpected server error (500). Try again; if it persists, check the API logs.',
-    );
+    expect(shown()).toBe('Something went wrong on our side. Please try again in a moment.');
   });
 
   it('leaves non-API failures unchanged, including similarly prefixed URLs', () => {
@@ -203,6 +200,6 @@ describe('API client and error boundary', () => {
       .expectOne('/api/v10/example')
       .flush('unavailable', { status: 503, statusText: 'Unavailable' });
     expect(failure.mock.calls[0][0]).toBeInstanceOf(HttpErrorResponse);
-    expect(errors.message()).toBeNull();
+    expect(shown()).toBeNull();
   });
 });

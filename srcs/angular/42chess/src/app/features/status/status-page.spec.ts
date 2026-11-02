@@ -55,7 +55,7 @@ describe('Status page', () => {
 
   it('says everything works, service by service, with the last backup', () => {
     const { element } = create(() => of(report()));
-    expect(text(element.querySelector('.overall h3'))).toBe('All systems operational');
+    expect(text(element.querySelector('.overall h2'))).toBe('All systems operational');
     expect(rows(element)).toEqual([
       ['Website and API', 'Operational', 'ok'],
       ['Database', 'Operational', 'ok'],
@@ -90,7 +90,7 @@ describe('Status page', () => {
         }),
       ),
     );
-    expect(text(element.querySelector('.overall h3'))).toBe('Some services are down');
+    expect(text(element.querySelector('.overall h2'))).toBe('Some services are down');
     expect(element.querySelector('.overall')?.classList).toContain('degraded');
     expect(rows(element)[3]).toEqual(['Computer opponent', 'Down', 'down']);
     expect(text(element.querySelector('.backup p span'))).toBe(
@@ -108,7 +108,7 @@ describe('Status page', () => {
         }),
       ),
     );
-    expect(text(down.element.querySelector('.overall h3'))).toBe('Major outage');
+    expect(text(down.element.querySelector('.overall h2'))).toBe('Major outage');
     expect(rows(down.element)[2]).toEqual(['Rules engine', 'Unknown', 'unknown']);
     expect(text(down.element.querySelector('.backup p span'))).toBe(
       'No backup has been recorded yet.',
@@ -116,7 +116,7 @@ describe('Status page', () => {
     TestBed.resetTestingModule();
 
     const unreachable = create(() => of(null));
-    expect(text(unreachable.element.querySelector('.overall h3'))).toBe('42 Chess is unreachable');
+    expect(text(unreachable.element.querySelector('.overall h2'))).toBe('42 Chess is unreachable');
     expect(rows(unreachable.element)[0]).toEqual(['Website and API', 'Down', 'down']);
     expect(unreachable.element.querySelector('.backup')).toBeNull();
   });

@@ -6,13 +6,14 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import { provideRouter, TitleStrategy, withInMemoryScrolling } from '@angular/router';
 import { routes } from './app.routes';
 import { provideClientHydration, withNoIncrementalHydration } from '@angular/platform-browser';
 import { apiErrorInterceptor } from './core/api/api-error.interceptor';
 import { GlobalErrorHandler } from './core/errors/global-error-handler';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { SessionRefresh } from './core/auth/session-refresh';
+import { PageTitle } from './core/title/page-title';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -26,6 +27,8 @@ export const appConfig: ApplicationConfig = {
     provideClientHydration(withNoIncrementalHydration()),
     provideHttpClient(withInterceptors([apiErrorInterceptor, authInterceptor])),
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
+    // Route titles, prefixed with unread messages and "Your move".
+    { provide: TitleStrategy, useExisting: PageTitle },
     // Non-blocking: pages render at once, and guarded routes wait for this answer.
     provideAppInitializer(() => inject(SessionRefresh).restore()),
   ],

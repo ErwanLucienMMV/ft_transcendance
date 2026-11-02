@@ -1,4 +1,4 @@
-.messages-page h3,
+.messages-page h2,
 .messages-page p {
   margin: 0;
 }
@@ -140,14 +140,14 @@
 .peer-initial {
   grid-row: auto;
 }
-.peer h3 {
+.peer h2 {
   font-size: 17px;
 }
-.peer h3 a {
+.peer h2 a {
   color: inherit;
   text-decoration: none;
 }
-.peer h3 a:hover {
+.peer h2 a:hover {
   color: var(--accent);
 }
 .peer-actions {

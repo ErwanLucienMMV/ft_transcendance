@@ -15,9 +15,9 @@ import { settingsError } from './settings-text';
   imports: [ReactiveFormsModule],
   template: `
     <section class="card settings-section" aria-labelledby="data-settings-title">
-      <h3 id="data-settings-title" class="section-title">Your data</h3>
+      <h2 id="data-settings-title" class="section-title">Your data</h2>
       <div class="subsection">
-        <h4>Download your data</h4>
+        <h3>Download your data</h3>
         <p class="muted">
           A JSON file with your profile, games, ratings, friends, messages and puzzle results.
         </p>
@@ -37,7 +37,7 @@ import { settingsError } from './settings-text';
       </div>
 
       <div class="subsection danger-zone">
-        <h4>Delete your account</h4>
+        <h3>Delete your account</h3>
         <p class="muted">
           Your profile, friends, messages and sign-in methods are erased. Finished games stay in
           your opponents' history, under the name “Deleted player”. This cannot be undone.

@@ -1,14 +1,30 @@
-import { Component, computed, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
 import { PlayerColor } from '../../core/realtime/game-realtime';
 import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
-import { parseFen, Position } from '../../shared/chess/chess-rules';
+import { parseFen, Position, PromotionType, sanOf } from '../../shared/chess/chess-rules';
+import { moveRows, MoveRow } from '../../shared/chess/game-text';
+import { MoveList } from '../../shared/chess/move-list';
+import { Icon } from '../../shared/ui/icon';
+
+interface Played {
+  from: string;
+  to: string;
+  notation: string;
+  /** The position before the move, to take it back. */
+  before: string;
+}
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
-/** Local analysis board: nothing here reaches the server, so it is also the board's showcase. */
+/**
+ * Local analysis board: nothing here reaches the server, so it is also the board's showcase.
+ * `/board?fen=…` opens a position, such as the end of a game.
+ */
 @Component({
   selector: 'app-board-page',
-  imports: [ChessBoard],
+  imports: [ChessBoard, Icon, MoveList],
   template: `
     <section class="board-page page board-layout" aria-labelledby="board-title">
       <div class="board-column">
@@ -17,23 +33,34 @@ const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
           [orientation]="orientation()"
           [lastMove]="lastMove()"
           [interactive]="true"
+          [annotations]="true"
           (moved)="play($event)"
         />
       </div>
       <div class="board-panel side-panel">
         <span class="eyebrow">Analysis</span>
-        <h2 id="board-title">Free board</h2>
+        <h1 id="board-title">Free board</h1>
         <p class="muted">
-          Move both sides freely to study a position. Nothing is sent to the server.
+          Move both sides freely to study a position. Right-click a square for a circle, or
+          right-drag for an arrow. Nothing is sent to the server.
         </p>
         <div class="turn">
           <i [class.black]="blackToMove()" aria-hidden="true"></i>
           <p role="status">{{ turn() }}</p>
         </div>
         <div class="panel-actions">
-          <button type="button" class="secondary" (click)="flip()">Flip board</button>
+          <button type="button" class="secondary" (click)="flip()">
+            <app-icon name="flip" />Flip board
+          </button>
+          <button type="button" class="secondary" [disabled]="!played().length" (click)="undo()">
+            <app-icon name="chevron-left" />Take back
+          </button>
           <button type="button" class="secondary" (click)="load(start)">Reset</button>
         </div>
+        <section class="move-list panel-section" aria-labelledby="board-moves-title">
+          <h2 id="board-moves-title">Moves</h2>
+          <app-move-list [rows]="rows()" empty="Play a move to start the list." />
+        </section>
         <form
           class="form-field panel-section"
           (submit)="$event.preventDefault(); load(fenInput.value)"
@@ -88,15 +115,59 @@ export class BoardPage {
   readonly start = START;
   readonly fen = signal(START);
   readonly orientation = signal<PlayerColor>('WHITE');
-  readonly lastMove = signal<{ from: string; to: string } | null>(null);
   readonly fenError = signal<string | null>(null);
+  readonly played = signal<Played[]>([]);
+  readonly lastMove = computed(() => {
+    const last = this.played().at(-1);
+    return last ? { from: last.from, to: last.to } : null;
+  });
   private readonly position = computed<Position>(() => parseFen(this.fen()));
   readonly turn = computed(() => `${this.position().turn === 'w' ? 'White' : 'Black'} to move.`);
   readonly blackToMove = computed(() => this.position().turn === 'b');
+  /** Numbered like a game: a position with Black to move starts with "1…". */
+  readonly rows = computed<MoveRow[]>(() => {
+    const played = this.played();
+    if (!played.length) return [];
+    const first = parseFen(played[0].before);
+    const offset = (first.fullmove - 1) * 2 + (first.turn === 'b' ? 1 : 0);
+    return moveRows(
+      played.map((move, index) => ({
+        number: offset + index + 1,
+        playerId: '',
+        from: move.from,
+        to: move.to,
+        notation: move.notation,
+        fen: '',
+        timestamp: '',
+      })),
+    );
+  });
+
+  constructor() {
+    inject(ActivatedRoute)
+      .queryParamMap.pipe(takeUntilDestroyed())
+      .subscribe((params) => {
+        const fen = params.get('fen');
+        if (fen) this.load(fen);
+      });
+  }
 
   play(move: BoardMove): void {
-    this.fen.set(fenAfter(this.fen(), move));
-    this.lastMove.set({ from: move.from, to: move.to });
+    const before = this.fen();
+    const notation = sanOf(parseFen(before), {
+      from: move.from,
+      to: move.to,
+      promotion: move.promotion ? (move.promotion[0].toLowerCase() as PromotionType) : undefined,
+    });
+    this.fen.set(fenAfter(before, move));
+    this.played.update((list) => [...list, { from: move.from, to: move.to, notation, before }]);
+  }
+
+  undo(): void {
+    const last = this.played().at(-1);
+    if (!last) return;
+    this.fen.set(last.before);
+    this.played.update((list) => list.slice(0, -1));
   }
 
   flip(): void {
@@ -112,6 +183,6 @@ export class BoardPage {
     }
     this.fenError.set(null);
     this.fen.set(fen.trim().split(/\s+/).join(' '));
-    this.lastMove.set(null);
+    this.played.set([]);
   }
 }

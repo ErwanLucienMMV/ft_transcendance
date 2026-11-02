@@ -15,6 +15,7 @@ import { Challenges } from '../social/challenge';
 import { UsersApi } from '../social/users-api';
 import { MESSAGE_MAX_LENGTH, MessagePage, MessagesApi, PrivateMessage } from './messages-api';
 import { MessagesPage, SEND_CONFIRM_MS } from './messages-page';
+import { UnreadMessages } from '../../core/notifications/unread-messages';
 
 function message(
   id: string,
@@ -38,6 +39,7 @@ describe('Messages page', () => {
   let send: ReturnType<typeof vi.fn>;
   let profile: ReturnType<typeof vi.fn>;
   let markRead: ReturnType<typeof vi.fn>;
+  let unreadMessages: { clear: ReturnType<typeof vi.fn> };
   let typing: ReturnType<typeof vi.fn>;
   let blocked: ReturnType<typeof vi.fn>;
   let block: ReturnType<typeof vi.fn>;
@@ -100,6 +102,7 @@ describe('Messages page', () => {
     challenge = vi.fn().mockReturnValue(of(undefined));
     events = new Subject();
     state = signal<ConnectionState>('connected');
+    unreadMessages = { clear: vi.fn() };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
@@ -110,6 +113,7 @@ describe('Messages page', () => {
         { provide: UsersApi, useValue: { profile, blocked, block, unblock } },
         { provide: Challenges, useValue: { send: challenge } },
         { provide: RealtimeService, useValue: { events: events.asObservable(), state } },
+        { provide: UnreadMessages, useValue: unreadMessages },
       ],
     });
     TestBed.inject(AuthSession).establish({
@@ -175,6 +179,8 @@ describe('Messages page', () => {
     expect(element.querySelector('a[aria-current="page"]')?.textContent).toContain('bob');
     // The server is told, so the count stays at zero in every tab and for bob.
     expect(markRead).toHaveBeenCalledExactlyOnceWith('bob');
+    // The header badge drops at once.
+    expect(unreadMessages.clear).toHaveBeenCalledWith('bob');
   });
 
   it('marks again a message that arrived while the conversation was being marked read', async () => {

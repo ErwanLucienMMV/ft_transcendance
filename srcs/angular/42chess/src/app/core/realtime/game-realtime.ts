@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthSession } from '../auth/auth-session';
 import { GameClockSync, type ClockSample } from './game-clock-sync';
 import { RealtimeService, ServerEvent } from './realtime.service';
+import { isUuid } from '../api/ids';
 
 export type PlayerColor = 'WHITE' | 'BLACK';
 export type Promotion = 'QUEEN' | 'ROOK' | 'BISHOP' | 'KNIGHT';
@@ -51,6 +52,8 @@ export interface GameSnapshot {
   serverTime?: string | null;
   clockStatus?: 'WAITING' | 'RUNNING' | 'STOPPED' | 'EXPIRED';
   result: GameResult | null;
+  /** Elo won or lost by each side once a rated game is over. */
+  ratingChanges?: { white: number; black: number } | null;
   drawOffer: { playerId: string } | null;
   /** Number of plies from which each side may offer a draw again. */
   drawOfferAllowedFrom?: { white: number; black: number };
@@ -159,8 +162,7 @@ export class GameRealtime {
   watch(gameId: string, mode: WatchMode = 'player'): boolean {
     const token = this.session.token();
     const userId = this.session.user()?.id ?? null;
-    if (!token || !userId || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(gameId))
-      return false;
+    if (!token || !userId || !isUuid(gameId)) return false;
     this.follow(token, userId);
     const id = gameId.toLowerCase();
     if (id === this.watched() && mode === this.mode()) return true;

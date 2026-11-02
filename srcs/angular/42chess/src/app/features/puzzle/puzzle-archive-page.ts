@@ -3,6 +3,9 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { ARCHIVE_PAGE, ArchivedPuzzle, PuzzlesApi } from './puzzles-api';
+import { Alert } from '../../shared/ui/alert';
+import { EmptyState } from '../../shared/ui/empty-state';
+import { Pager } from '../../shared/ui/pager';
 
 const STATUS: Record<NonNullable<ArchivedPuzzle['status']> | 'NEW', string> = {
   SOLVED: 'Solved',
@@ -14,7 +17,7 @@ const STATUS: Record<NonNullable<ArchivedPuzzle['status']> | 'NEW', string> = {
 /** Earlier days' puzzles, newest first, with how the player did on each. */
 @Component({
   selector: 'app-puzzle-archive-page',
-  imports: [RouterLink],
+  imports: [Pager, EmptyState, Alert, RouterLink],
   templateUrl: './puzzle-archive-page.html',
   styleUrl: './puzzle-archive-page.css',
 })

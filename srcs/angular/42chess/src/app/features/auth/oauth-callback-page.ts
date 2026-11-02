@@ -10,7 +10,7 @@ import { AuthFrame } from '../../shared/auth-frame';
   imports: [AuthFrame, RouterLink],
   template: `
     <app-auth-frame>
-      <h2>Completing sign-in</h2>
+      <h1>Completing sign-in</h1>
       @if (error()) {
         <p role="alert">{{ error() }}</p>
         <a class="button secondary" routerLink="/login">Return to sign in</a>

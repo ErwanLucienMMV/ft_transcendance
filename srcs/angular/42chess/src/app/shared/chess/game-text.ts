@@ -106,3 +106,29 @@ export function repetitions(initialFen: string, moves: readonly GameMove[]): num
   const current = positionKey(fens[fens.length - 1]);
   return fens.filter((fen) => positionKey(fen) === current).length;
 }
+
+const SPOKEN_PIECES: Record<string, string> = {
+  K: 'King',
+  Q: 'Queen',
+  R: 'Rook',
+  B: 'Bishop',
+  N: 'Knight',
+};
+
+/**
+ * A move as a screen reader should say it: "White: Knight takes e5, check" rather than
+ * "N x e 5 plus".
+ */
+export function spokenMove(notation: string, color: PlayerColor): string {
+  const side = color === 'WHITE' ? 'White' : 'Black';
+  const suffix = notation.endsWith('#') ? ', checkmate' : notation.endsWith('+') ? ', check' : '';
+  const san = notation.replace(/[+#!?]+$/, '');
+  if (san.startsWith('O-O-O')) return `${side}: castles queenside${suffix}`;
+  if (san.startsWith('O-O')) return `${side}: castles kingside${suffix}`;
+  const match = /^([KQRBN])?([a-h]?[1-8]?)(x)?([a-h][1-8])(?:=([QRBN]))?$/.exec(san);
+  if (!match) return `${side}: ${notation}`;
+  const [, piece, from, capture, to, promotion] = match;
+  const mover = piece ? SPOKEN_PIECES[piece] : from ? `${from} pawn` : 'Pawn';
+  const promoted = promotion ? `, promotes to ${SPOKEN_PIECES[promotion].toLowerCase()}` : '';
+  return `${side}: ${mover}${piece && from ? ` from ${from}` : ''} ${capture ? 'takes' : 'to'} ${to}${promoted}${suffix}`;
+}

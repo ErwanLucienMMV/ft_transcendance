@@ -3,6 +3,9 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { provideRouter, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
+import { AuthSession } from '../../core/auth/auth-session';
+import { Challenges } from '../social/challenge';
+import { UsersApi } from '../social/users-api';
 import { RealtimeService, ServerEvent } from '../../core/realtime/realtime.service';
 import { GamesApi } from './games-api';
 import { MATCHMAKING_HEARTBEAT_MS, MatchmakingApi } from './matchmaking';
@@ -32,7 +35,11 @@ describe('Play page', () => {
     leave: ReturnType<typeof vi.fn>;
   };
   let events: Subject<ServerEvent>;
+  let users: { friends: ReturnType<typeof vi.fn> };
+  let challenges: { send: ReturnType<typeof vi.fn> };
   beforeEach(() => {
+    users = { friends: vi.fn().mockReturnValue(of({ friends: [] })) };
+    challenges = { send: vi.fn().mockReturnValue(of(undefined)) };
     api = {
       create: vi.fn(),
       createBot: vi.fn(),
@@ -54,8 +61,88 @@ describe('Play page', () => {
         { provide: GamesApi, useValue: api },
         { provide: MatchmakingApi, useValue: queue },
         { provide: RealtimeService, useValue: { events, connect: vi.fn() } },
+        { provide: UsersApi, useValue: users },
+        { provide: Challenges, useValue: challenges },
       ],
     });
+  });
+
+  afterEach(() => TestBed.inject(AuthSession).clear());
+
+  function signIn(): void {
+    TestBed.inject(AuthSession).establish({
+      user: { id: 'me', username: 'me', elo: 1200 },
+      accessToken: `x.${btoa(JSON.stringify({ exp: Date.now() / 1000 + 3600 }))}.x`,
+    });
+  }
+
+  it('names what the button creates: a casual or a rated open game', () => {
+    const fixture = TestBed.createComponent(PlayPage);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const button = () => element.querySelectorAll('.play-card > button')[1] as HTMLButtonElement;
+    expect(button().textContent?.trim()).toBe('Create a casual game');
+    (
+      element.querySelector('[aria-labelledby="friend-title"] .toggle input') as HTMLInputElement
+    ).click();
+    fixture.detectChanges();
+    expect(button().textContent?.trim()).toBe('Create a rated game');
+    expect(users.friends).not.toHaveBeenCalled();
+  });
+
+  it('challenges a chosen friend directly, with the chosen time control and rating', () => {
+    users.friends.mockReturnValue(
+      of({
+        friends: [
+          { id: 'zed', username: 'zed', elo: 1300, status: 'ONLINE' },
+          { id: 'bob', username: 'bob', elo: 1180, status: 'OFFLINE' },
+        ],
+      }),
+    );
+    signIn();
+    const fixture = TestBed.createComponent(PlayPage);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const select = element.querySelector('#friend-choice') as HTMLSelectElement;
+    expect([...select.options].map((option) => option.textContent?.trim())).toEqual([
+      'Anyone with the link',
+      'bob (1180) · offline',
+      'zed (1300)',
+    ]);
+    select.value = 'zed';
+    select.dispatchEvent(new Event('change'));
+    (
+      element.querySelector('[aria-labelledby="friend-title"] .toggle input') as HTMLInputElement
+    ).click();
+    fixture.detectChanges();
+    const button = element.querySelectorAll('.play-card > button')[1] as HTMLButtonElement;
+    expect(button.textContent?.trim()).toBe('Challenge zed');
+    button.click();
+    expect(challenges.send).toHaveBeenCalledWith('zed', {
+      timeControl: { initialTime: 600_000, increment: 0 },
+      rated: true,
+    });
+    expect(api.create).not.toHaveBeenCalled();
+  });
+
+  it('explains a challenge that could not be sent', () => {
+    users.friends.mockReturnValue(
+      of({ friends: [{ id: 'zed', username: 'zed', elo: 1300, status: 'ONLINE' }] }),
+    );
+    challenges.send.mockReturnValue(throwError(() => new Error('Offline')));
+    signIn();
+    const fixture = TestBed.createComponent(PlayPage);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const select = element.querySelector('#friend-choice') as HTMLSelectElement;
+    select.value = 'zed';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    (element.querySelectorAll('.play-card > button')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain(
+      'The challenge could not be sent.',
+    );
   });
 
   it('creates a game with the chosen time control and opens it', () => {

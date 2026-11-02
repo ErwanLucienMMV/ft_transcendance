@@ -18,6 +18,10 @@
   min-width: 40px;
   font-size: 16px;
 }
+.keys {
+  margin: 0;
+  font-size: 13px;
+}
 .controls .flip {
   margin-left: auto;
   font-size: 13px;
@@ -28,26 +32,4 @@
   color: var(--muted);
   font-size: 14px;
   font-variant-numeric: tabular-nums;
-}
-.move {
-  display: block;
-  min-height: 0;
-  padding: 3px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-button.move {
-  cursor: pointer;
-}
-button.move:hover {
-  background: var(--field);
-  color: var(--text);
-}
-button.move[aria-current='step'] {
-  background: var(--accent);
-  color: var(--accent-ink);
 }

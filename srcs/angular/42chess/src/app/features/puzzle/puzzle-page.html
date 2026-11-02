@@ -17,10 +17,12 @@
 
   <div class="puzzle-panel side-panel">
     <span class="eyebrow">{{ isToday() ? 'Daily puzzle' : 'Puzzle archive' }}</span>
-    <h2 id="puzzle-title">{{ daily() ? prompt() : isToday() ? "Today's puzzle" : 'Puzzle' }}</h2>
+    <h1 id="puzzle-title">{{ daily() ? prompt() : isToday() ? "Today's puzzle" : 'Puzzle' }}</h1>
 
     @if (error(); as message) {
-      <p class="alert" role="alert">{{ message }}</p>
+      <app-alert
+        ><p>{{ message }}</p></app-alert
+      >
     }
 
     @if (daily(); as puzzle) {

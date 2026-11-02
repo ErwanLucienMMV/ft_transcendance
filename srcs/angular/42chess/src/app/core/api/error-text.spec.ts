@@ -27,14 +27,14 @@ describe('errorText', () => {
 
   it('explains the HTTP status when the server gave no usable message', () => {
     expect(errorText(apiError(502, '<html>gateway</html>'), 'fallback')).toBe(
-      'The API is not responding (502). It may be restarting; try again in a moment.',
+      'The server is not responding right now. Please try again in a moment.',
     );
     expect(
       errorText(
         apiError(500, { statusCode: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Internal' }),
         'fallback',
       ),
-    ).toBe('Unexpected server error (500). Try again; if it persists, check the API logs.');
+    ).toBe('Something went wrong on our side. Please try again in a moment.');
     expect(errorText(apiError(0, null), 'fallback')).toBe(
       'Unable to reach the server. Check your connection, then try again.',
     );

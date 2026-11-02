@@ -2,7 +2,7 @@
   <header class="page-head">
     <div>
       <span class="eyebrow">Players</span>
-      <h2 id="leaderboard-title">Leaderboard</h2>
+      <h1 id="leaderboard-title">Leaderboard</h1>
       <p>
         Every player with a rated game, best rating first. Equal ratings share a rank.
         <a routerLink="/progression">How ratings, XP and levels work</a>
@@ -22,17 +22,16 @@
   </header>
 
   @if (failed()) {
-    <div class="alert" role="alert">
+    <app-alert>
       <p>The leaderboard could not be loaded.</p>
       <button type="button" class="button secondary" (click)="retry()">Try again</button>
-    </div>
+    </app-alert>
   } @else if (rows(); as list) {
     @if (total() === 0) {
-      <div class="empty">
-        <strong>No ranked player yet.</strong>
+      <app-empty-state heading="No ranked player yet.">
         <p>Finish a rated game to appear here.</p>
         <a class="button" routerLink="/play">Play a rated game</a>
-      </div>
+      </app-empty-state>
     } @else {
       <table class="board" [attr.aria-busy]="loading()">
         <caption class="sr-only">
@@ -74,29 +73,9 @@
           }
         </tbody>
       </table>
-      @if (pages() > 1) {
-        <nav class="pager" aria-label="Pages">
-          <button
-            type="button"
-            class="button secondary"
-            [disabled]="page() <= 1"
-            (click)="go(page() - 1)"
-          >
-            Previous
-          </button>
-          <span aria-current="page">Page {{ page() }} of {{ pages() }}</span>
-          <button
-            type="button"
-            class="button secondary"
-            [disabled]="page() >= pages()"
-            (click)="go(page() + 1)"
-          >
-            Next
-          </button>
-        </nav>
-      }
+      <app-pager [page]="page()" [pages]="pages()" (pageChange)="go($event)" />
     }
   } @else if (loading()) {
-    <p class="empty" role="status">Loading the leaderboard…</p>
+    <app-empty-state [loading]="true"><p>Loading the leaderboard…</p></app-empty-state>
   }
 </section>

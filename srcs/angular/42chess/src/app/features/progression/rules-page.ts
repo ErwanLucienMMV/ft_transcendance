@@ -1,11 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ProgressionApi, ProgressionRules } from './progression-api';
+import { Alert } from '../../shared/ui/alert';
+import { EmptyState } from '../../shared/ui/empty-state';
 
 /** How rating, XP, levels, the puzzle streak and achievements work, with the server's numbers. */
 @Component({
   selector: 'app-rules-page',
-  imports: [RouterLink],
+  imports: [EmptyState, Alert, RouterLink],
   templateUrl: './rules-page.html',
   styleUrl: './rules-page.css',
 })

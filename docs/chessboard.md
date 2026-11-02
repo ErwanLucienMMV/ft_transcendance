@@ -29,8 +29,21 @@ reference perft counts of five positions (castling, en passant, promotion, pins)
 | `interactive` | `boolean` | Off by default: spectators, replays and history stay read-only |
 | `playerColor` | `'WHITE' \| 'BLACK' \| null` | Colour this viewer may move; `null` lets the side to move play |
 | `result` | `{ winner, reason } \| null` | Server result; replaces the locally detected checkmate/stalemate |
+| `hint` | `string \| null` | Square to point at (puzzles) |
+| `premoves` | `boolean` | While the opponent thinks, the player may prepare one move; it is played when the turn comes if still legal |
+| `annotations` | `boolean` | Right-click draws circles and arrows (cleared by a left click or the next position) |
+| `animate` | `boolean` | On by default: the last move slides (180 ms), skipped for reduced motion and dragged moves |
 | `moved` (output) | `{ from, to, promotion }` | `promotion` uses the WebSocket names (`QUEEN`, `ROOK`, `BISHOP`, `KNIGHT`) |
 
 `BoardMove` matches `GameRealtime.move(from, to, promotion)`, so the game page (lot 18)
-can forward it as is. Moves are made by click or drag and drop; Escape cancels a
-selection or the promotion choice.
+can forward it as is. Moves are made by click or drag (Pointer Events, so mouse, pen and
+touch alike; a drag starts after 6 px). Escape cancels a selection, a premove or the
+promotion choice.
+
+## Keyboard and screen readers
+
+The board is one tab stop (roving `tabindex`): arrow keys move between squares, Home and
+End jump to the ends of the rank, Enter or Space selects and plays. Each square is named
+("e4, white knight"), squares that cannot be used carry `aria-disabled`, and the help text
+is linked with `aria-describedby`. The game page also announces each move in words
+("Black: knight takes d5, check") in a polite live region.

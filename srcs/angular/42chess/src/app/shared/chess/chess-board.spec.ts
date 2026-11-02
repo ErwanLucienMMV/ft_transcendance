@@ -81,7 +81,7 @@ describe('Chessboard component', () => {
 
   it('only lets the viewer move their own colour on their turn', () => {
     const { fixture, moved } = render({ interactive: true, playerColor: 'BLACK' });
-    expect(square(fixture, 'e2').disabled).toBe(true);
+    expect(square(fixture, 'e2').getAttribute('aria-disabled')).toBe('true');
     click(fixture, 'e2');
     expect(moved).not.toHaveBeenCalled();
     fixture.componentRef.setInput(
@@ -96,7 +96,8 @@ describe('Chessboard component', () => {
 
   it('stays read-only unless interactive', () => {
     const { fixture } = render({});
-    expect(square(fixture, 'e2').disabled).toBe(true);
+    expect(square(fixture, 'e2').getAttribute('aria-disabled')).toBe('true');
+    expect(names(fixture, '.movable')).toEqual([]);
   });
 
   it('highlights the last move and distinguishes captures', () => {
@@ -141,7 +142,7 @@ describe('Chessboard component', () => {
     });
     const status = () => fixture.nativeElement.querySelector('[role="status"]')?.textContent.trim();
     expect(status()).toBe('Black wins by checkmate');
-    expect(square(fixture, 'e1').disabled).toBe(true);
+    expect(square(fixture, 'e1').getAttribute('aria-disabled')).toBe('true');
     fixture.componentRef.setInput('fen', START);
     fixture.componentRef.setInput('result', { winner: 'WHITE', reason: 'RESIGNATION' });
     fixture.detectChanges();
@@ -149,7 +150,154 @@ describe('Chessboard component', () => {
     fixture.componentRef.setInput('result', { winner: null, reason: 'DRAW_AGREEMENT' });
     fixture.detectChanges();
     expect(status()).toBe('Draw by agreement');
-    expect(square(fixture, 'e2').disabled).toBe(true);
+    expect(square(fixture, 'e2').getAttribute('aria-disabled')).toBe('true');
+  });
+
+  it('is one tab stop, explored with the arrow keys as seen on screen', () => {
+    const { fixture } = render({ interactive: true });
+    const stops = () => names(fixture, '.square[tabindex="0"]');
+    expect(stops()).toEqual(['a1']);
+    const key = (name: string, key: string) => {
+      square(fixture, name).dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+      fixture.detectChanges();
+    };
+    square(fixture, 'a1').focus();
+    key('a1', 'ArrowUp');
+    expect(stops()).toEqual(['a2']);
+    expect(document.activeElement?.getAttribute('data-square')).toBe('a2');
+    key('a2', 'End');
+    key('h2', 'ArrowLeft');
+    expect(stops()).toEqual(['g2']);
+    // Flipped, "up" goes towards White's side.
+    fixture.componentRef.setInput('orientation', 'BLACK');
+    fixture.detectChanges();
+    key('g2', 'ArrowUp');
+    expect(stops()).toEqual(['g1']);
+    // Enter (a keyboard click) picks the knight, then its square.
+    square(fixture, 'g1').click();
+    fixture.detectChanges();
+    expect(names(fixture, '.target').sort()).toEqual(['f3', 'h3']);
+  });
+
+  it('moves a piece by dragging it with a mouse, a pen or a finger', () => {
+    const { fixture, moved } = render({ interactive: true });
+    const board = fixture.nativeElement.querySelector('.board') as HTMLElement;
+    board.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 800 }) as DOMRect;
+    board.setPointerCapture = vi.fn();
+    const pointer = (type: string, target: Element, x: number, y: number) => {
+      const event = new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 });
+      Object.defineProperty(event, 'pointerId', { value: 7 });
+      target.dispatchEvent(event);
+      fixture.detectChanges();
+    };
+    // e2 is the fifth file and the seventh row from the top: centre (450, 650).
+    pointer('pointerdown', square(fixture, 'e2'), 450, 650);
+    pointer('pointermove', board, 452, 600);
+    expect(fixture.nativeElement.querySelector('.ghost')).not.toBeNull();
+    expect(names(fixture, '.drag-origin')).toEqual(['e2']);
+    pointer('pointerup', board, 450, 450);
+    expect(moved).toHaveBeenCalledWith({ from: 'e2', to: 'e4', promotion: null });
+    expect(fixture.nativeElement.querySelector('.ghost')).toBeNull();
+    // A tap without moving is a click.
+    pointer('pointerdown', square(fixture, 'g1'), 650, 750);
+    pointer('pointerup', square(fixture, 'g1'), 651, 750);
+    expect(names(fixture, '.selected')).toEqual(['g1']);
+  });
+
+  it("queues a premove during the opponent's turn and plays it when legal", () => {
+    const afterE4 = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+    const { fixture, moved } = render({
+      fen: afterE4,
+      playerColor: 'WHITE',
+      interactive: false,
+      premoves: true,
+    });
+    expect(names(fixture, '.movable')).toContain('g1');
+    click(fixture, 'g1');
+    click(fixture, 'f3');
+    expect(names(fixture, '.premove').sort()).toEqual(['f3', 'g1']);
+    expect(moved).not.toHaveBeenCalled();
+    fixture.componentRef.setInput(
+      'fen',
+      'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2',
+    );
+    fixture.componentRef.setInput('interactive', true);
+    fixture.detectChanges();
+    expect(moved).toHaveBeenCalledWith({ from: 'g1', to: 'f3', promotion: null });
+    expect(names(fixture, '.premove')).toEqual([]);
+  });
+
+  it('drops a premove that is no longer legal, and cancels one on Escape', () => {
+    const { fixture, moved } = render({
+      fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+      playerColor: 'WHITE',
+      premoves: true,
+    });
+    click(fixture, 'e4');
+    click(fixture, 'e5');
+    // Black blocks the pawn: the premove cannot be played.
+    fixture.componentRef.setInput(
+      'fen',
+      'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2',
+    );
+    fixture.componentRef.setInput('interactive', true);
+    fixture.detectChanges();
+    expect(moved).not.toHaveBeenCalled();
+    expect(names(fixture, '.premove')).toEqual([]);
+  });
+
+  it('draws circles and arrows with the right button on an analysis board', () => {
+    const { fixture } = render({ annotations: true });
+    const board = fixture.nativeElement.querySelector('.board') as HTMLElement;
+    board.getBoundingClientRect = () => ({ left: 0, top: 0, width: 800, height: 800 }) as DOMRect;
+    const right = (type: string, name: string, x: number, y: number) => {
+      const event = new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 2 });
+      square(fixture, name).dispatchEvent(event);
+      fixture.detectChanges();
+    };
+    right('pointerdown', 'e4', 450, 450);
+    right('pointerup', 'e4', 450, 450);
+    expect(fixture.nativeElement.querySelectorAll('.shapes circle').length).toBe(1);
+    right('pointerdown', 'g1', 650, 750);
+    right('pointerup', 'f3', 550, 550);
+    expect(fixture.nativeElement.querySelectorAll('.shapes polygon').length).toBe(1);
+    const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    board.dispatchEvent(menu);
+    expect(menu.defaultPrevented).toBe(true);
+    // The same gesture again removes the arrow; a left click clears everything.
+    right('pointerdown', 'g1', 650, 750);
+    right('pointerup', 'f3', 550, 550);
+    expect(fixture.nativeElement.querySelectorAll('.shapes polygon').length).toBe(0);
+    const left = new MouseEvent('pointerdown', { bubbles: true, button: 0 });
+    square(fixture, 'a1').dispatchEvent(left);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.shapes')).toBeNull();
+  });
+
+  it('slides the piece of a new last move from its square', () => {
+    const { fixture } = render({});
+    const piece = () => square(fixture, 'e4').querySelector('.piece') as SVGElement;
+    const animate = vi.fn(() => ({}) as Animation);
+    Object.defineProperty(SVGElement.prototype, 'animate', { value: animate, configurable: true });
+    try {
+      fixture.componentRef.setInput(
+        'fen',
+        'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+      );
+      fixture.componentRef.setInput('lastMove', { from: 'e2', to: 'e4' });
+      fixture.detectChanges();
+      TestBed.tick();
+      expect(animate).toHaveBeenCalledTimes(1);
+      expect(animate.mock.contexts[0]).toBe(piece());
+      // Stepping back in a replay does not replay the move backwards.
+      fixture.componentRef.setInput('fen', START);
+      fixture.componentRef.setInput('lastMove', null);
+      fixture.detectChanges();
+      TestBed.tick();
+      expect(animate).toHaveBeenCalledTimes(1);
+    } finally {
+      delete (SVGElement.prototype as unknown as { animate?: unknown }).animate;
+    }
   });
 
   it('reports a position it cannot draw', () => {

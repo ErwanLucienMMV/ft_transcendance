@@ -19,12 +19,12 @@ export function statusText(statusCode: number): string | null {
     case 429:
       return 'Too many attempts. Wait a moment, then try again.';
     case 500:
-      return 'Unexpected server error (500). Try again; if it persists, check the API logs.';
+      return 'Something went wrong on our side. Please try again in a moment.';
     case 502:
     case 504:
-      return `The API is not responding (${statusCode}). It may be restarting; try again in a moment.`;
+      return 'The server is not responding right now. Please try again in a moment.';
     case 503:
-      return 'A service the site needs is unavailable (503). Try again in a moment.';
+      return 'This feature is temporarily unavailable. Please try again in a moment.';
     default:
       return null;
   }

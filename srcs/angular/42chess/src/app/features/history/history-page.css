@@ -52,14 +52,6 @@ time {
   color: var(--muted);
   font-size: 13px;
 }
-.pager {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  color: var(--muted);
-  font-size: 14px;
-}
 @media (max-width: 560px) {
   .game {
     grid-template-columns: 64px minmax(0, 1fr);

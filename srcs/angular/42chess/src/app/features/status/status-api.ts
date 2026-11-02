@@ -30,7 +30,7 @@ export interface HealthReport {
 
 export const STATUS_REFRESH_MS = 30_000;
 
-/** The page explains an outage itself: no global error banner on top of it. */
+/** The page explains an outage itself: no error toast on top of it. */
 const OUTAGE_ERRORS = handledErrors('HTTP_ERROR', 'NETWORK_ERROR', 'INTERNAL_SERVER_ERROR');
 
 function isReport(value: unknown): value is HealthReport {

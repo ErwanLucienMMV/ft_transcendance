@@ -18,7 +18,7 @@ test('two players create, join and finish a live game by checkmate', async ({
 
   await host.getByRole('navigation').getByRole('link', { name: 'Play', exact: true }).click();
   await host.getByText('5 + 0').click();
-  await host.getByRole('button', { name: 'Create game' }).click();
+  await host.getByRole('button', { name: /^Create a (casual|rated) game$/ }).click();
   await expect(host).toHaveURL(/\/game\/[0-9a-f-]{36}$/);
   await expect(host.getByRole('heading', { name: 'Waiting for an opponent' })).toBeVisible();
   const link = await host.getByLabel('Game link').inputValue();
@@ -79,7 +79,7 @@ async function startGame(
 ): Promise<[Page, Page]> {
   await host.goto('/play');
   if (options.rated) await host.getByLabel(/Rated game/).check();
-  await host.getByRole('button', { name: 'Create game' }).click();
+  await host.getByRole('button', { name: /^Create a (casual|rated) game$/ }).click();
   await expect(host).toHaveURL(/\/game\//);
   await guest.goto(new URL(await host.getByLabel('Game link').inputValue()).pathname);
   const headline = (page: Page) => page.locator('#game-title');

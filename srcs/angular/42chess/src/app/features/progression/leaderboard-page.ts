@@ -5,6 +5,9 @@ import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { UserAvatar } from '../../shared/user-avatar';
 import { LEADERBOARD_PAGE, LeaderboardRow, ProgressionApi } from './progression-api';
+import { Alert } from '../../shared/ui/alert';
+import { EmptyState } from '../../shared/ui/empty-state';
+import { Pager } from '../../shared/ui/pager';
 
 /** Page holding a rank: `?rank=` (from a profile) opens the page that shows it. */
 export function pageOf(rank: number): number {
@@ -17,7 +20,7 @@ export function pageOf(rank: number): number {
  */
 @Component({
   selector: 'app-leaderboard-page',
-  imports: [RouterLink, UserAvatar],
+  imports: [Pager, EmptyState, Alert, RouterLink, UserAvatar],
   templateUrl: './leaderboard-page.html',
   styleUrl: './leaderboard-page.css',
 })

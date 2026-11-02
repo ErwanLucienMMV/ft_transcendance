@@ -2,24 +2,22 @@
   <header class="page-head">
     <div>
       <span class="eyebrow">Your games</span>
-      <h2 id="history-title">Game history</h2>
+      <h1 id="history-title">Game history</h1>
       <p>Every finished game, newest first. Open one to replay it.</p>
     </div>
   </header>
 
   @if (failed()) {
-    <div class="alert" role="alert">
+    <app-alert>
       <p>Your games could not be loaded.</p>
       <button type="button" class="button secondary" (click)="retry()">Try again</button>
-    </div>
+    </app-alert>
   } @else if (result(); as list) {
     @if (list.total === 0) {
-      <div class="empty">
-        <svg viewBox="0 0 64 64" aria-hidden="true"><use href="/chess-pieces.svg#pawn" /></svg>
-        <strong>No finished games yet.</strong>
+      <app-empty-state piece="pawn" heading="No finished games yet.">
         <p>Your games appear here once they end, ready to replay.</p>
         <a class="button" routerLink="/play">Play a game</a>
-      </div>
+      </app-empty-state>
     } @else {
       <ol class="games rows" [attr.aria-busy]="loading()">
         @for (item of list.items; track item.id) {
@@ -35,29 +33,9 @@
           </li>
         }
       </ol>
-      @if (pages() > 1) {
-        <nav class="pager" aria-label="Pages">
-          <button
-            type="button"
-            class="button secondary"
-            [disabled]="page() <= 1"
-            (click)="go(page() - 1)"
-          >
-            Previous
-          </button>
-          <span aria-current="page">Page {{ page() }} of {{ pages() }}</span>
-          <button
-            type="button"
-            class="button secondary"
-            [disabled]="page() >= pages()"
-            (click)="go(page() + 1)"
-          >
-            Next
-          </button>
-        </nav>
-      }
+      <app-pager [page]="page()" [pages]="pages()" (pageChange)="go($event)" />
     }
   } @else if (loading()) {
-    <p class="empty" role="status">Loading your games…</p>
+    <app-empty-state [loading]="true"><p>Loading your games…</p></app-empty-state>
   }
 </section>

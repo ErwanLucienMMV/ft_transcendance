@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { API_BASE_URL } from '../../core/api/api-base-url';
 import { apiErrorInterceptor } from '../../core/api/api-error.interceptor';
-import { ErrorState } from '../../core/errors/error-state';
+import { Toasts } from '../../shared/ui/toasts';
 import { HealthReport, StatusApi } from './status-api';
 
 const report: HealthReport = {
@@ -23,34 +23,32 @@ describe('StatusApi', () => {
         { provide: API_BASE_URL, useValue: '/api/v1' },
       ],
     });
-    const errors = TestBed.inject(ErrorState);
-    vi.spyOn(errors, 'reportHttp');
     return {
       api: TestBed.inject(StatusApi),
       http: TestBed.inject(HttpTestingController),
-      errors,
+      toasts: TestBed.inject(Toasts),
     };
   }
 
-  it('reads the report, even from a 503 (database down), without the global banner', () => {
-    const { api, http, errors } = setup();
+  it('reads the report, even from a 503 (database down), without an error toast', () => {
+    const { api, http, toasts } = setup();
     const answers: unknown[] = [];
     api.health().subscribe((value) => answers.push(value));
     http
       .expectOne('/api/v1/health')
       .flush(report, { status: 503, statusText: 'Service Unavailable' });
     expect(answers).toEqual([report]);
-    expect(errors.reportHttp).not.toHaveBeenCalled();
+    expect(toasts.items()).toEqual([]);
   });
 
   it('answers null when the API does not answer', () => {
-    const { api, http, errors } = setup();
+    const { api, http, toasts } = setup();
     const answers: unknown[] = [];
     api.health().subscribe((value) => answers.push(value));
     http
       .expectOne('/api/v1/health')
       .flush('Bad gateway', { status: 502, statusText: 'Bad Gateway' });
     expect(answers).toEqual([null]);
-    expect(errors.reportHttp).not.toHaveBeenCalled();
+    expect(toasts.items()).toEqual([]);
   });
 });

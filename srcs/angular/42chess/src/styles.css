@@ -1,8 +1,8 @@
 /*
- * 42 Chess design system.
- * One dark palette, two typefaces (Space Grotesk for headings and numbers,
- * Inter for text), one page width and a small set of shared building blocks
- * (.page, .page-head, .card, .empty, .alert, buttons, fields) used by every page.
+ * 42 Chess design system (docs/design-system.md, live at /design).
+ * Two palettes (dark by default, light), two typefaces (Space Grotesk for headings and
+ * numbers, Inter for text), one page width, shared building blocks (.page, .page-head,
+ * .card, .rows, buttons, fields) and the components of src/app/shared/ui.
  */
 :root {
   color-scheme: dark;
@@ -15,6 +15,11 @@
   --field-hover: #222b2c;
   --border: #252e2f;
   --border-strong: #354142;
+  --border-hover: #4a5753;
+  /* The sticky header lets the page show through. */
+  --header-background: rgba(11, 14, 15, 0.82);
+  /* Every other row of a long list. */
+  --stripe: rgba(255, 255, 255, 0.025);
 
   /* Text. */
   --text: #eef1ea;
@@ -32,9 +37,16 @@
   --error: #ffb4a6;
   --error-bg: #2a1716;
   --error-border: #6e3a35;
+  --error-hover: #ffcabf;
+  --danger-ink: #2a0d0a;
+  --success: #b9e08a;
   --success-bg: #18230f;
   --success-border: #3c5221;
   --warning: #f2c14e;
+  --warning-bg: #2a2412;
+  --warning-border: #6b5a26;
+  --info-bg: #142023;
+  --info-border: #2f4a4f;
 
   /* Type and shape. */
   --font-text: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -53,6 +65,42 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+/* Light theme: same roles, darker accent so that text and buttons keep their contrast. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --background: #f5f6f1;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --field: #eef0ea;
+  --field-hover: #e3e7de;
+  --border: #dde1d7;
+  --border-strong: #c3c9bd;
+  --border-hover: #9aa395;
+  --header-background: rgba(245, 246, 241, 0.86);
+  --stripe: rgba(20, 26, 23, 0.03);
+  --text: #141a17;
+  --muted: #56615c;
+  --faint: #7d8883;
+  --accent: #4b7a12;
+  --accent-hover: #3d6510;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(75, 122, 18, 0.1);
+  --accent-line: rgba(75, 122, 18, 0.35);
+  --error: #b3261e;
+  --error-bg: #fdecea;
+  --error-border: #efb8b1;
+  --error-hover: #93201a;
+  --danger-ink: #ffffff;
+  --success: #2f6a12;
+  --success-bg: #eef7e6;
+  --success-border: #b8d89b;
+  --warning: #8a5a00;
+  --warning-bg: #fff6df;
+  --warning-border: #e8cf8f;
+  --info-bg: #ecf4f5;
+  --info-border: #b9d3d6;
+  --shadow: 0 1px 2px rgba(20, 26, 23, 0.05), 0 12px 32px -18px rgba(20, 26, 23, 0.22);
 }
 *,
 *::before,
@@ -87,11 +135,18 @@ h4 {
   line-height: 1.15;
   margin-top: 0;
 }
-h2 {
+/* One h1 per page (its title), h2 for its sections, h3 inside them. */
+h1 {
   font-size: 28px;
+  margin-bottom: 0.83em;
+}
+h2 {
+  font-size: 17px;
+  margin-bottom: 1em;
 }
 h3 {
-  font-size: 17px;
+  font-size: 1em;
+  margin-bottom: 1.33em;
 }
 p {
   margin-top: 0;
@@ -146,7 +201,7 @@ button.secondary {
 .button.secondary:hover,
 button.secondary:hover {
   background: var(--field-hover);
-  border-color: #46534f;
+  border-color: var(--border-hover);
   color: var(--text);
 }
 .button.ghost,
@@ -170,12 +225,12 @@ button.small {
 .button.danger,
 button.danger {
   background: var(--error);
-  color: #2a0d0a;
+  color: var(--danger-ink);
 }
 .button.danger:hover,
 button.danger:hover {
-  background: #ffcabf;
-  color: #2a0d0a;
+  background: var(--error-hover);
+  color: var(--danger-ink);
 }
 
 /* ---------- Fields ---------- */
@@ -202,7 +257,7 @@ textarea::placeholder {
 }
 input:hover,
 textarea:hover {
-  border-color: #4a5753;
+  border-color: var(--border-hover);
 }
 input:focus,
 textarea:focus {
@@ -342,7 +397,7 @@ textarea:focus-visible {
   gap: 8px;
   min-width: 0;
 }
-.page-head h2 {
+.page-head h1 {
   margin: 0;
   font-size: clamp(28px, 3.2vw, 36px);
   letter-spacing: -0.025em;
@@ -401,6 +456,47 @@ textarea:focus-visible {
 }
 .alert p {
   margin: 0;
+}
+/* The <app-alert> component: icon, text, optional close button, in four tones. */
+app-alert.alert {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  justify-items: stretch;
+  gap: 10px 12px;
+}
+app-alert .alert-icon {
+  margin-top: 3px;
+}
+app-alert .alert-body {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  color: var(--text);
+}
+app-alert .alert-body strong {
+  color: inherit;
+}
+app-alert .dismiss {
+  min-height: 28px;
+  padding: 4px 6px;
+}
+.alert[data-tone='error'] .alert-body strong {
+  color: var(--error);
+}
+.alert[data-tone='warning'] {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.alert[data-tone='success'] {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+  color: var(--success);
+}
+.alert[data-tone='info'] {
+  border-color: var(--info-border);
+  background: var(--info-bg);
+  color: var(--muted);
 }
 /* Empty and loading states: centred, with a faint piece, inside a dashed tile. */
 .empty {
@@ -492,7 +588,7 @@ textarea:focus-visible {
   height: 30px;
   fill: currentColor;
 }
-.auth-card h2 {
+.auth-card h1 {
   font-size: 28px;
   letter-spacing: -0.025em;
   margin-bottom: 6px;
@@ -650,7 +746,7 @@ textarea:focus-visible {
     padding: 26px 22px;
     border-radius: 16px;
   }
-  .auth-card h2 {
+  .auth-card h1 {
     font-size: 25px;
   }
 }
@@ -696,7 +792,7 @@ textarea:focus-visible {
   background: var(--surface);
   box-shadow: var(--shadow);
 }
-.side-panel > h2 {
+.side-panel > h1 {
   margin: 0;
   font-size: 24px;
   letter-spacing: -0.02em;
@@ -722,8 +818,8 @@ textarea:focus-visible {
   padding-top: 18px;
   border-top: 1px solid var(--border);
 }
-.panel-section > h3,
-.move-list > h3 {
+.panel-section > h2,
+.move-list > h2 {
   margin: 0;
   color: var(--muted);
   font-family: var(--font-text);
@@ -753,7 +849,29 @@ textarea:focus-visible {
   border-radius: 6px;
 }
 .move-list li:nth-child(even) {
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--stripe);
+}
+.move-list .move {
+  display: block;
+  min-height: 0;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.move-list button.move {
+  cursor: pointer;
+}
+.move-list button.move:hover {
+  background: var(--field);
+  color: var(--text);
+}
+.move-list .move[aria-current='step'] {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 .move-list li::before {
   content: attr(value) '.';

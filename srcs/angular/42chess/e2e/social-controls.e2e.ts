@@ -12,7 +12,7 @@ async function openProfile(page: Page, username: string): Promise<void> {
     await expect(result).toBeVisible({ timeout: 1000 });
   }).toPass();
   await result.click();
-  await expect(page.getByRole('heading', { name: username, level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: username, level: 1 })).toBeVisible();
 }
 
 async function writeTo(page: Page, username: string): Promise<void> {

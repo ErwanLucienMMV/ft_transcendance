@@ -9,6 +9,7 @@ import { BoardMove, ChessBoard, fenAfter, moveUci } from '../../shared/chess/che
 import { formatClock } from '../game/game-clock';
 import { ProgressionApi } from '../progression/progression-api';
 import { DailyPuzzle, PuzzleAttempt, PuzzleReward, PuzzlesApi, PuzzleTurn } from './puzzles-api';
+import { Alert } from '../../shared/ui/alert';
 
 const THEMES: Record<string, string> = {
   CHECK: 'Check',
@@ -43,7 +44,7 @@ export function boardMove(uci: string): BoardMove {
  */
 @Component({
   selector: 'app-puzzle-page',
-  imports: [ChessBoard, RouterLink],
+  imports: [Alert, ChessBoard, RouterLink],
   templateUrl: './puzzle-page.html',
   styleUrl: './puzzle-page.css',
 })

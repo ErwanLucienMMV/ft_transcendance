@@ -2,7 +2,7 @@
   <header class="page-head">
     <div>
       <span class="eyebrow">Service status</span>
-      <h2 id="status-title">Is 42 Chess working?</h2>
+      <h1 id="status-title">Is 42 Chess working?</h1>
       <p>
         What the server reaches right now. This page refreshes itself every
         {{ refreshSeconds }} seconds while it is open.
@@ -15,7 +15,7 @@
       <div class="card overall" [class]="o.tone">
         <span class="dot" aria-hidden="true"></span>
         <div>
-          <h3>{{ o.title }}</h3>
+          <h2>{{ o.title }}</h2>
           <p>{{ o.text }}</p>
         </div>
       </div>
@@ -26,7 +26,7 @@
 
   @if (rows().length) {
     <section class="card" aria-labelledby="services-title">
-      <h3 id="services-title">Services</h3>
+      <h2 id="services-title">Services</h2>
       <ul class="services">
         @for (row of rows(); track row.name) {
           <li [class]="row.up === null ? 'unknown' : row.up ? 'ok' : 'down'">
@@ -49,7 +49,7 @@
 
   @if (backup(); as b) {
     <section class="card backup" [class]="b.tone" aria-labelledby="backup-title">
-      <h3 id="backup-title">Database backups</h3>
+      <h2 id="backup-title">Database backups</h2>
       <p>
         <span>{{ b.text }}</span>
         @if (b.at) {

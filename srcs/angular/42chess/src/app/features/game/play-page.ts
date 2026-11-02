@@ -10,6 +10,9 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ApiError } from '../../core/api/api-error';
+import { AuthSession } from '../../core/auth/auth-session';
+import { Challenges } from '../social/challenge';
+import { Friend, UsersApi } from '../social/users-api';
 import type { PlayerColor } from '../../core/realtime/game-realtime';
 import {
   BOT_LEVELS,
@@ -30,8 +33,8 @@ export const BOT_SUGGESTION_MS = 60_000;
 
 /**
  * Starts a game. Matchmaking finds a rated opponent with the same time control; against a
- * friend the creator gets a link and the first person to open it plays; against the bot the
- * game is active at once.
+ * friend the creator either gets a link (the first person to open it plays) or reserves the
+ * seat for one friend, who is told at once; against the bot the game is active at once.
  */
 @Component({
   selector: 'app-play-page',
@@ -43,6 +46,16 @@ export const BOT_SUGGESTION_MS = 60_000;
 export class PlayPage {
   private readonly games = inject(GamesApi);
   private readonly router = inject(Router);
+  private readonly users = inject(UsersApi);
+  private readonly challenges = inject(Challenges);
+  private readonly session = inject(AuthSession);
+  /** Friends who can be challenged directly; empty until loaded. */
+  readonly friends = signal<Friend[]>([]);
+  /** The friend the seat is reserved for, or null for an open link. */
+  readonly friendId = signal<string | null>(null);
+  readonly friendName = computed(
+    () => this.friends().find((friend) => friend.id === this.friendId())?.username ?? '',
+  );
   readonly controls = TIME_CONTROLS;
   readonly selected = signal<TimeControlChoice>(TIME_CONTROLS[2]);
   readonly creating = signal(false);
@@ -86,6 +99,12 @@ export class PlayPage {
   constructor() {
     if (!this.browser) return;
     this.loadInvitations();
+    if (this.session.authenticated())
+      this.users.friends().subscribe({
+        next: ({ friends }) =>
+          this.friends.set([...friends].sort((a, b) => a.username.localeCompare(b.username))),
+        error: () => this.friends.set([]),
+      });
     let timer: ReturnType<typeof setInterval> | undefined;
     effect(() => {
       clearInterval(timer);
@@ -107,6 +126,24 @@ export class PlayPage {
     const { initialTime, increment } = this.selected();
     this.creating.set(true);
     this.error.set(null);
+    const friend = this.friendId();
+    if (friend) {
+      // The friend gets a notification and a message with the link; the page opens the game.
+      this.challenges
+        .send(friend, { timeControl: { initialTime, increment }, rated: this.rated() })
+        .subscribe({
+          next: () => this.creating.set(false),
+          error: (error: unknown) => {
+            this.creating.set(false);
+            this.error.set(
+              error instanceof ApiError
+                ? error.message
+                : 'The challenge could not be sent. Check your connection, then try again.',
+            );
+          },
+        });
+      return;
+    }
     this.games.create({ initialTime, increment }, undefined, this.rated()).subscribe({
       next: ({ gameId }) => void this.router.navigate(['/game', gameId]),
       error: (error: unknown) => {

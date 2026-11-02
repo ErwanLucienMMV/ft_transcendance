@@ -30,7 +30,7 @@
   padding-top: 0;
   border-top: 0;
 }
-:host ::ng-deep .subsection h4 {
+:host ::ng-deep .subsection h3 {
   margin: 0;
   font-size: 15px;
 }
@@ -175,6 +175,6 @@
 }
 
 /* Data */
-:host ::ng-deep .danger-zone h4 {
+:host ::ng-deep .danger-zone h3 {
   color: var(--error);
 }

@@ -19,7 +19,7 @@ test('a third user finds a live game, watches it move by move and leaves', async
     page.on('console', (message) => message.type() === 'error' && errors.push(message.text()));
 
   await host.goto('/play');
-  await host.getByRole('button', { name: 'Create game' }).click();
+  await host.getByRole('button', { name: /^Create a (casual|rated) game$/ }).click();
   await expect(host).toHaveURL(/\/game\/[0-9a-f-]{36}$/);
   const path = new URL(await host.getByLabel('Game link').inputValue()).pathname;
   await guest.goto(path);
@@ -36,7 +36,7 @@ test('a third user finds a live game, watches it move by move and leaves', async
   await expect(headline(viewer)).toHaveText('White to move');
   await expect(white.locator('[data-watchers]')).toHaveText('1 spectator watching');
   await expect(viewer.getByRole('button', { name: 'Resign' })).toHaveCount(0);
-  await expect(viewer.locator('.square:not([disabled])')).toHaveCount(0);
+  await expect(viewer.locator('.square:not([aria-disabled="true"])')).toHaveCount(0);
 
   await move(white, 'e2', 'e4');
   await expect(viewer.locator('.move-list li').first()).toContainText('e4');

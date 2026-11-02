@@ -3,7 +3,12 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
+import { SessionLifecycle } from '../../core/auth/session-lifecycle';
+import { Preferences } from '../../core/preferences/preferences';
 import { RealtimeService, ServerEvent } from '../../core/realtime/realtime.service';
+import { Sounds } from '../../core/sound/sounds';
+import { PageTitle } from '../../core/title/page-title';
+import { Challenges } from '../social/challenge';
 import { GameChatApi } from './game-chat';
 import { GamePage } from './game-page';
 import { GamesApi } from './games-api';
@@ -26,7 +31,12 @@ describe('Live game page', () => {
     send: ReturnType<typeof vi.fn>;
   };
   let query: Record<string, string>;
-  let api: { get: ReturnType<typeof vi.fn>; resumeBot: ReturnType<typeof vi.fn> };
+  let api: {
+    get: ReturnType<typeof vi.fn>;
+    resumeBot: ReturnType<typeof vi.fn>;
+    createBot: ReturnType<typeof vi.fn>;
+  };
+  let challenges: { send: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
@@ -42,13 +52,15 @@ describe('Live game page', () => {
       send: vi.fn(() => true),
     };
     query = {};
-    api = { get: vi.fn(), resumeBot: vi.fn() };
+    api = { get: vi.fn(), resumeBot: vi.fn(), createBot: vi.fn(() => of({ gameId: 'next' })) };
+    challenges = { send: vi.fn(() => of(undefined)) };
     TestBed.configureTestingModule({
       imports: [GamePage],
       providers: [
         provideRouter([]),
         { provide: RealtimeService, useValue: transport },
         { provide: GamesApi, useValue: api },
+        { provide: Challenges, useValue: challenges },
         {
           provide: GameChatApi,
           useValue: { history: () => of({ messages: [], total: 0, limit: 100, offset: 0 }) },
@@ -390,6 +402,158 @@ describe('Live game page', () => {
     expect(text(element, '.overlay.result')).toBe('Black wins on time');
   });
 
+  it("plays a move queued during the opponent's turn as soon as it is legal", () => {
+    const { click, state } = setup();
+    const afterE4 = {
+      fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+      turn: 'BLACK',
+      halfmoveClock: 0,
+      fullmoveNumber: 1,
+    };
+    state({ board: afterE4, moves: [opening.moves[0]] });
+    click('[data-square="g1"]');
+    click('[data-square="f3"]');
+    expect(transport.send).not.toHaveBeenCalledWith('MAKE_MOVE', expect.anything());
+    state(opening);
+    expect(transport.send).toHaveBeenCalledWith('MAKE_MOVE', {
+      gameId: id,
+      from: 'g1',
+      to: 'f3',
+      promotion: null,
+    });
+  });
+
+  it('waits for confirmation before sending a move when the player asked for it', () => {
+    const preferences = TestBed.inject(Preferences);
+    preferences.setConfirmMoves(true);
+    try {
+      const { element, click, state, button } = setup();
+      state();
+      click('[data-square="g1"]');
+      click('[data-square="f3"]');
+      expect(transport.send).not.toHaveBeenCalledWith('MAKE_MOVE', expect.anything());
+      expect(text(element, '[data-confirm-move] p')).toBe('Play Nf3?');
+      expect(element.querySelector('[data-square="f3"] svg')).not.toBeNull();
+      button('Cancel')!.click();
+      TestBed.tick();
+      expect(element.querySelector('[data-confirm-move]')).toBeNull();
+      click('[data-square="e2"]');
+      click('[data-square="e4"]');
+      button('Confirm move')!.click();
+      TestBed.tick();
+      expect(transport.send).toHaveBeenCalledWith('MAKE_MOVE', {
+        gameId: id,
+        from: 'e2',
+        to: 'e4',
+        promotion: null,
+      });
+    } finally {
+      preferences.setConfirmMoves(false);
+    }
+  });
+
+  it('shows what a rated game changed in both ratings and refreshes the header', () => {
+    const refresh = vi
+      .spyOn(TestBed.inject(SessionLifecycle), 'refreshUser')
+      .mockReturnValue(of(null));
+    const { element, state } = setup();
+    state({ ...opening, rated: true });
+    state({
+      ...opening,
+      rated: true,
+      status: 'FINISHED',
+      result: { winner: 'WHITE', reason: 'RESIGNATION' },
+      ratingChanges: { white: 8, black: -8 },
+      whitePlayer: { ...white, elo: 1008 },
+    });
+    expect(text(element, '[data-elo-change]')).toBe('Your rating: 1008+8');
+    expect(text(element, '[data-seat="top"] .elo-change')).toBe('-8');
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('plays a sound for each new move and for the end, not for the moves found on arrival', () => {
+    const play = vi.spyOn(TestBed.inject(Sounds), 'play').mockImplementation(() => {});
+    const { state } = setup();
+    state({ ...opening });
+    expect(play).not.toHaveBeenCalled();
+    state({
+      ...opening,
+      moves: [
+        ...opening.moves,
+        {
+          number: 3,
+          playerId: 'me',
+          from: 'd1',
+          to: 'h5',
+          notation: 'Qh5',
+          fen: '',
+          timestamp: '',
+        },
+      ],
+    });
+    expect(play).toHaveBeenLastCalledWith('move');
+    state({ ...opening, status: 'FINISHED', result: { winner: 'BLACK', reason: 'RESIGNATION' } });
+    expect(play).toHaveBeenLastCalledWith('end');
+  });
+
+  it('says "Your move" in the tab title while it is my turn', () => {
+    const title = TestBed.inject(PageTitle);
+    const { fixture, state } = setup();
+    state();
+    expect(title.status()).toBe('Your move');
+    state({
+      board: {
+        fen: START.replace(' w ', ' b '),
+        turn: 'BLACK',
+        halfmoveClock: 0,
+        fullmoveNumber: 1,
+      },
+    });
+    expect(title.status()).toBeNull();
+    state();
+    fixture.destroy();
+    expect(title.status()).toBeNull();
+  });
+
+  it('announces the last move to screen readers in words', () => {
+    const { element, state } = setup();
+    state(opening);
+    expect(text(element, '[data-announcement]')).toBe('Black: Pawn to e5');
+  });
+
+  it('offers a rematch to a person with the same time control and rating', () => {
+    const { element, state } = setup();
+    state({
+      ...opening,
+      rated: true,
+      status: 'FINISHED',
+      result: { winner: 'WHITE', reason: 'RESIGNATION' },
+    });
+    (element.querySelector('[data-rematch]') as HTMLButtonElement).click();
+    expect(challenges.send).toHaveBeenCalledWith('rival', {
+      timeControl: { initialTime: 300_000, increment: 0 },
+      rated: true,
+    });
+  });
+
+  it('opens the analysis board on the final position and exports the game as PGN', async () => {
+    const { element, state, fixture } = setup();
+    const final = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2';
+    state({ ...opening, status: 'FINISHED', result: { winner: null, reason: 'DRAW_AGREEMENT' } });
+    const analysis = [...element.querySelectorAll('a')].find((link) =>
+      link.textContent?.includes('Analysis board'),
+    );
+    expect(decodeURIComponent(analysis?.getAttribute('href') ?? '')).toBe(`/board?fen=${final}`);
+    const pgn = fixture.componentInstance.pgn();
+    expect(pgn).toContain('[White "Ta2b"]');
+    expect(pgn).toContain('[Result "1/2-1/2"]');
+    expect(pgn).toContain('1. e4 e5 1/2-1/2');
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await fixture.componentInstance.copyPgn();
+    expect(writeText).toHaveBeenCalledWith(pgn);
+  });
+
   it('shows the invitation link while waiting for an opponent', () => {
     const { element, state } = setup();
     state({ status: 'WAITING', blackPlayer: null, clocks: null });
@@ -438,7 +602,7 @@ describe('Live game page', () => {
       expect(text(element, '.eyebrow')).toBe('Spectating');
       expect(text(element, '#game-title')).toBe('White to move');
       expect(text(element, '[data-watchers]')).toBe('1 spectator watching');
-      expect(element.querySelector('.square:not([disabled])')).toBeNull();
+      expect(element.querySelector('.square:not([aria-disabled="true"])')).toBeNull();
     });
 
     it('opens straight as a spectator from the live list and hides every player action', () => {
@@ -451,7 +615,7 @@ describe('Live game page', () => {
       expect(text(element, '#game-title')).toBe('White to move');
       expect(text(element, '[data-watchers]')).toBe('3 spectators watching');
       for (const label of ['Resign', 'Offer draw']) expect(button(label)).toBeUndefined();
-      expect(element.querySelector('.square:not([disabled])')).toBeNull();
+      expect(element.querySelector('.square:not([aria-disabled="true"])')).toBeNull();
       expect(text(element, '[data-seat="bottom"] .player')).toBe('Ta2b (you)');
     });
 
@@ -569,6 +733,24 @@ describe('Live game page', () => {
       expect(element.querySelector('.thinking')).toBeNull();
       expect(element.querySelector('[data-square="d5"]')?.classList).toContain('last-move');
       expect(text(element, '.move-list li')).toBe('Nf3d5');
+    });
+
+    it('offers a rematch against the same level with the colours swapped', () => {
+      const { element, state } = setup();
+      state({
+        ...opening,
+        blackPlayer: bot,
+        status: 'FINISHED',
+        result: { winner: 'BLACK', reason: 'CHECKMATE' },
+      });
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      (element.querySelector('[data-rematch]') as HTMLButtonElement).click();
+      expect(api.createBot).toHaveBeenCalledWith({
+        difficulty: 'MEDIUM',
+        color: 'BLACK',
+        timeControl: { initialTime: 300_000, increment: 0 },
+      });
+      expect(navigate).toHaveBeenCalledWith(['/game', 'next']);
     });
 
     it('shows the bot thinking first when I play black', () => {
