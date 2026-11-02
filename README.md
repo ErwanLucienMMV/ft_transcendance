@@ -2,6 +2,9 @@
 Throughout commits and merge conflicts, we alone are the ones who forgot to pull and fetch.
 
 
+## Architecture
+
+- [Application architecture](docs/architecture.md)
 ## API examples
 
 - [HTTP and WebSocket request examples](docs/api-examples.md)
