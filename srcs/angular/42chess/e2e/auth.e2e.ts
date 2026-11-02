@@ -69,7 +69,9 @@ test('registers, refuses unverified login, verifies email and signs in against t
   const authenticated = await page.evaluate(
     (token: string) =>
       new Promise<string>((resolve, reject) => {
-        const socket = new WebSocket(`ws://${location.host}/ws`);
+        const socket = new WebSocket(
+          `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
+        );
         const testWindow = window as Window & { testSocketClosed?: Promise<number> };
         testWindow.testSocketClosed = new Promise<number>(
           (closed) => (socket.onclose = (event) => closed(event.code)),

@@ -13,7 +13,14 @@ all: env
 		exit 1; }
 	@echo "Images have been built, now comes running them"
 	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) logs >> compose.log 2>&1
+	@$(MAKE) --no-print-directory puzzles
 	@echo "All set, feel free to test it"
+
+# Imports the bundled puzzle catalogue (checked by the chess engine). Puzzles
+# already present are skipped, so it is safe after every start.
+puzzles:
+	@echo "Importing the puzzle catalogue"
+	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) exec -T nestjs node dist/puzzles/run-puzzle-import.js
 
 loud: env
 	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) up --build
@@ -85,4 +92,4 @@ clean:
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down -v
 	docker compose -f ./backup/docker-compose.yml down -v
 
-.PHONY: all loud dev env down backup backup-down backup-logs full stop-app start-app test test-bot test-puzzles re clean
+.PHONY: all puzzles loud dev env down backup backup-down backup-logs full stop-app start-app test test-bot test-puzzles re clean

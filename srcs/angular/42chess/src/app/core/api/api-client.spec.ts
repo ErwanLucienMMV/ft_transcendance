@@ -10,7 +10,7 @@ import { ErrorState } from '../errors/error-state';
 import { API_BASE_URL } from './api-base-url';
 import { ApiClient } from './api-client';
 import { ApiError } from './api-error';
-import { apiErrorInterceptor } from './api-error.interceptor';
+import { apiErrorInterceptor, handledErrors } from './api-error.interceptor';
 
 describe('API client and error boundary', () => {
   let api: ApiClient;
@@ -158,6 +158,38 @@ describe('API client and error boundary', () => {
     expect(errors.message()).toBe('The server could not complete this request. Please try again.');
     expect(errors.message()).not.toContain('private');
     http.expectNone('/api/v1/games');
+  });
+
+  it('lets the calling feature explain the server error codes it handles', () => {
+    const failure = vi.fn();
+    api.get('puzzles/daily', handledErrors('PUZZLE_CATALOG_EMPTY')).subscribe({ error: failure });
+    http
+      .expectOne('/api/v1/puzzles/daily')
+      .flush(
+        {
+          statusCode: 503,
+          code: 'PUZZLE_CATALOG_EMPTY',
+          message: 'No validated puzzles are available.',
+        },
+        { status: 503, statusText: 'Service Unavailable' },
+      );
+    expect(failure.mock.calls[0][0]).toMatchObject({
+      statusCode: 503,
+      code: 'PUZZLE_CATALOG_EMPTY',
+    });
+    expect(errors.message()).toBeNull();
+  });
+
+  it('still reports server errors outside the codes a feature handles', () => {
+    const failure = vi.fn();
+    api.get('puzzles/daily', handledErrors('PUZZLE_CATALOG_EMPTY')).subscribe({ error: failure });
+    http
+      .expectOne('/api/v1/puzzles/daily')
+      .flush(
+        { statusCode: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' },
+        { status: 500, statusText: 'Internal Server Error' },
+      );
+    expect(errors.message()).toBe('The server could not complete this request. Please try again.');
   });
 
   it('leaves non-API failures unchanged, including similarly prefixed URLs', () => {

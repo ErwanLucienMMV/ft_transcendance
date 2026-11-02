@@ -1,6 +1,10 @@
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiClient } from '../../core/api/api-client';
+import { handledErrors } from '../../core/api/api-error.interceptor';
+
+// The puzzle page explains these codes itself (see ERRORS in puzzle-page.ts).
+const ATTEMPT_ERRORS = handledErrors('PUZZLE_ENGINE_UNAVAILABLE', 'LEGACY_PUZZLE_ATTEMPT');
 
 export interface DailyPuzzle {
   id: string;
@@ -33,22 +37,26 @@ export class PuzzlesApi {
   private readonly api = inject(ApiClient);
 
   daily(): Observable<DailyPuzzle> {
-    return this.api.get('puzzles/daily');
+    return this.api.get('puzzles/daily', handledErrors('PUZZLE_CATALOG_EMPTY'));
   }
 
   start(puzzleId: string): Observable<PuzzleAttempt> {
-    return this.api.post(`puzzles/${encodeURIComponent(puzzleId)}/attempts`, {});
+    return this.api.post(`puzzles/${encodeURIComponent(puzzleId)}/attempts`, {}, ATTEMPT_ERRORS);
   }
 
   attempt(attemptId: string): Observable<PuzzleAttempt> {
-    return this.api.get(`puzzles/attempts/${encodeURIComponent(attemptId)}`);
+    return this.api.get(`puzzles/attempts/${encodeURIComponent(attemptId)}`, ATTEMPT_ERRORS);
   }
 
   play(attemptId: string, move: string, version: number): Observable<PuzzleTurn> {
-    return this.api.post(`puzzles/attempts/${encodeURIComponent(attemptId)}/moves`, {
-      move,
-      version,
-    });
+    return this.api.post(
+      `puzzles/attempts/${encodeURIComponent(attemptId)}/moves`,
+      {
+        move,
+        version,
+      },
+      ATTEMPT_ERRORS,
+    );
   }
 }
 
