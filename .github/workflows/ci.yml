@@ -14,7 +14,7 @@ on:
 
 jobs:
   lint:
-    name: Lint and formatting
+    name: Lint, formatting and Nginx
     runs-on: ubuntu-latest
 
     steps:
@@ -41,6 +41,13 @@ jobs:
         run: |
           npm ci
           npx prettier --check "src/**/*.{ts,html,css}" "e2e/**/*.ts"
+
+      # The production nginx.conf against a local upstream: rate limits, hidden
+      # metrics, forwarded client address.
+      - name: Nginx limits
+        run: |
+          command -v nginx >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q nginx-core; }
+          python3 srcs/angular/tests/nginx-rate-limit.test.py
 
   build:
     name: Build

@@ -71,6 +71,12 @@ class RateLimitTest(unittest.TestCase):
         config = config.replace("/etc/nginx/security-headers.conf", str(conf / "security-headers.conf"))
         config = config.replace("/var/log/nginx/access.log", str(root / "access.log"))
         config = config.replace("/var/log/nginx/error.log", str(root / "error.log"))
+        # Temporary files in the fixture folder, so that nginx runs without root.
+        temp_paths = "".join(
+            f"    {name}_temp_path {root / name};\n"
+            for name in ("client_body", "proxy", "fastcgi", "uwsgi", "scgi")
+        )
+        config = config.replace("http {\n", "http {\n" + temp_paths, 1)
         config = config.replace("listen 443 ssl;", f"listen 127.0.0.1:{cls.port} ssl;")
         config = config.replace("listen 80;", f"listen 127.0.0.1:{redirect_port};")
         config = config.replace("${APPPORT}", str(cls.port))
@@ -78,8 +84,11 @@ class RateLimitTest(unittest.TestCase):
         config = config.replace("http://grafana:3000", f"http://127.0.0.1:{cls.backend.server_port}")
         cls.config = root / "nginx.conf"
         cls.config.write_text(config)
-        subprocess.run(["nginx", "-t", "-c", str(cls.config)], check=True)
-        cls.nginx = subprocess.Popen(["nginx", "-c", str(cls.config), "-g", "daemon off;"])
+        startup_log = str(root / "startup.log")
+        subprocess.run(["nginx", "-t", "-e", startup_log, "-c", str(cls.config)], check=True)
+        cls.nginx = subprocess.Popen(
+            ["nginx", "-e", startup_log, "-c", str(cls.config), "-g", "daemon off;"],
+        )
         def stop():
             cls.nginx.terminate()
             cls.nginx.wait(timeout=10)
