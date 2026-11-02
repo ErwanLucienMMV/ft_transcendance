@@ -45,12 +45,11 @@ describe('Upgrade from the previous private-message schema', () => {
           ...precedingMigrations,
         );
         expect((await previous.runMigrations()).length).toBeGreaterThan(0);
-        const [sender, receiver] = await previous
-          .getRepository(User)
-          .save([
-            { username: 'upgrade_sender' },
-            { username: 'upgrade_receiver' },
-          ]);
+        // Plain SQL: today's User entity has columns the older schema does not.
+        const [sender, receiver] = (await previous.query(
+          `INSERT INTO users (username) VALUES ('upgrade_sender'), ('upgrade_receiver')
+           RETURNING id`,
+        )) as { id: string }[];
         const contents = ['Hello', 'échec ♟ 😀', '\u00a0\u2003visible\ufeff'];
         if (legacyBlank) contents.push('\t\u00a0\ufeff');
         for (const content of contents) {
@@ -75,9 +74,18 @@ describe('Upgrade from the previous private-message schema', () => {
         // This is the same automatic-migration path used by Nest startup.
         await upgraded.initialize();
         expect(await upgraded.query(snapshot())).toEqual(before);
-        expect(await upgraded.query('SELECT * FROM users ORDER BY id')).toEqual(
-          usersBefore,
-        );
+        // Later migrations may add columns; every value that existed is kept.
+        const columns = Object.keys(usersBefore[0] as object);
+        expect(
+          (
+            (await upgraded.query('SELECT * FROM users ORDER BY id')) as Record<
+              string,
+              unknown
+            >[]
+          ).map((row) =>
+            Object.fromEntries(columns.map((column) => [column, row[column]])),
+          ),
+        ).toEqual(usersBefore);
         const historyAfter = await upgraded.query(
           'SELECT * FROM typeorm_migrations ORDER BY id',
         );

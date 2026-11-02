@@ -52,7 +52,12 @@ describe('Revocable access sessions', () => {
       86400000 - 60000,
     );
     expect(row.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(86400000);
-    expect(a.user).toEqual({ id: user.id, username: 'alice', elo: 1200 });
+    expect(a.user).toEqual({
+      id: user.id,
+      username: 'alice',
+      elo: 1200,
+      avatarUrl: null,
+    });
     expect(JSON.stringify(a)).not.toContain(refresh);
   });
   it('tells the watchers of a session as soon as it is revoked', async () => {

@@ -3,8 +3,10 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes, randomInt, createHash } from 'node:crypto';
 import { DataSource, IsNull, MoreThan } from 'typeorm';
+import type { EntityManager } from 'typeorm';
+import { isReservedUsername } from '../users/username.rules.js';
 import { User } from '../users/user.entity.js';
 import { AuthSession } from '../auth/auth-session.entity.js';
 import { AuthService } from '../auth/auth.service.js';
@@ -26,6 +28,40 @@ function invalidFlow() {
 }
 function conflict(code: string, message: string) {
   return new ConflictException({ statusCode: 409, code, message });
+}
+
+/**
+ * The provider login made into a valid username (letters, digits, underscores, 3 to 32), with
+ * a number appended when it is taken, or `<provider>_<hex>` when nothing usable is left.
+ */
+async function freeUsername(
+  manager: EntityManager,
+  suggestion: string | null,
+  provider: Provider,
+): Promise<string> {
+  const base = (suggestion ?? '')
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9_]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 27);
+  const candidates =
+    base.length >= 3 && !isReservedUsername(base)
+      ? [
+          base,
+          ...Array.from(
+            { length: 3 },
+            () => `${base}_${randomInt(1000, 10000)}`,
+          ),
+        ]
+      : [];
+  for (const candidate of candidates) {
+    const [{ taken }] = (await manager.query(
+      'SELECT EXISTS (SELECT 1 FROM users WHERE LOWER(username) = LOWER($1)) AS taken',
+      [candidate],
+    )) as { taken: boolean }[];
+    if (!taken) return candidate;
+  }
+  return `${provider}_${randomBytes(10).toString('hex')}`;
 }
 
 @Injectable()
@@ -76,7 +112,7 @@ export class OAuthService {
       code,
       flow.verifier,
     );
-    const user = await this.account(provider, identity, flow);
+    const { user, created } = await this.account(provider, identity, flow);
     const handoff = opaque();
     await this.source.getRepository(OAuthFlow).insert({
       id: hash(handoff),
@@ -87,6 +123,7 @@ export class OAuthService {
       userId: user.id,
       sessionId: null,
       expiresAt: new Date(Date.now() + 60000),
+      created,
     });
     return handoff;
   }
@@ -96,7 +133,9 @@ export class OAuthService {
       .getRepository(User)
       .findOneBy({ id: flow.userId! });
     if (!user?.emailVerifiedAt) throw invalidFlow();
-    return this.auth.completeLogin(user);
+    const login = await this.auth.completeLogin(user);
+    // A new account got a username from the provider: the front offers to change it.
+    return flow.created ? { ...login, newAccount: true } : login;
   }
   async accounts(userId: string) {
     const rows = await this.source
@@ -135,7 +174,7 @@ export class OAuthService {
     provider: Provider,
     identity: ProviderIdentity,
     flow: OAuthFlow,
-  ): Promise<User> {
+  ): Promise<{ user: User; created: boolean }> {
     try {
       return await this.source.transaction(async (manager) => {
         // Serializes identity creation across simultaneous callbacks without trusting email.
@@ -171,14 +210,14 @@ export class OAuthService {
               providerUserId: identity.id,
               userId: user.id,
             });
-          return user;
+          return { user, created: false };
         }
         if (existing) {
           const user = await manager
             .getRepository(User)
             .findOneByOrFail({ id: existing.userId });
           if (!user.emailVerifiedAt) throw invalidFlow();
-          return user;
+          return { user, created: false };
         }
         if (
           identity.email &&
@@ -192,10 +231,11 @@ export class OAuthService {
           );
         const user = await manager.getRepository(User).save(
           manager.getRepository(User).create({
-            username: `${provider}_${randomBytes(10).toString('hex')}`,
+            username: await freeUsername(manager, identity.username, provider),
             email: identity.email,
             emailVerifiedAt: new Date(),
             passwordHash: null,
+            avatarUrl: identity.avatarUrl,
           }),
         );
         await accounts.insert({
@@ -203,7 +243,7 @@ export class OAuthService {
           providerUserId: identity.id,
           userId: user.id,
         });
-        return user;
+        return { user, created: true };
       });
     } catch (error) {
       if ((error as any)?.driverError?.code === '23505')

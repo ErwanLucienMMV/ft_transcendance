@@ -41,17 +41,13 @@ describe('SCRUM-96 profile patch (real JWT and database)', () => {
     const beforeOther = await source
       .getRepository(User)
       .findOneByOrFail({ id: other.id });
-    const avatarUrl = 'https://example.com/avatar.png';
-    const response = await patch({ avatarUrl }).expect(200);
-    expect(response.body).toMatchObject({
-      id: owner.id,
-      username: owner.username,
-      avatarUrl,
-    });
+    const username = `renamed_${randomUUID().slice(0, 8)}`;
+    const response = await patch({ username }).expect(200);
+    expect(response.body).toMatchObject({ id: owner.id, username });
     expect(
       (await source.getRepository(User).findOneByOrFail({ id: owner.id }))
-        .avatarUrl,
-    ).toBe(avatarUrl);
+        .username,
+    ).toBe(username);
     expect(
       await source.getRepository(User).findOneByOrFail({ id: other.id }),
     ).toEqual(beforeOther);
@@ -77,7 +73,9 @@ describe('SCRUM-96 profile patch (real JWT and database)', () => {
     const before = await source
       .getRepository(User)
       .findOneByOrFail({ id: owner.id });
-    const response = await patch({ avatarUrl: null, ...input }).expect(400);
+    const response = await patch({ username: owner.username, ...input }).expect(
+      400,
+    );
     expect(response.body.code).toBe('VALIDATION_ERROR');
     expect(
       await source.getRepository(User).findOneByOrFail({ id: owner.id }),
@@ -107,7 +105,7 @@ describe('SCRUM-96 profile patch (real JWT and database)', () => {
   it('requires authentication before any mutation', async () => {
     await request(app.getHttpServer())
       .patch('/v1/users/me')
-      .send({ avatarUrl: null })
+      .send({ username: 'nobody_here' })
       .expect(401);
   });
 });

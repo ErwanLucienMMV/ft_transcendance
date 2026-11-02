@@ -70,7 +70,10 @@ describe('SCRUM-241 ONLINE across WebSocket and public profiles', () => {
     });
     expect(presence.get(user.id).status).toBe('ONLINE');
     expect((await profile(user.id)).online).toBe(true);
-    expect((await profile(unverified.id)).online).toBe(false);
+    // An unverified account has no public profile at all.
+    await request(app.getHttpServer())
+      .get(`/v1/users/${unverified.id}`)
+      .expect(404);
   });
   it('keeps the public profile online until the final authenticated tab closes', async () => {
     const first = await authenticate(),
@@ -90,6 +93,8 @@ describe('SCRUM-241 ONLINE across WebSocket and public profiles', () => {
     const { result } = await authenticate(unverified);
     expect(result[0]).toBe(4401);
     expect(presence.get(unverified.id).status).toBe('OFFLINE');
-    expect((await profile(unverified.id)).online).toBe(false);
+    await request(app.getHttpServer())
+      .get(`/v1/users/${unverified.id}`)
+      .expect(404);
   });
 });

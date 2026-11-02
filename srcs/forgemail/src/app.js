@@ -1,4 +1,6 @@
 import { emailVerification } from './templates/email-verification.js';
+import { passwordReset } from './templates/password-reset.js';
+import { accountNotice, NOTICE_KINDS } from './templates/account-notice.js';
 
 const MAX_BODY_BYTES = 10 * 1024;
 const TOKEN_FORMAT = /^[A-Za-z0-9_-]{43}$/;
@@ -33,17 +35,27 @@ async function readJson(req) {
   }
 }
 
-function isVerificationRequest(body) {
+function isRecipient(body) {
   return (
     typeof body?.to === 'string' &&
     body.to.length <= EMAIL_MAX_LENGTH &&
     body.to.includes('@') &&
     typeof body.username === 'string' &&
     body.username.length > 0 &&
-    body.username.length <= USERNAME_MAX_LENGTH &&
+    body.username.length <= USERNAME_MAX_LENGTH
+  );
+}
+
+function isTokenRequest(body) {
+  return (
+    isRecipient(body) &&
     typeof body.token === 'string' &&
     TOKEN_FORMAT.test(body.token)
   );
+}
+
+function isNoticeRequest(body) {
+  return isRecipient(body) && NOTICE_KINDS.includes(body.kind);
 }
 
 /**
@@ -51,34 +63,57 @@ function isVerificationRequest(body) {
  * the only caller. The token is never logged.
  */
 export function createApp({ config, mailer, logger = console }) {
-  async function sendEmailVerification(req, res) {
-    const body = await readJson(req);
-    if (!isVerificationRequest(body)) {
-      return reply(res, 400, { error: 'Invalid email verification request' });
-    }
-
-    const link = `${config.publicUrl}/verify-email?token=${body.token}`;
-    try {
-      await mailer.send({
-        to: body.to,
-        ...emailVerification({ username: body.username, link }),
-      });
-    } catch (error) {
-      logger.error(
-        `email verification to ${maskEmail(body.to)} failed: ${error.message}`,
-      );
-      return reply(res, 503, { error: 'Email could not be sent' });
-    }
-    logger.info(`email verification sent to ${maskEmail(body.to)}`);
-    return reply(res, 202);
+  /** Validates, renders and sends one kind of email; the body never reaches the logs. */
+  function route(name, valid, render) {
+    return async (req, res) => {
+      const body = await readJson(req);
+      if (!valid(body)) {
+        return reply(res, 400, { error: `Invalid ${name} request` });
+      }
+      try {
+        await mailer.send({ to: body.to, ...render(body) });
+      } catch (error) {
+        logger.error(
+          `${name} to ${maskEmail(body.to)} failed: ${error.message}`,
+        );
+        return reply(res, 503, { error: 'Email could not be sent' });
+      }
+      logger.info(`${name} sent to ${maskEmail(body.to)}`);
+      return reply(res, 202);
+    };
   }
+
+  const routes = {
+    '/v1/mails/email-verification': route(
+      'email verification',
+      isTokenRequest,
+      (body) =>
+        emailVerification({
+          username: body.username,
+          link: `${config.publicUrl}/verify-email?token=${body.token}`,
+        }),
+    ),
+    '/v1/mails/password-reset': route('password reset', isTokenRequest, (body) =>
+      passwordReset({
+        username: body.username,
+        link: `${config.publicUrl}/reset-password?token=${body.token}`,
+      }),
+    ),
+    '/v1/mails/notice': route('account notice', isNoticeRequest, (body) =>
+      accountNotice({
+        username: body.username,
+        kind: body.kind,
+        publicUrl: config.publicUrl,
+      }),
+    ),
+  };
 
   return async function handle(req, res) {
     if (req.method === 'GET' && req.url === '/health') {
       return reply(res, 200, { status: 'ok' });
     }
-    if (req.method === 'POST' && req.url === '/v1/mails/email-verification') {
-      return sendEmailVerification(req, res);
+    if (req.method === 'POST' && Object.hasOwn(routes, req.url)) {
+      return routes[req.url](req, res);
     }
     return reply(res, 404, { error: 'Not found' });
   };

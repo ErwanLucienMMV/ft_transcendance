@@ -44,7 +44,13 @@ describe('SCRUM-102 public user search endpoint', () => {
       .expect(200);
     expect(response.body).toEqual({
       users: [
-        { id: user.id, username: user.username, elo: 1452, online: true },
+        {
+          id: user.id,
+          username: user.username,
+          elo: 1452,
+          avatarUrl: null,
+          online: true,
+        },
       ],
     });
   });

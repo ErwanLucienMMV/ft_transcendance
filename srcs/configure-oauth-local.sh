@@ -6,7 +6,8 @@ umask 077
 case "${1:-}" in
   google) provider=google; prefix=GOOGLE ;;
   github) provider=github; prefix=GITHUB ;;
-  *) printf 'Usage: bash srcs/configure-oauth-local.sh google|github\n' >&2; exit 2 ;;
+  42|fortytwo) provider=fortytwo; prefix=FORTYTWO ;;
+  *) printf 'Usage: bash srcs/configure-oauth-local.sh google|github|42\n' >&2; exit 2 ;;
 esac
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)

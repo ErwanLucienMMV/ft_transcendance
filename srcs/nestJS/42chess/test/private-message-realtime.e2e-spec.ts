@@ -179,7 +179,7 @@ describe('Durable private messaging over the shared WebSocket (SCRUM-256)', () =
     expect(conversations.body).toEqual({
       conversations: [
         {
-          user: { id: alice.id, username: alice.username },
+          user: { id: alice.id, username: alice.username, avatarUrl: null },
           lastMessage: sent.data,
           unreadCount: 1,
         },

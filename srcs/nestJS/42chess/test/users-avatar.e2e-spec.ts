@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { sessionToken } from './session.fixture.js';
@@ -8,9 +11,20 @@ import type { App } from 'supertest/types.js';
 import { AppModule } from '../dist/app.module.js';
 import { User } from '../dist/users/user.entity.js';
 
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 describe('SCRUM-98 avatar editing', () => {
-  let app: INestApplication<App>, source: DataSource, user: User, token: string;
+  let app: INestApplication<App>,
+    source: DataSource,
+    user: User,
+    token: string,
+    avatars: string;
   beforeAll(async () => {
+    avatars = await mkdtemp(join(tmpdir(), 'avatars-e2e-'));
+    process.env.AVATAR_DIR = avatars;
     app = (
       await Test.createTestingModule({ imports: [AppModule] }).compile()
     ).createNestApplication();
@@ -25,31 +39,43 @@ describe('SCRUM-98 avatar editing', () => {
   afterAll(async () => {
     if (user) await source.getRepository(User).delete(user.id);
     await app?.close();
+    delete process.env.AVATAR_DIR;
+    await rm(avatars, { recursive: true, force: true });
   });
   const patch = (body: object) =>
     request(app.getHttpServer())
       .patch('/v1/users/me')
       .set('Authorization', `Bearer ${token}`)
       .send(body);
+  const upload = () =>
+    request(app.getHttpServer())
+      .post('/v1/users/me/avatar')
+      .set('Authorization', `Bearer ${token}`)
+      .attach('avatar', PNG, 'avatar.png');
   it('replaces and clears the stored avatar without changing the username', async () => {
-    for (const avatarUrl of [
-      'https://example.com/a.png',
-      'http://example.com/b.jpg',
-      null,
-    ]) {
-      const response = await patch({ avatarUrl }).expect(200);
+    for (const step of ['upload', 'upload', 'remove']) {
+      const response = await (
+        step === 'upload'
+          ? upload()
+          : request(app.getHttpServer())
+              .delete('/v1/users/me/avatar')
+              .set('Authorization', `Bearer ${token}`)
+      ).expect(200);
       expect(response.body).toMatchObject({
         id: user.id,
         username: user.username,
-        avatarUrl,
       });
-      expect(
-        (await source.getRepository(User).findOneByOrFail({ id: user.id }))
-          .avatarUrl,
-      ).toBe(avatarUrl);
+      const stored = await source
+        .getRepository(User)
+        .findOneByOrFail({ id: user.id });
+      expect(stored.avatarUrl).toBe(response.body.avatarUrl);
+      expect(stored.username).toBe(user.username);
+      if (step === 'remove') expect(stored.avatarUrl).toBeNull();
     }
   });
   it.each([
+    'https://example.com/a.png',
+    null,
     'javascript:alert(1)',
     'data:image/png;base64,AAAA',
     'file:///tmp/avatar.png',
@@ -64,7 +90,7 @@ describe('SCRUM-98 avatar editing', () => {
     [],
     `https://example.com/${'x'.repeat(2048)}`,
   ])(
-    'rejects invalid avatars without partially renaming the account: %j',
+    'refuses an avatar given as a value, without partially renaming the account: %j',
     async (avatarUrl) => {
       const before = await source
         .getRepository(User)
@@ -75,9 +101,14 @@ describe('SCRUM-98 avatar editing', () => {
       ).toEqual(before);
     },
   );
-  it('leaves the avatar unchanged when the property is omitted', async () => {
-    const avatarUrl = 'https://example.com/keep.png';
-    await patch({ avatarUrl }).expect(200);
+  it('leaves the avatar unchanged when the profile is patched', async () => {
+    const { avatarUrl } = (await upload().expect(200)).body as {
+      avatarUrl: string;
+    };
     expect((await patch({}).expect(200)).body.avatarUrl).toBe(avatarUrl);
+    expect(
+      (await patch({ preferences: { soundEnabled: false } }).expect(200)).body
+        .avatarUrl,
+    ).toBe(avatarUrl);
   });
 });

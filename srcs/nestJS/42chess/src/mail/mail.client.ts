@@ -11,6 +11,13 @@ export class MailUnavailableError extends Error {
   }
 }
 
+export type AccountNotice =
+  | 'password-changed'
+  | 'two-factor-enabled'
+  | 'two-factor-disabled'
+  | 'data-exported'
+  | 'account-deleted';
+
 /**
  * Talks to the forgemail container, which owns the SMTP credentials and the
  * templates. Only reachable on the internal Docker network.
@@ -21,23 +28,51 @@ export class MailClient {
   private readonly baseUrl =
     process.env.MAIL_SERVICE_URL ?? DEFAULT_MAIL_SERVICE_URL;
 
-  async sendEmailVerification(
+  sendEmailVerification(
     to: string,
     username: string,
     token: string,
   ): Promise<void> {
+    return this.send('email-verification', { to, username, token });
+  }
+
+  sendPasswordReset(
+    to: string,
+    username: string,
+    token: string,
+  ): Promise<void> {
+    return this.send('password-reset', { to, username, token });
+  }
+
+  /**
+   * Tells the owner about a change on the account. A notice is informative: when forgemail is
+   * down the change still happens, and the failure is only logged.
+   */
+  async notify(to: string | null, username: string, kind: AccountNotice) {
+    if (!to) return;
+    try {
+      await this.send('notice', { to, username, kind });
+    } catch {
+      this.logger.warn(`The "${kind}" notice could not be sent.`);
+    }
+  }
+
+  private async send(
+    path: 'email-verification' | 'password-reset' | 'notice',
+    body: Record<string, string>,
+  ): Promise<void> {
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}/v1/mails/email-verification`, {
+      response = await fetch(`${this.baseUrl}/v1/mails/${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, username, token }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(MAIL_TIMEOUT_MS),
       });
     } catch (error: unknown) {
       this.logger.error(
         `forgemail unreachable at ${this.baseUrl} (${String(error)}). ` +
-          'Is the forgemail container running? Registration fails until it is.',
+          'Is the forgemail container running? Account emails fail until it is.',
       );
       throw new MailUnavailableError();
     }

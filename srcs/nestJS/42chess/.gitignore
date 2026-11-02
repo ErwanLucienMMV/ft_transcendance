@@ -3,6 +3,9 @@
 /node_modules
 /build
 
+# Uploaded avatars of a local run (AVATAR_DIR defaults to ./uploads/avatars)
+/uploads
+
 # TypeScript build cache
 *.tsbuildinfo
 

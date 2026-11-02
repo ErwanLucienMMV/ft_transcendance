@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, LessThan, QueryFailedError, Repository } from 'typeorm';
+import { IsNull, LessThan, Not, QueryFailedError, Repository } from 'typeorm';
 import { User } from './user.entity.js';
 import type { UserPreferences } from './user-preferences.js';
 import type { Pagination } from '../common/types/api.js';
@@ -56,8 +56,9 @@ export class UsersService {
   ): Promise<
     Pick<User, 'id' | 'username' | 'avatarUrl' | 'elo' | 'gamesPlayed'>
   > {
+    // An unverified account is not public yet: it may never be confirmed.
     const user = await this.users.findOne({
-      where: { id },
+      where: { id, emailVerifiedAt: Not(IsNull()) },
       select: {
         id: true,
         username: true,
@@ -81,10 +82,11 @@ export class UsersService {
   ): Promise<User[]> {
     return this.users
       .createQueryBuilder('user')
-      .select(['user.id', 'user.username', 'user.elo'])
+      .select(['user.id', 'user.username', 'user.avatarUrl', 'user.elo'])
       .where('user.username ILIKE :q', {
         q: `%${q.replace(/[\\%_]/g, '\\$&')}%`,
       })
+      .andWhere('user.emailVerifiedAt IS NOT NULL')
       .orderBy('LOWER(user.username)', 'ASC')
       .addOrderBy('user.id', 'ASC')
       .take(pagination.limit)
@@ -92,22 +94,43 @@ export class UsersService {
       .getMany();
   }
 
+  /** Swaps the avatar reference in one statement and returns the replaced one, to delete it. */
+  async setAvatar(
+    id: string,
+    reference: string | null,
+  ): Promise<{ user: User; previous: string | null }> {
+    const rows: unknown = await this.users.query(
+      `UPDATE "users" AS next SET "avatarUrl" = $2, "updatedAt" = now()
+         FROM "users" AS previous
+        WHERE next."id" = $1 AND previous."id" = next."id"
+        RETURNING previous."avatarUrl" AS "previous"`,
+      [id, reference],
+    );
+    const [updated] = (
+      Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows
+    ) as { previous: string | null }[];
+    if (!updated)
+      throw new NotFoundException({
+        statusCode: 404,
+        code: 'USER_NOT_FOUND',
+        message: 'User not found.',
+      });
+    return { user: await this.requireById(id), previous: updated.previous };
+  }
+
   async updateProfile(
     id: string,
     input: {
       username?: string;
-      avatarUrl?: string | null;
       preferences?: Partial<UserPreferences>;
     },
   ): Promise<User> {
     // Copy only explicitly editable fields; never write the request wholesale.
     const changes: {
       username?: string;
-      avatarUrl?: string | null;
       preferences?: () => string;
     } = {};
     if (input.username !== undefined) changes.username = input.username;
-    if (input.avatarUrl !== undefined) changes.avatarUrl = input.avatarUrl;
     const preferences: Partial<UserPreferences> = {};
     if (input.preferences?.language !== undefined)
       preferences.language = input.preferences.language;
@@ -239,6 +262,147 @@ export class UsersService {
       .where('id = :id', { id })
       .setParameters({ maxAttempts, lockUntil })
       .execute();
+  }
+
+  /** Burns one recovery code; false when it is not (or no longer) one of the account's codes. */
+  async consumeRecoveryCode(id: string, codeHash: string): Promise<boolean> {
+    const result = await this.users
+      .createQueryBuilder()
+      .update()
+      .set({
+        twoFactorRecoveryCodes: () =>
+          'array_remove("twoFactorRecoveryCodes", :codeHash)',
+        twoFactorFailedAttempts: 0,
+      })
+      .where('id = :id', { id })
+      .andWhere(':codeHash = ANY("twoFactorRecoveryCodes")')
+      .andWhere('"twoFactorEnabledAt" IS NOT NULL')
+      .setParameter('codeHash', codeHash)
+      .execute();
+    return result.affected === 1;
+  }
+
+  /** The account with every secret its security settings need. */
+  findWithSecrets(id: string): Promise<User | null> {
+    return this.users
+      .createQueryBuilder('user')
+      .addSelect([
+        'user.passwordHash',
+        'user.twoFactorSecret',
+        'user.twoFactorPendingSecret',
+        'user.twoFactorRecoveryCodes',
+      ])
+      .where('user.id = :id', { id })
+      .andWhere('user.deletedAt IS NULL')
+      .getOne();
+  }
+
+  async setPendingTwoFactor(id: string, secret: string): Promise<void> {
+    await this.users.update(
+      { id, twoFactorEnabledAt: IsNull() },
+      { twoFactorPendingSecret: secret },
+    );
+  }
+
+  /**
+   * Turns 2FA on with the pending secret the first code proved, its time step burnt.
+   * False when set-up was restarted or finished meanwhile.
+   */
+  async enableTwoFactor(
+    id: string,
+    secret: string,
+    timeStep: number,
+    recoveryHashes: string[],
+  ): Promise<boolean> {
+    const result = await this.users
+      .createQueryBuilder()
+      .update()
+      .set({
+        twoFactorSecret: secret,
+        twoFactorPendingSecret: null,
+        twoFactorEnabledAt: () => 'now()',
+        twoFactorLastTimeStep: timeStep,
+        twoFactorFailedAttempts: 0,
+        twoFactorLockedUntil: null,
+        twoFactorRecoveryCodes: recoveryHashes,
+      })
+      .where('id = :id', { id })
+      .andWhere('"twoFactorEnabledAt" IS NULL')
+      .andWhere('"twoFactorPendingSecret" = :secret', { secret })
+      .execute();
+    return result.affected === 1;
+  }
+
+  async disableTwoFactor(id: string): Promise<void> {
+    await this.users.update(id, {
+      twoFactorSecret: null,
+      twoFactorPendingSecret: null,
+      twoFactorEnabledAt: null,
+      twoFactorLastTimeStep: null,
+      twoFactorFailedAttempts: 0,
+      twoFactorLockedUntil: null,
+      twoFactorRecoveryCodes: null,
+    });
+  }
+
+  async setRecoveryCodes(id: string, hashes: string[]): Promise<void> {
+    await this.users.update(id, { twoFactorRecoveryCodes: hashes });
+  }
+
+  /** Recovery codes still unused, or null without 2FA. */
+  async recoveryCodesLeft(id: string): Promise<number | null> {
+    const user = await this.findWithSecrets(id);
+    return user?.twoFactorEnabledAt
+      ? (user.twoFactorRecoveryCodes?.length ?? 0)
+      : null;
+  }
+
+  /** A new password also burns any pending reset link. */
+  async setPassword(id: string, passwordHash: string): Promise<void> {
+    await this.users.update(id, {
+      passwordHash,
+      passwordResetTokenHash: null,
+      passwordResetExpiresAt: null,
+    });
+  }
+
+  /** The verified, not deleted account of an email, with its password hash. */
+  findVerifiedByEmail(email: string): Promise<User | null> {
+    return this.users
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.email = :email', { email })
+      .andWhere('user.emailVerifiedAt IS NOT NULL')
+      .getOne();
+  }
+
+  async setPasswordResetToken(
+    id: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.users.update(id, {
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: expiresAt,
+    });
+  }
+
+  /**
+   * Burns a reset token and returns its account, or null for an unknown or expired one.
+   * One statement, so a link cannot be used twice concurrently.
+   */
+  async consumePasswordResetToken(tokenHash: string): Promise<User | null> {
+    const result = await this.users
+      .createQueryBuilder()
+      .update()
+      .set({ passwordResetTokenHash: null, passwordResetExpiresAt: null })
+      .where('"passwordResetTokenHash" = :tokenHash', { tokenHash })
+      .andWhere('"passwordResetExpiresAt" > now()')
+      .andWhere('"emailVerifiedAt" IS NOT NULL')
+      .returning(['id'])
+      .execute();
+    const id = (result.raw as { id: string }[])[0]?.id;
+    return id ? this.users.findOneBy({ id }) : null;
   }
 
   findUnverifiedByEmail(email: string): Promise<User | null> {

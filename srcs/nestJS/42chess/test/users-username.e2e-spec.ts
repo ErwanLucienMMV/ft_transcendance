@@ -64,14 +64,14 @@ describe('SCRUM-97 username changes', () => {
     null,
     42,
   ])(
-    'rejects reserved or malformed usernames without a partial avatar write: %j',
+    'rejects reserved or malformed usernames without a partial preferences write: %j',
     async (username) => {
       const before = await source
         .getRepository(User)
         .findOneByOrFail({ id: users[0].id });
       await patch(0, {
         username,
-        avatarUrl: 'https://example.com/new.png',
+        preferences: { soundEnabled: false },
       }).expect(400);
       expect(
         await source.getRepository(User).findOneByOrFail({ id: users[0].id }),
@@ -84,7 +84,7 @@ describe('SCRUM-97 username changes', () => {
       .findOneByOrFail({ id: users[0].id });
     const response = await patch(0, {
       username: users[1].username.toUpperCase(),
-      avatarUrl: 'https://example.com/new.png',
+      preferences: { soundEnabled: false },
     }).expect(409);
     expect(response.body.code).toBe('USERNAME_ALREADY_EXISTS');
     expect(

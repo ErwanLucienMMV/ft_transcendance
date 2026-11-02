@@ -1,10 +1,8 @@
 import {
   IsString,
   IsObject,
-  IsUrl,
   Length,
   Matches,
-  MaxLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
@@ -26,13 +24,6 @@ export class UpdateProfileDto {
   @IsNotReservedUsername()
   username?: string;
 
-  @ValidateIf((_object, value) => value !== undefined && value !== null)
-  @IsUrl({
-    protocols: ['http', 'https'],
-    require_protocol: true,
-    require_valid_protocol: true,
-    disallow_auth: true,
-  })
-  @MaxLength(2048)
-  avatarUrl?: string | null;
+  // No avatarUrl: an avatar is uploaded (POST /v1/users/me/avatar), never an arbitrary URL that
+  // every viewer's browser would then fetch.
 }

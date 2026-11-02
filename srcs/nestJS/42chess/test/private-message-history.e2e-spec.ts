@@ -126,7 +126,7 @@ describe('Persistent private conversation HTTP contract', () => {
     expect(response.body).toEqual({
       conversations: [
         {
-          user: { id: carol.id, username: carol.username },
+          user: { id: carol.id, username: carol.username, avatarUrl: null },
           lastMessage: {
             id: expect.any(String),
             senderId: carol.id,
@@ -137,7 +137,7 @@ describe('Persistent private conversation HTTP contract', () => {
           unreadCount: 1,
         },
         {
-          user: { id: bob.id, username: bob.username },
+          user: { id: bob.id, username: bob.username, avatarUrl: null },
           lastMessage: {
             id: ids[24],
             senderId: alice.id,
