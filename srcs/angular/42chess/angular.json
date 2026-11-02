@@ -3,7 +3,7 @@
   "version": 1,
   "cli": {
     "packageManager": "npm",
-    "analytics": "5e64af01-7b32-4f6e-a7f9-e1632b37346e"
+    "analytics": false
   },
   "newProjectRoot": "projects",
   "projects": {
@@ -53,6 +53,14 @@
                   "maximumError": "8kB"
                 }
               ],
+              "optimization": {
+                "scripts": true,
+                "styles": {
+                  "minify": true,
+                  "inlineCritical": false
+                },
+                "fonts": true
+              },
               "outputHashing": "all"
             },
             "development": {
