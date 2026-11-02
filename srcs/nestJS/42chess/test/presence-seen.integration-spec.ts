@@ -31,12 +31,10 @@ describe('SCRUM-244 durable monotonic lastSeen', () => {
   beforeEach(async () => {
     presence = new PresenceService(source);
     await presence.onModuleInit();
-    user = await source
-      .getRepository(User)
-      .save({
-        username: `seen_${randomUUID().slice(0, 8)}`,
-        emailVerifiedAt: new Date(),
-      });
+    user = await source.getRepository(User).save({
+      username: `seen_${randomUUID().slice(0, 8)}`,
+      emailVerifiedAt: new Date(),
+    });
   });
   afterEach(async () => {
     vi.restoreAllMocks();

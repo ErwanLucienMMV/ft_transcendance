@@ -328,9 +328,9 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
           .auth(token, { type: 'bearer' }),
       ),
     );
-    expect(responses.map((response) => response.status).sort((a, b) => a - b)).toEqual([
-      204, 409,
-    ]);
+    expect(
+      responses.map((response) => response.status).sort((a, b) => a - b),
+    ).toEqual([204, 409]);
     expect(
       responses.find((response) => response.status === 409)!.body.code,
     ).toBe('OAUTH_LAST_LOGIN_METHOD');
@@ -390,16 +390,12 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
     await callback(owner, 'github', await start(owner, 'github'));
     const first = await exchange(owner).expect(200);
     owned.add(first.body.user.id);
-    const attacker = await source
-      .getRepository(User)
-      .save(
-        source
-          .getRepository(User)
-          .create({
-            username: `attacker_${suffix}`,
-            emailVerifiedAt: new Date(),
-          }),
-      );
+    const attacker = await source.getRepository(User).save(
+      source.getRepository(User).create({
+        username: `attacker_${suffix}`,
+        emailVerifiedAt: new Date(),
+      }),
+    );
     owned.add(attacker.id);
     const session = await sessions.issue(attacker);
     const agent = request.agent(app.getHttpServer());

@@ -20,7 +20,7 @@ class PlayerSocket {
   readonly packets: Packet[] = [];
   constructor(readonly socket: WebSocket) {
     socket.on('message', (data) =>
-      this.packets.push(JSON.parse(data.toString())),
+      this.packets.push(JSON.parse((data as Buffer).toString('utf8'))),
     );
   }
   send(event: string, data: unknown) {

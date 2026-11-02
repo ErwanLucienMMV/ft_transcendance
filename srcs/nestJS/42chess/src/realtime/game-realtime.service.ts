@@ -235,6 +235,8 @@ export class GameRealtimeService
   }
 
   override disconnect(connectionId: string): void {
+    // leave() removes from this set: iterate over a copy.
+    // oxlint-disable-next-line unicorn/no-useless-spread
     for (const id of [...(this.memberships.get(connectionId) ?? [])])
       this.leave(connectionId, id);
   }

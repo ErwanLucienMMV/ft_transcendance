@@ -51,18 +51,16 @@ export class OAuthService {
       .delete()
       .where('"expiresAt" <= now()')
       .execute();
-    await this.source
-      .getRepository(OAuthFlow)
-      .insert({
-        id: hash(state),
-        browserHash: hash(browser),
-        purpose: 'authorize',
-        provider,
-        verifier,
-        userId: principal?.user.id ?? null,
-        sessionId: principal?.sessionId ?? null,
-        expiresAt: new Date(Date.now() + 300000),
-      });
+    await this.source.getRepository(OAuthFlow).insert({
+      id: hash(state),
+      browserHash: hash(browser),
+      purpose: 'authorize',
+      provider,
+      verifier,
+      userId: principal?.user.id ?? null,
+      sessionId: principal?.sessionId ?? null,
+      expiresAt: new Date(Date.now() + 300000),
+    });
     return { authorizationUrl, browser };
   }
   async callback(
@@ -80,18 +78,16 @@ export class OAuthService {
     );
     const user = await this.account(provider, identity, flow);
     const handoff = opaque();
-    await this.source
-      .getRepository(OAuthFlow)
-      .insert({
-        id: hash(handoff),
-        browserHash: hash(browser),
-        purpose: 'handoff',
-        provider,
-        verifier: null,
-        userId: user.id,
-        sessionId: null,
-        expiresAt: new Date(Date.now() + 60000),
-      });
+    await this.source.getRepository(OAuthFlow).insert({
+      id: hash(handoff),
+      browserHash: hash(browser),
+      purpose: 'handoff',
+      provider,
+      verifier: null,
+      userId: user.id,
+      sessionId: null,
+      expiresAt: new Date(Date.now() + 60000),
+    });
     return handoff;
   }
   async exchange(handoff: string, browser: string) {
@@ -153,20 +149,16 @@ export class OAuthService {
           providerUserId: identity.id,
         });
         if (flow.userId) {
-          const user = await manager
-            .getRepository(User)
-            .findOne({
-              where: { id: flow.userId },
-              lock: { mode: 'pessimistic_write' },
-            });
-          const session = await manager
-            .getRepository(AuthSession)
-            .findOneBy({
-              id: flow.sessionId!,
-              userId: flow.userId,
-              revokedAt: IsNull(),
-              expiresAt: MoreThan(new Date()),
-            });
+          const user = await manager.getRepository(User).findOne({
+            where: { id: flow.userId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          const session = await manager.getRepository(AuthSession).findOneBy({
+            id: flow.sessionId!,
+            userId: flow.userId,
+            revokedAt: IsNull(),
+            expiresAt: MoreThan(new Date()),
+          });
           if (!user?.emailVerifiedAt || !session) throw invalidFlow();
           if (existing && existing.userId !== user.id)
             throw conflict(
@@ -198,18 +190,14 @@ export class OAuthService {
             'OAUTH_EMAIL_IN_USE',
             'Sign in to your existing account, then link this provider from your session page.',
           );
-        const user = await manager
-          .getRepository(User)
-          .save(
-            manager
-              .getRepository(User)
-              .create({
-                username: `${provider}_${randomBytes(10).toString('hex')}`,
-                email: identity.email,
-                emailVerifiedAt: new Date(),
-                passwordHash: null,
-              }),
-          );
+        const user = await manager.getRepository(User).save(
+          manager.getRepository(User).create({
+            username: `${provider}_${randomBytes(10).toString('hex')}`,
+            email: identity.email,
+            emailVerifiedAt: new Date(),
+            passwordHash: null,
+          }),
+        );
         await accounts.insert({
           provider,
           providerUserId: identity.id,

@@ -20,16 +20,14 @@ describe('SCRUM-102 public user search endpoint', () => {
     await app.init();
     source = app.get(DataSource);
     presence = app.get(PresenceService);
-    user = await source
-      .getRepository(User)
-      .save({
-        username: `search_${randomUUID().slice(0, 8)}`,
-        email: `private_${randomUUID()}@example.com`,
-        emailVerifiedAt: new Date(),
-        passwordHash: 'private-password',
-        twoFactorSecret: 'private-totp',
-        elo: 1452,
-      });
+    user = await source.getRepository(User).save({
+      username: `search_${randomUUID().slice(0, 8)}`,
+      email: `private_${randomUUID()}@example.com`,
+      emailVerifiedAt: new Date(),
+      passwordHash: 'private-password',
+      twoFactorSecret: 'private-totp',
+      elo: 1452,
+    });
   });
   afterAll(async () => {
     if (user) {
