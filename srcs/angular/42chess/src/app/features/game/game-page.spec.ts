@@ -220,9 +220,104 @@ describe('Live game page', () => {
     expect(element.querySelector('[data-square="e5"]')?.classList).toContain('last-move');
   });
 
-  it('asks for confirmation before resigning', () => {
+  /** Both sides have moved: the game can no longer be aborted. */
+  const opening = {
+    board: {
+      fen: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2',
+      turn: 'WHITE',
+      halfmoveClock: 0,
+      fullmoveNumber: 2,
+    },
+    moves: [
+      { number: 1, playerId: 'me', from: 'e2', to: 'e4', notation: 'e4', fen: '', timestamp: '' },
+      {
+        number: 2,
+        playerId: 'rival',
+        from: 'e7',
+        to: 'e5',
+        notation: 'e5',
+        fen: '',
+        timestamp: '',
+      },
+    ],
+  };
+
+  it('offers to abort instead of resigning before both players moved', () => {
     const { button, render, state } = setup();
     state();
+    expect(button('Resign')).toBeUndefined();
+    button('Abort game')!.click();
+    render();
+    expect(transport.send).toHaveBeenCalledWith('ABORT_GAME', { gameId: id });
+  });
+
+  it('warns that a game without a first move is aborted', () => {
+    const { element, state } = setup();
+    state({ startedAt: new Date().toISOString() });
+    expect(text(element, '[data-first-move]')).toContain('to play a first move');
+  });
+
+  it('shows whether the game is rated', () => {
+    const { element, state } = setup();
+    state({ rated: true });
+    expect(text(element, '[data-kind]')).toBe('Rated · 5 + 0');
+    state({ rated: false });
+    expect(text(element, '[data-kind]')).toBe('Casual · 5 + 0');
+  });
+
+  it('tells the player when the opponent left, then lets them claim the win', () => {
+    const { element, button, render, state } = setup();
+    state({ ...opening });
+    events.next({
+      event: 'OPPONENT_DISCONNECTED',
+      data: {
+        gameId: id,
+        playerId: 'rival',
+        since: new Date(Date.now() - 10_000).toISOString(),
+        claimableAt: new Date(Date.now() + 50_000).toISOString(),
+      },
+    });
+    render();
+    expect(text(element, '[data-away]')).toContain('Your opponent disconnected');
+    expect(button('Claim the win')).toBeUndefined();
+    state({
+      ...opening,
+      away: [
+        {
+          playerId: 'rival',
+          since: new Date(0).toISOString(),
+          claimableAt: new Date(0).toISOString(),
+        },
+      ],
+    });
+    button('Claim the win')!.click();
+    expect(transport.send).toHaveBeenCalledWith('CLAIM_VICTORY', { gameId: id });
+    events.next({ event: 'OPPONENT_RECONNECTED', data: { gameId: id, playerId: 'rival' } });
+    render();
+    expect(element.querySelector('[data-away]')).toBeNull();
+  });
+
+  it('offers a draw claim after a threefold repetition', () => {
+    const { button, state } = setup();
+    const start = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    const cycle = ['g1f3', 'g8f6', 'f3g1', 'f6g8'];
+    const moves = [...cycle, ...cycle].map((uci, index) => ({
+      number: index + 1,
+      playerId: index % 2 ? 'rival' : 'me',
+      from: uci.slice(0, 2),
+      to: uci.slice(2),
+      notation: null,
+      fen: index % 4 === 3 ? start.replace(' 0 1', ` ${index + 1} ${3 + index / 2}`) : `x${index}`,
+      timestamp: '',
+    }));
+    state({ moves });
+    button('Claim draw')!.click();
+    expect(transport.send).toHaveBeenCalledWith('CLAIM_DRAW', { gameId: id });
+  });
+
+  it('asks for confirmation before resigning', () => {
+    const { button, render, state } = setup();
+    state({ ...opening });
     button('Resign')!.click();
     render();
     expect(transport.send).not.toHaveBeenCalled();
@@ -256,6 +351,14 @@ describe('Live game page', () => {
     events.next({ event: 'DRAW_DECLINED', data: { gameId: id, playerId: 'rival' } });
     render();
     expect(element.textContent).toContain('Your draw offer was declined.');
+  });
+
+  it('hides the draw offer while a refused offer cools down', () => {
+    const { button, state } = setup();
+    state({ drawOfferAllowedFrom: { white: 4, black: 0 } });
+    expect(button('Offer draw')).toBeUndefined();
+    state({ ...opening, drawOfferAllowedFrom: { white: 2, black: 0 } });
+    expect(button('Offer draw')).toBeDefined();
   });
 
   it('shows the final result from my side and stops the clocks', () => {

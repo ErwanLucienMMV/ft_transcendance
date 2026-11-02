@@ -19,6 +19,9 @@ const END_REASONS: Record<string, string> = {
   INSUFFICIENT_MATERIAL: 'by insufficient material',
   THREEFOLD_REPETITION: 'by threefold repetition',
   FIFTY_MOVE_RULE: 'by the fifty-move rule',
+  FIVEFOLD_REPETITION: 'by fivefold repetition',
+  SEVENTY_FIVE_MOVE_RULE: 'by the seventy-five-move rule',
+  ABANDONED: 'by abandonment',
 };
 const BOT_NAMES: Record<BotDifficulty, string> = { EASY: 'Easy', MEDIUM: 'Medium', HARD: 'Hard' };
 
@@ -28,6 +31,10 @@ export function endReason(reason: string | null | undefined): string | null {
 
 /** "White wins by checkmate", "Draw by agreement"; `mine` turns it into "You won…". */
 export function resultText(result: GameResult, mine: PlayerColor | null = null): string {
+  if (result.reason === 'ABORTED') return 'Game aborted';
+  // The flag fell, but the opponent had nothing left to checkmate with.
+  if (result.reason === 'TIMEOUT' && !result.winner)
+    return 'Draw: time ran out against insufficient material';
   const reason = endReason(result.reason);
   const suffix = reason ? ` ${reason}` : '';
   if (!result.winner) return `Draw${suffix}`;
@@ -80,4 +87,16 @@ export function moveRows(moves: readonly GameMove[]): MoveRow[] {
     else rows.push({ number: move.number / 2, white: null, black: cell });
   }
   return rows;
+}
+
+/** The part of a FEN that identifies a position for repetition: pieces, side, castling, en passant. */
+function positionKey(fen: string): string {
+  return fen.split(' ').slice(0, 4).join(' ');
+}
+
+/** How many times the current position occurred, counting the starting one. */
+export function repetitions(initialFen: string, moves: readonly GameMove[]): number {
+  const fens = [initialFen, ...moves.map((move) => move.fen)];
+  const current = positionKey(fens[fens.length - 1]);
+  return fens.filter((fen) => positionKey(fen) === current).length;
 }

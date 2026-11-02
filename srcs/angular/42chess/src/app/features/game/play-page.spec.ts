@@ -22,6 +22,8 @@ describe('Play page', () => {
     create: ReturnType<typeof vi.fn>;
     createBot: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
+    waiting: ReturnType<typeof vi.fn>;
+    cancel: ReturnType<typeof vi.fn>;
   };
   let queue: {
     status: ReturnType<typeof vi.fn>;
@@ -31,7 +33,13 @@ describe('Play page', () => {
   };
   let events: Subject<ServerEvent>;
   beforeEach(() => {
-    api = { create: vi.fn(), createBot: vi.fn(), get: vi.fn() };
+    api = {
+      create: vi.fn(),
+      createBot: vi.fn(),
+      get: vi.fn(),
+      waiting: vi.fn().mockReturnValue(of({ games: [] })),
+      cancel: vi.fn().mockReturnValue(of(undefined)),
+    };
     queue = {
       status: vi.fn().mockReturnValue(of({ status: 'IDLE' })),
       join: vi.fn().mockReturnValue(of({ status: 'WAITING', joinedAt: new Date().toISOString() })),
@@ -59,7 +67,11 @@ describe('Play page', () => {
     (element.querySelectorAll('input[type="radio"]')[0] as HTMLInputElement).click();
     fixture.detectChanges();
     (element.querySelectorAll('.play-card > button')[1] as HTMLButtonElement).click();
-    expect(api.create).toHaveBeenCalledWith({ initialTime: 180_000, increment: 2_000 });
+    expect(api.create).toHaveBeenCalledWith(
+      { initialTime: 180_000, increment: 2_000 },
+      undefined,
+      false,
+    );
     expect(navigate).toHaveBeenCalledWith(['/game', 'game-1']);
   });
 
@@ -205,6 +217,66 @@ describe('Play page', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('suggests the bot after a minute without an opponent', () => {
+    vi.useFakeTimers();
+    try {
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      api.createBot.mockReturnValue(of({ gameId: 'bot-game' }));
+      const { fixture, card, press } = render();
+      press('Find an opponent');
+      expect(card().textContent).not.toContain('Nobody is free');
+      vi.advanceTimersByTime(61_000);
+      fixture.detectChanges();
+      expect(card().textContent).toContain('Nobody is free');
+      press('Play the bot instead');
+      expect(queue.leave).toHaveBeenCalled();
+      expect(api.createBot).toHaveBeenCalledWith(
+        expect.objectContaining({ timeControl: { initialTime: 600_000, increment: 0 } }),
+      );
+      expect(navigate).toHaveBeenCalledWith(['/game', 'bot-game']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('creates a rated game against a friend when asked', () => {
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    api.create.mockReturnValue(of({ gameId: 'game-1', status: 'WAITING' }));
+    const { fixture, element } = render();
+    (element.querySelector('.toggle input') as HTMLInputElement).click();
+    fixture.detectChanges();
+    (element.querySelectorAll('.play-card > button')[1] as HTMLButtonElement).click();
+    expect(api.create).toHaveBeenCalledWith(
+      { initialTime: 600_000, increment: 0 },
+      undefined,
+      true,
+    );
+  });
+
+  it('lists open invitations and cancels one', () => {
+    api.waiting.mockReturnValue(
+      of({
+        games: [
+          {
+            id: 'open-1',
+            timeControl: { initialTime: 300_000, increment: 0 },
+            rated: false,
+            invitedOpponentId: null,
+            createdAt: '2026-11-02T10:00:00.000Z',
+          },
+        ],
+      }),
+    );
+    const { fixture, element } = render();
+    const list = () => element.querySelector('.invitations');
+    expect(list()?.textContent).toContain('5 + 0 · Casual');
+    expect(list()?.querySelector('a')?.getAttribute('href')).toBe('/game/open-1');
+    (list()!.querySelector('button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(api.cancel).toHaveBeenCalledWith('open-1');
+    expect(list()).toBeNull();
   });
 
   it('keeps the search alive with heartbeats until it is cancelled', () => {

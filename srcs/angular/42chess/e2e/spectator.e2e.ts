@@ -51,6 +51,8 @@ test('a third user finds a live game, watches it move by move and leaves', async
   await viewer.goto(path);
   await expect(viewer.locator('.eyebrow')).toHaveText('Spectating');
   await expect(viewer.locator('.move-list li').first()).toContainText('e4');
+  await move(black, 'e7', 'e5');
+  await expect(viewer.locator('.move-list li').first()).toContainText('e5');
   await black.getByRole('button', { name: 'Resign' }).click();
   await black.getByRole('button', { name: 'Confirm resignation' }).click();
   await expect(headline(viewer)).toHaveText('White wins by resignation');

@@ -59,6 +59,9 @@
     <div class="game-panel side-panel">
       <span class="eyebrow">{{ spectating() ? 'Spectating' : 'Live game' }}</span>
       <h2 id="game-title" aria-live="polite">{{ headline() || 'Game' }}</h2>
+      @if (kind(); as text) {
+        <p class="game-kind" data-kind>{{ text }}</p>
+      }
       @if (game() && spectators() > 0) {
         <p class="watchers" data-watchers>
           {{ spectators() }} {{ spectators() === 1 ? 'spectator' : 'spectators' }} watching
@@ -103,6 +106,29 @@
           </div>
         }
 
+        @if (current.status === 'ACTIVE' && firstMoveLeft() !== null) {
+          <p class="notice" role="status" data-first-move>
+            {{ current.board.turn === 'WHITE' ? 'White' : 'Black' }} has
+            {{ format(firstMoveLeft()!, false) }} to play a first move, or the game is aborted
+            without rating.
+          </p>
+        }
+        @if (opponentAway(); as away) {
+          <div class="away" role="alert" data-away>
+            @if (away.claimable) {
+              <p>Your opponent left the game. You can claim the win or keep waiting.</p>
+              <div class="actions">
+                <button type="button" (click)="realtime.claimVictory()">Claim the win</button>
+              </div>
+            } @else {
+              <p>
+                Your opponent disconnected. You can claim the win in
+                {{ format(away.left, false) }} if they do not come back.
+              </p>
+            }
+          </div>
+        }
+
         @if (current.status === 'ACTIVE' && myColor()) {
           @if (drawOfferedByOpponent()) {
             <div class="draw-offer" role="alert">
@@ -120,13 +146,23 @@
           @if (drawDeclined()) {
             <p role="status">Your draw offer was declined.</p>
           }
+          @if (drawClaimable()) {
+            <div class="draw-offer" role="status" data-claim-draw>
+              <p>This position allows you to claim a draw.</p>
+              <div class="actions">
+                <button type="button" (click)="realtime.claimDraw()">Claim draw</button>
+              </div>
+            </div>
+          }
           <div class="actions">
-            @if (!bot() && !current.drawOffer) {
+            @if (canOfferDraw()) {
               <button type="button" class="button secondary" (click)="realtime.offerDraw()">
                 Offer draw
               </button>
             }
-            @if (confirmingResign()) {
+            @if (canAbort()) {
+              <button type="button" class="button secondary" (click)="abort()">Abort game</button>
+            } @else if (confirmingResign()) {
               <button type="button" class="danger" (click)="resign()">Confirm resignation</button>
               <button type="button" class="button secondary" (click)="confirmingResign.set(false)">
                 Keep playing
@@ -144,6 +180,7 @@
             <a class="button secondary" routerLink="/board">Analysis board</a>
           </div>
         }
+        <p class="rules-link"><a routerLink="/rules">How games end</a></p>
 
         <section class="move-list panel-section" aria-labelledby="moves-title">
           <h3 id="moves-title">Moves</h3>

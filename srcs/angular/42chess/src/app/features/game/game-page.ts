@@ -15,10 +15,23 @@ import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
 import { GameMove, GamePlayer, GameRealtime, PlayerColor } from '../../core/realtime/game-realtime';
 import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
-import { botName, moveRows, resultText, seatOf } from '../../shared/chess/game-text';
+import {
+  botName,
+  moveRows,
+  repetitions,
+  resultText,
+  seatOf,
+  START_FEN,
+} from '../../shared/chess/game-text';
 import { GameChat } from './game-chat';
 import { GameClock } from './game-clock';
-import { GamesApi } from './games-api';
+import { GamesApi, timeControlLabel } from './games-api';
+import { formatClock } from './game-clock';
+
+/** A side that does not play its first move within this delay aborts the game (server rule). */
+const FIRST_MOVE_MS = 30_000;
+/** An opponent away for less than this is not shown as gone. */
+const AWAY_GRACE_MS = 3_000;
 
 interface Seat {
   color: PlayerColor;
@@ -128,6 +141,54 @@ export class GamePage {
     const by = this.realtime.drawDeclinedBy();
     return by !== null && by !== this.me();
   });
+  /** After a refused offer, the same side waits a few moves before offering again. */
+  readonly canOfferDraw = computed(() => {
+    const game = this.game();
+    const color = this.myColor();
+    if (!game || !color || this.bot() || game.drawOffer) return false;
+    const from = game.drawOfferAllowedFrom?.[color === 'WHITE' ? 'white' : 'black'] ?? 0;
+    return this.moves().length >= from;
+  });
+  /**
+   * Threefold repetition or fifty moves without capture or pawn move: the player to move may
+   * claim the draw. The server confirms the claim with the rules engine.
+   */
+  readonly drawClaimable = computed(() => {
+    const game = this.game();
+    if (!game || !this.myTurn()) return false;
+    if (game.board.halfmoveClock >= 100) return true;
+    return repetitions(START_FEN, this.moves()) >= 3;
+  });
+  /** Before both sides have moved, a player aborts instead of resigning: nothing is rated. */
+  readonly canAbort = computed(() => this.active() && !!this.myColor() && this.moves().length < 2);
+  /** "0:24" left for the side to move to play its first move, between two people. */
+  readonly firstMoveLeft = computed(() => {
+    const game = this.game();
+    if (!game || game.status !== 'ACTIVE' || this.bot() || this.moves().length >= 2) return null;
+    const since = Date.parse(this.moves().at(-1)?.timestamp ?? game.startedAt ?? '');
+    if (!Number.isFinite(since)) return null;
+    return Math.max(0, since + FIRST_MOVE_MS - this.now());
+  });
+  /** The opponent left the game; the claim opens one minute after they left. */
+  readonly opponentAway = computed(() => {
+    const game = this.game();
+    const me = this.me();
+    if (!game || game.status !== 'ACTIVE' || !this.myColor() || !me) return null;
+    const entry = (game.away ?? []).find((away) => away.playerId !== me);
+    // A short grace: a reload, or an opponent still opening the game, is not news.
+    if (!entry || this.now() - Date.parse(entry.since) < AWAY_GRACE_MS) return null;
+    const left = Math.max(0, Date.parse(entry.claimableAt) - this.now());
+    return { left, claimable: left === 0 };
+  });
+  readonly format = formatClock;
+  /** "Rated · 10 + 0", "Casual · 3 + 2" or "Against the computer · 5 + 0". */
+  readonly kind = computed(() => {
+    const game = this.game();
+    if (!game) return '';
+    const label = timeControlLabel(game.timeControl);
+    if (this.bot()) return `Against the computer · ${label}`;
+    return `${game.rated ? 'Rated' : 'Casual'} · ${label}`;
+  });
 
   readonly headline = computed(() => {
     const game = this.game();
@@ -186,6 +247,11 @@ export class GamePage {
     if (!game || !this.canPlay()) return;
     if (this.realtime.move(move.from, move.to, move.promotion))
       this.proposed.set({ base: game.board.fen, move });
+  }
+
+  abort(): void {
+    this.confirmingResign.set(false);
+    this.realtime.abort();
   }
 
   resign(): void {
