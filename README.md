@@ -2,6 +2,10 @@
 Throughout commits and merge conflicts, we alone are the ones who forgot to pull and fetch.
 
 
+## API documentation
+
+- [REST and realtime API reference](docs/api.md)
+
 ## Database documentation
 
 - [Database model](srcs/nestJS/42chess/DATABASE-MODEL.md)
