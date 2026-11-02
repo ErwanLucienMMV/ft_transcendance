@@ -13,11 +13,13 @@ export async function assertApplicationReady(
     throw new Error(`API health check failed: HTTP ${response.status}`);
   }
   const body: unknown = await response.json();
+  // `degraded` still means the API and its database work; the report says
+  // which other service is down.
   if (
     !body ||
     typeof body !== 'object' ||
     !('status' in body) ||
-    body.status !== 'ok'
+    (body.status !== 'ok' && body.status !== 'degraded')
   ) {
     throw new Error('API health check did not report status ok');
   }

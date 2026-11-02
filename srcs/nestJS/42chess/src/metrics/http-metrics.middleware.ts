@@ -30,8 +30,10 @@ export class HttpMetricsMiddleware implements NestMiddleware {
   }
 
   use(request: Request, response: Response, next: NextFunction): void {
-    // Scrapes must not count themselves or produce recursive scrape traffic.
-    if (/^\/(?:v1\/)?metrics\/?$/i.test(request.path)) {
+    // Scrapes must not count themselves or produce recursive scrape traffic,
+    // and the health check (Docker every 5 s, the status page) is not player
+    // traffic: it would hide the error rate and the latency of real requests.
+    if (/^\/(?:v1\/)?(?:metrics|health)\/?$/i.test(request.path)) {
       next();
       return;
     }

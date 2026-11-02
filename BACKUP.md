@@ -36,8 +36,12 @@ temporary file, checked with `gzip -t`, and only then renamed: an interrupted
 backup never leaves a truncated file behind.
 
 After each successful backup, the service writes the time of the backup to
-`backups/last-success`. The status page and the monitoring alerts use it to
-warn when backups stop.
+`backups/status/last-success`. The API mounts only that folder, read-only, and
+reports the age of the last backup on the status page (`/status`), in
+`/api/v1/health` and to Prometheus: the `BackupStale` alert fires when it is
+older than two hours, `BackupMissing` when none was ever recorded (see
+[DOC_MONITORING.md](DOC_MONITORING.md)). The dumps themselves stay readable by
+root only.
 
 Backups older than **24 hours** are removed, so the service keeps about the
 last 24 hourly backups.
@@ -78,24 +82,20 @@ The backup container reads its settings from `srcs/.env` when it starts. It
 stops immediately with a clear message when one of these is missing:
 
 - `POSTGRES_BACKUP_USER`, `POSTGRES_BACKUP_PASSWORD`: the **read-only role**
-  used by the hourly backups (granted `pg_read_all_data` when the database is
-  created);
+  used by the hourly backups (`pg_read_all_data`) and by postgres-exporter for
+  the monitoring (`pg_monitor`);
 - `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD`: the **owner of the
   database**, used only by a restore, which has to rewrite every table.
 
 Because cron gives its jobs an empty environment, `tools/entrypoint.sh` writes
 these settings to two root-only files that `backup.sh` and `restore.sh` load.
 
-A database volume created before the read-only role existed needs the grant
-once, from the repository root:
+The `postgres` container creates the read-only role, or updates its password
+and grants, **each time it starts**, from the same two variables. A database
+created by an older version of the project therefore needs nothing by hand:
+restart it (`make` does) and backups and metrics work.
 
-```bash
-set -a; . srcs/.env; set +a
-docker exec postgres su - postgres -c \
-    "psql -c 'GRANT pg_read_all_data TO \"$POSTGRES_BACKUP_USER\";'"
-```
-
-Check a backup by hand after the grant:
+Check a backup by hand:
 
 ```bash
 make backup-now
@@ -140,8 +140,8 @@ The same steps without the Makefile, for troubleshooting:
 
 ```bash
 # 1. Stop everything that writes to the database (PostgreSQL stays up)
-docker compose -f srcs/docker-compose.yml \
-    stop chess-engine bot nginx prometheus nestjs forgemail grafana
+docker compose -f srcs/docker-compose.yml stop chess-engine bot forgemail \
+    nestjs nginx prometheus alertmanager grafana node-exporter cadvisor postgres-exporter
 
 # 2. List the backups
 ls -lt backups/
@@ -151,8 +151,8 @@ docker exec -it transcendence-backup \
     /usr/local/bin/restore.sh transcendence_2026-11-02_16-00-00.sql.gz
 
 # 4. Start the application again
-docker compose -f srcs/docker-compose.yml \
-    start chess-engine bot forgemail nestjs nginx prometheus grafana
+docker compose -f srcs/docker-compose.yml start chess-engine bot forgemail \
+    nestjs nginx prometheus alertmanager grafana node-exporter cadvisor postgres-exporter
 ```
 
 ## Full disaster: the database volume is gone
@@ -168,9 +168,9 @@ make restore BACKUP=<latest file from make backups>
 The restore replaces the empty tables created by the migrations with the
 content of the backup.
 
-The procedure is tested by restoring into a database that already contains
-newer data, and with a corrupted file (which must leave the database
-unchanged).
+The step-by-step procedure for each kind of disaster, and the record of its
+test on a wiped database, are in
+[docs/reprise-apres-sinistre.md](docs/reprise-apres-sinistre.md).
 
 ---
 

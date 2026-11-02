@@ -77,6 +77,71 @@ services:
         - transcendence
       restart: unless-stopped
 
+    # Turns firing alert rules into emails (through forgemail). Silences are
+    # managed from Grafana; no published port.
+    alertmanager:
+      container_name: alertmanager
+      build:
+        context: ./alertmanager
+      environment:
+        ALERT_WEBHOOK_TOKEN: ${ALERT_WEBHOOK_TOKEN}
+      volumes:
+        - alertmanager_data:/alertmanager
+      networks:
+        - transcendence
+      restart: unless-stopped
+
+    # Exporters: metrics of the machine, of each container and of PostgreSQL,
+    # scraped by Prometheus. Read-only mounts, no published port.
+    node-exporter:
+      container_name: node-exporter
+      image: docker.io/prom/node-exporter:v1.12.1
+      command:
+        - --path.rootfs=/host
+        # Also skips the files Docker mounts into the exporter itself.
+        - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|etc|run/credentials/.+|var/lib/docker/.+|var/lib/containers/storage/.+)($$|/)
+      volumes:
+        - /:/host:ro
+      networks:
+        - transcendence
+      restart: unless-stopped
+
+    cadvisor:
+      container_name: cadvisor
+      # Newer releases are published on ghcr.io/google/cadvisor.
+      image: gcr.io/cadvisor/cadvisor:v0.55.1
+      command:
+        - --docker_only=true
+        - --housekeeping_interval=15s
+        - --enable_metrics=cpu,memory,network
+        - --store_container_labels=false
+        - --whitelisted_container_labels=com.docker.compose.service
+      volumes:
+        - /:/rootfs:ro
+        - /var/run:/var/run:ro
+        - /sys:/sys:ro
+      networks:
+        - transcendence
+      restart: unless-stopped
+
+    postgres-exporter:
+      container_name: postgres-exporter
+      image: docker.io/prometheuscommunity/postgres-exporter:v0.20.1
+      command:
+        # Start time of the server, for the uptime panel.
+        - --collector.postmaster
+      environment:
+        # The read-only role of the backups, also granted pg_monitor.
+        DATA_SOURCE_URI: postgres:5432/${DATABASE_NAME}?sslmode=disable
+        DATA_SOURCE_USER: ${POSTGRES_BACKUP_USER}
+        DATA_SOURCE_PASS: ${POSTGRES_BACKUP_PASSWORD}
+      networks:
+        - transcendence
+      restart: unless-stopped
+      depends_on:
+        postgres:
+          condition: service_healthy
+
     nestjs:
       container_name: nestjs
       build:
@@ -109,9 +174,11 @@ services:
         FORTYTWO_CLIENT_SECRET: ${FORTYTWO_CLIENT_SECRET:-}
         FORTYTWO_CALLBACK_URL: ${FORTYTWO_CALLBACK_URL:-}
         AVATAR_DIR: /app/uploads/avatars
-      # Uploaded avatars outlive the container.
+      # Uploaded avatars outlive the container. The time of the last backup
+      # (written by the backup service) feeds the status page and the alerts.
       volumes:
         - avatars:/app/uploads
+        - ${BACKUP_DIR:-../backups}/status:/backups/status:ro
       networks:
         - transcendence
       restart: on-failure
@@ -141,6 +208,9 @@ services:
         SMTP_PASSWORD: ${SMTP_PASSWORD}
         MAIL_FROM: ${MAIL_FROM}
         APPURL: ${APPURL}
+        # Monitoring alerts from Alertmanager.
+        ALERT_EMAIL: ${ALERT_EMAIL:-}
+        ALERT_WEBHOOK_TOKEN: ${ALERT_WEBHOOK_TOKEN}
       networks:
         - transcendence
       restart: on-failure
@@ -171,6 +241,7 @@ services:
 volumes:
   postgres_data:
   prometheus_data:
+  alertmanager_data:
   grafana_data:
   avatars:
 

@@ -1,0 +1,475 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "transcendence"
+      ],
+      "asDropdown": true,
+      "title": "Transcendence dashboards"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "transcendence",
+    "alerts"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Transcendence - Health and alerts",
+  "uid": "transcendence-overview",
+  "version": 1,
+  "panels": [
+    {
+      "type": "text",
+      "title": "About",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "What players and administrators need to know first: the services the API reaches, every scrape target, the last database backup and the alerts that are firing. Alert rules live in `srcs/prometheus/rules/alerts.yml`; see **Alerting > Alert rules** and **Silences**. The public status page is `/status`."
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Services seen by the API",
+      "description": "service_up: the health check of the API, at most 10 seconds old. The same data feeds the /status page.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "service_up{job=\"nestjs\"}",
+          "legendFormat": "{{service}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Scrape targets",
+      "description": "up: whether Prometheus read the metrics of each target at the last scrape. DOWN for a minute fires TargetDown.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 3,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "min by (job) (up)",
+          "legendFormat": "{{job}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Last database backup",
+      "description": "Time since the last successful backup (hourly). Above two hours, BackupStale fires. No data: no backup was ever recorded.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 5400
+              },
+              {
+                "color": "red",
+                "value": 7200
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - max(backup_last_success_timestamp_seconds{job=\"nestjs\"} > 0)",
+          "legendFormat": "age",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 4
+    },
+    {
+      "type": "stat",
+      "title": "Firing alerts",
+      "description": "Alert rules currently firing (pending ones excluded).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 8,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "legendFormat": "firing",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "Firing alerts by rule",
+      "description": "Each line is an alert rule while it fires.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count by (alertname) (ALERTS{alertstate=\"firing\"})",
+          "legendFormat": "{{alertname}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "API requests by status",
+      "description": "Responses per second, by HTTP status code.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status_code) (rate(http_request_duration_seconds_count{job=\"nestjs\"}[$__rate_interval]))",
+          "legendFormat": "{{status_code}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "API server errors",
+      "description": "Share of 5xx responses. Above 5% for 5 minutes (with real traffic), ApiHighErrorRate fires.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 13,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate(http_request_duration_seconds_count{job=\"nestjs\", status_code=~\"5..\"}[$__rate_interval])) or vector(0)) / sum(rate(http_request_duration_seconds_count{job=\"nestjs\"}[$__rate_interval]))",
+          "legendFormat": "5xx share"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8
+    },
+    {
+      "type": "timeseries",
+      "title": "API latency",
+      "description": "Median and 95th percentile of the response time. A p95 above one second for 10 minutes fires ApiSlowResponses.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 13,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"nestjs\"}[$__rate_interval])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"nestjs\"}[$__rate_interval])))",
+          "legendFormat": "p95"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9
+    }
+  ]
+}

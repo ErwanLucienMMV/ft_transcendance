@@ -11,10 +11,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "tags": [
-    "matchmaking",
-    "sprint4"
-  ],
+  "tags": ["matchmaking", "sprint4", "transcendence"],
   "panels": [
     {
       "id": 1,

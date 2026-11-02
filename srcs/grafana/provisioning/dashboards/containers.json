@@ -1,0 +1,376 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "transcendence"
+      ],
+      "asDropdown": true,
+      "title": "Transcendence dashboards"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "transcendence",
+    "cadvisor"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Transcendence - Containers",
+  "uid": "transcendence-containers",
+  "version": 1,
+  "panels": [
+    {
+      "type": "text",
+      "title": "About",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "One line per container, read by cAdvisor. `name` is the container name; ContainerRestarting fires when one starts more than twice in 15 minutes."
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Running containers",
+      "description": "Containers cAdvisor sees right now.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 8,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(container_start_time_seconds{job=\"cadvisor\", name!=\"\"})",
+          "legendFormat": "containers",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Memory of all containers",
+      "description": "Working set: memory that cannot be reclaimed.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 2,
+        "w": 8,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(container_memory_working_set_bytes{job=\"cadvisor\", name!=\"\"})",
+          "legendFormat": "memory",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Restarts in the last hour",
+      "description": "Container starts over the last hour, all containers.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 2,
+        "w": 8,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(changes(container_start_time_seconds{job=\"cadvisor\", name!=\"\"}[1h])) or vector(0)",
+          "legendFormat": "restarts",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 4
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU by container",
+      "description": "CPU time per second: 1 means one full core.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\", name!=\"\"}[$__rate_interval]))",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory by container",
+      "description": "Working set of each container.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (name) (container_memory_working_set_bytes{job=\"cadvisor\", name!=\"\"})",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Network received",
+      "description": "Bytes received per second.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (name) (rate(container_network_receive_bytes_total{job=\"cadvisor\", name!=\"\"}[$__rate_interval]))",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "Network sent",
+      "description": "Bytes sent per second.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (name) (rate(container_network_transmit_bytes_total{job=\"cadvisor\", name!=\"\"}[$__rate_interval]))",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8
+    }
+  ]
+}

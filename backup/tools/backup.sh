@@ -25,8 +25,14 @@ gzip -t "$TEMP"
 # The file becomes an available backup only once it is complete.
 mv -- "$TEMP" "$BACKUP"
 
-# Read by the status page and the monitoring alert on stale backups.
-date -u +"%Y-%m-%dT%H:%M:%SZ" > /backups/last-success
+# Read by the API (status page, health check, alert on stale backups), which
+# mounts only this folder, read-only: the dumps stay private (umask 077), the
+# time of the last backup does not.
+mkdir -p /backups/status
+chmod 755 /backups/status
+date -u +"%Y-%m-%dT%H:%M:%SZ" > /backups/status/last-success.tmp
+chmod 644 /backups/status/last-success.tmp
+mv -f /backups/status/last-success.tmp /backups/status/last-success
 
 echo "Backup created: $BACKUP"
 

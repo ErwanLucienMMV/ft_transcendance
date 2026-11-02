@@ -21,10 +21,16 @@ describe('AppController (e2e)', () => {
   });
 
   it('serves health while connected to PostgreSQL', async () => {
-    await request(app.getHttpServer())
+    const { body } = await request(app.getHttpServer())
       .get('/v1/health')
       .expect(200)
-      .expect({ status: 'ok' });
+      .expect('Cache-Control', 'no-store');
+    expect(['ok', 'degraded']).toContain(body.status);
+    expect(body.services[0]).toMatchObject({ name: 'database', status: 'up' });
+    expect(
+      (body.services as { name: string }[]).map((service) => service.name),
+    ).toEqual(['database', 'chess-engine', 'bot', 'mail']);
+    expect(body.backup).toHaveProperty('maxAgeSeconds', 7200);
     expect(await database.query('SELECT 1 AS connected')).toEqual([
       { connected: 1 },
     ]);

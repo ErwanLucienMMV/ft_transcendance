@@ -1,7 +1,55 @@
+# Every target lives on the transcendence network; none is published.
 global:
-  scrape_interval: 5s
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
 
 scrape_configs:
+  # The API: HTTP, WebSocket, game and puzzle metrics, plus its checks of the
+  # database, the chess engine, the bot, the mail service and the backups.
   - job_name: 'nestjs'
+    scrape_interval: 5s
+    metrics_path: /v1/metrics
     static_configs:
       - targets: ['nestjs:${APIPORT}']
+
+  # The machine: CPU, memory, disks, network.
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # One series per container: CPU, memory, network, restarts.
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metric_relabel_configs:
+      # Keep the containers of this project, by their Compose service name.
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service
+      - regex: 'container_label_.*'
+        action: labeldrop
+
+  # PostgreSQL statistics, read with the read-only role.
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'grafana'
+    metrics_path: /grafana/metrics
+    static_configs:
+      - targets: ['grafana:3000']

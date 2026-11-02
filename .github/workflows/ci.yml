@@ -66,6 +66,10 @@ jobs:
       - name: Build Docker images
         run: docker compose -f srcs/docker-compose.yml build
 
+      # promtool (configuration, alert rules and their tests), amtool, dashboards.
+      - name: Check the monitoring configuration
+        run: make check-monitoring
+
   test:
     name: Tests
     runs-on: ubuntu-latest

@@ -42,6 +42,13 @@ elif [ -n "$smtp_user" ]; then
     "$(value SMTP_HOST)" "$(value SMTP_PORT)" "$smtp_user"
 fi
 
+alert_email=$(value ALERT_EMAIL)
+if [ -z "$alert_email" ]; then
+  printf 'Monitoring alerts are not emailed (no ALERT_EMAIL): they show in Grafana and `docker logs forgemail`.\n'
+elif [ -z "$smtp_user" ] || [ -z "$smtp_password" ]; then
+  warn "ALERT_EMAIL is set but SMTP_USER/SMTP_PASSWORD are not: alerts are only logged (docker logs forgemail)."
+fi
+
 for provider in google github fortytwo; do
   upper=$(printf '%s' "$provider" | tr a-z A-Z)
   id=$(value "${upper}_CLIENT_ID")

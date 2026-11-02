@@ -29,7 +29,18 @@ describe('Application readiness', () => {
     );
   });
 
+  it('accepts a degraded API: its database works, another service is down', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(Response.json({ status: 'degraded' })),
+    );
+    await expect(
+      assertApplicationReady(source(), healthUrl),
+    ).resolves.toBeUndefined();
+  });
+
   it.each([
+    [503, { status: 'down' }],
     [503, { status: 'ok' }],
     [200, { status: 'unhealthy' }],
   ])('fails on unhealthy API responses (%s)', async (status, body) => {

@@ -1,0 +1,31 @@
+# Every alert becomes an email to the administrators (ALERT_EMAIL in
+# srcs/.env), sent by forgemail with the same SMTP settings as account emails.
+# Silences and the alert history are in Grafana: Alerting > Silences.
+route:
+  receiver: administrators
+  group_by: ['alertname', 'job']
+  # Waits a little so that alerts starting together share one email.
+  group_wait: 30s
+  group_interval: 5m
+  # An alert that is still firing is emailed again every 4 hours.
+  repeat_interval: 4h
+
+receivers:
+  - name: administrators
+    webhook_configs:
+      - url: http://forgemail:3002/v1/alerts
+        send_resolved: true
+        max_alerts: 20
+        http_config:
+          authorization:
+            type: Bearer
+            # Written from ALERT_WEBHOOK_TOKEN by entrypoint.sh.
+            credentials_file: /tmp/alert-webhook-token
+
+inhibit_rules:
+  # Without the database the API fails its scrapes and its checks: one email
+  # about PostgreSQL says it all.
+  - source_matchers: ['alertname = PostgresDown']
+    target_matchers: ['alertname = ServiceUnreachable', 'service = database']
+  - source_matchers: ['alertname = PostgresDown']
+    target_matchers: ['alertname = TargetDown', 'job = nestjs']

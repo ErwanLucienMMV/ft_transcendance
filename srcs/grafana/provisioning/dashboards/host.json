@@ -1,0 +1,509 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "transcendence"
+      ],
+      "asDropdown": true,
+      "title": "Transcendence dashboards"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": [
+    "transcendence",
+    "node-exporter"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Transcendence - Host",
+  "uid": "transcendence-host",
+  "version": 1,
+  "panels": [
+    {
+      "type": "text",
+      "title": "About",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "The machine that runs the stack, read by node-exporter through a read-only mount of `/`. Network traffic is per container, in **Transcendence - Containers**."
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Uptime",
+      "description": "Time since the machine started.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - node_boot_time_seconds{job=\"node\"}",
+          "legendFormat": "uptime",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "CPU cores",
+      "description": "Logical CPUs.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 2,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(node_cpu_seconds_total{job=\"node\", mode=\"idle\"})",
+          "legendFormat": "cores",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Memory",
+      "description": "Total memory of the machine.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 2,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_memory_MemTotal_bytes{job=\"node\"}",
+          "legendFormat": "total",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 4
+    },
+    {
+      "type": "stat",
+      "title": "Fullest disk",
+      "description": "The most used filesystem. Above 90%, DiskAlmostFull fires.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 2,
+        "w": 6,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          },
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(1 - node_filesystem_avail_bytes{job=\"node\", fstype!~\"tmpfs|ramfs|overlay|squashfs|nsfs|fuse.*\"} / node_filesystem_size_bytes{job=\"node\", fstype!~\"tmpfs|ramfs|overlay|squashfs|nsfs|fuse.*\"})",
+          "legendFormat": "used",
+          "instant": true
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU usage",
+      "description": "Share of CPU time not idle, all cores together.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - avg(rate(node_cpu_seconds_total{job=\"node\", mode=\"idle\"}[$__rate_interval]))",
+          "legendFormat": "busy"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "timeseries",
+      "title": "Load average",
+      "description": "Processes running or waiting, averaged over 1, 5 and 15 minutes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_load1{job=\"node\"}",
+          "legendFormat": "1 min"
+        },
+        {
+          "refId": "B",
+          "expr": "node_load5{job=\"node\"}",
+          "legendFormat": "5 min"
+        },
+        {
+          "refId": "C",
+          "expr": "node_load15{job=\"node\"}",
+          "legendFormat": "15 min"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory usage",
+      "description": "Memory in use (not available to new programs). Below 10% available for 10 minutes, HostLowMemory fires.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - node_memory_MemAvailable_bytes{job=\"node\"} / node_memory_MemTotal_bytes{job=\"node\"}",
+          "legendFormat": "used"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8
+    },
+    {
+      "type": "bargauge",
+      "title": "Disk usage by filesystem",
+      "description": "Used share of each real filesystem.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "1 - node_filesystem_avail_bytes{job=\"node\", fstype!~\"tmpfs|ramfs|overlay|squashfs|nsfs|fuse.*\"} / node_filesystem_size_bytes{job=\"node\", fstype!~\"tmpfs|ramfs|overlay|squashfs|nsfs|fuse.*\"}",
+          "legendFormat": "{{mountpoint}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 9
+    },
+    {
+      "type": "timeseries",
+      "title": "Disk throughput",
+      "description": "Bytes read and written per second, by disk.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "noValue": "No data"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (device) (rate(node_disk_read_bytes_total{job=\"node\"}[$__rate_interval]))",
+          "legendFormat": "read {{device}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (device) (rate(node_disk_written_bytes_total{job=\"node\"}[$__rate_interval]))",
+          "legendFormat": "write {{device}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10
+    }
+  ]
+}
