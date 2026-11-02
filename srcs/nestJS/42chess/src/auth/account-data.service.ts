@@ -55,6 +55,9 @@ export class AccountDataService {
       chat,
       puzzles,
       blocked,
+      progress,
+      xp,
+      achievements,
     ] = await Promise.all([
       query(
         `SELECT provider, "createdAt" AS "linkedAt" FROM oauth_accounts WHERE "userId" = $1 ORDER BY "createdAt"`,
@@ -104,10 +107,19 @@ export class AccountDataService {
         `SELECT "gameId", content, "createdAt" FROM game_messages WHERE "userId" = $1 ORDER BY "createdAt"`,
       ),
       query(
-        `SELECT "puzzleId", solved, attempts, duration, "createdAt" FROM puzzle_attempts WHERE "userId" = $1 ORDER BY "createdAt"`,
+        `SELECT "puzzleId", solved, attempts, mistakes, "hintUsed", revealed, duration, "createdAt" FROM puzzle_attempts WHERE "userId" = $1 ORDER BY "createdAt"`,
       ),
       query(
         `SELECT u.username, b."createdAt" AS since FROM user_blocks b JOIN users u ON u.id = b."blockedId" WHERE b."blockerId" = $1 ORDER BY b."createdAt"`,
+      ),
+      query(
+        `SELECT xp, "puzzleStreak", "bestPuzzleStreak", "lastStreakDate"::text AS "lastStreakDate" FROM user_progress WHERE "userId" = $1`,
+      ),
+      query(
+        `SELECT source, "refId", amount, "createdAt" FROM xp_events WHERE "userId" = $1 ORDER BY "createdAt"`,
+      ),
+      query(
+        `SELECT code, "unlockedAt" FROM user_achievements WHERE "userId" = $1 ORDER BY "unlockedAt"`,
       ),
     ]);
     await this.mail.notify(user.email, user.username, 'data-exported');
@@ -145,6 +157,14 @@ export class AccountDataService {
       privateMessages: messages,
       gameChatMessages: chat,
       puzzleAttempts: puzzles,
+      progression: {
+        xp: progress[0]?.xp ?? 0,
+        puzzleStreak: progress[0]?.puzzleStreak ?? 0,
+        bestPuzzleStreak: progress[0]?.bestPuzzleStreak ?? 0,
+        lastStreakDate: progress[0]?.lastStreakDate ?? null,
+        experience: xp,
+        achievements,
+      },
     };
   }
 
@@ -227,6 +247,9 @@ export class AccountDataService {
       `DELETE FROM messages WHERE "senderId" = $1 OR "recipientId" = $1`,
       `DELETE FROM game_messages WHERE "userId" = $1`,
       `DELETE FROM puzzle_attempts WHERE "userId" = $1`,
+      `DELETE FROM user_achievements WHERE "userId" = $1`,
+      `DELETE FROM xp_events WHERE "userId" = $1`,
+      `DELETE FROM user_progress WHERE "userId" = $1`,
       `DELETE FROM oauth_accounts WHERE "userId" = $1`,
       `DELETE FROM oauth_flows WHERE "userId" = $1`,
     ])

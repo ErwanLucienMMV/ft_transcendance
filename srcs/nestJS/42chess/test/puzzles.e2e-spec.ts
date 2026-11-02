@@ -365,6 +365,70 @@ describe('Daily puzzle HTTP flow (E2E-14)', () => {
       .expect(404);
   });
 
+  it('serves a hint, the solution, the latest attempt and the archive', async () => {
+    const attempt = await start();
+    const hint = await http()
+      .post(`/v1/puzzles/attempts/${attempt.attemptId}/hint`)
+      .auth(otherToken, { type: 'bearer' })
+      .expect(404);
+    expect(hint.body.code).toBe('PUZZLE_ATTEMPT_NOT_FOUND');
+    expect(
+      (
+        await http()
+          .post(`/v1/puzzles/attempts/${attempt.attemptId}/hint`)
+          .auth(token, { type: 'bearer' })
+          .expect(200)
+      ).body,
+    ).toMatchObject({ hint: 'a2', hintUsed: true, mistakesLeft: 3 });
+    const shown = await http()
+      .post(`/v1/puzzles/attempts/${attempt.attemptId}/solution`)
+      .auth(token, { type: 'bearer' })
+      .expect(200);
+    expect(shown.body).toMatchObject({ revealed: true, failed: true });
+    expect(shown.body.solution[0]).toBe('a2e6');
+    expect(
+      (
+        await http()
+          .post(`/v1/puzzles/attempts/${attempt.attemptId}/moves`)
+          .auth(token, { type: 'bearer' })
+          .send({ move: 'a2e6', version: 0 })
+          .expect(409)
+      ).body.code,
+    ).toBe('PUZZLE_ATTEMPT_FAILED');
+    const progress = await http()
+      .get(`/v1/puzzles/${puzzleId}/progress`)
+      .auth(token, { type: 'bearer' })
+      .expect(200);
+    expect(progress.headers['cache-control']).toBe('no-store');
+    expect(progress.body).toMatchObject({
+      attempt: { attemptId: attempt.attemptId, failed: true },
+      rewarded: false,
+    });
+    const archive = await http()
+      .get('/v1/puzzles/archive')
+      .auth(token, { type: 'bearer' })
+      .expect(200);
+    expect(archive.body.items).toContainEqual(
+      // Earlier tests left other attempts at it unfinished.
+      expect.objectContaining({ id: puzzleId, status: 'STARTED' }),
+    );
+    expect(JSON.stringify(archive.body)).not.toMatch(/solution|fen/);
+    const published = await http().get(`/v1/puzzles/${puzzleId}`).expect(200);
+    expect(Object.keys(published.body).sort()).toEqual([
+      'date',
+      'fen',
+      'id',
+      'rating',
+      'themes',
+    ]);
+    for (const path of [
+      '/v1/puzzles/archive',
+      `/v1/puzzles/${puzzleId}/progress`,
+    ])
+      await http().get(path).expect(401);
+    await http().get(`/v1/puzzles/${randomUUID()}`).expect(404);
+  });
+
   it('returns an uncached public 503 for an empty catalogue and recovers after import', async () => {
     await f.clear();
     try {

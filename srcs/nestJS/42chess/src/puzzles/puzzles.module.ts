@@ -9,11 +9,13 @@ import { DailyPuzzle } from './daily-puzzles.entity.js';
 import { PuzzlesController } from './puzzles.controller.js';
 import { PuzzlesService } from './puzzles.service.js';
 import { PuzzleRulesService } from './puzzle-rules.service.js';
+import { ProgressionModule } from '../progression/progression.module.js';
 
 @Module({
   imports: [
     AuthModule,
     SessionModule,
+    ProgressionModule,
     TypeOrmModule.forFeature([Puzzle, PuzzleAttempt, DailyPuzzle]),
   ],
   controllers: [PuzzlesController],

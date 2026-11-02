@@ -36,6 +36,15 @@ export async function createPuzzleFixture() {
   });
   await source.initialize();
   await source.runMigrations();
+  /** Makes a puzzle an earlier day's daily puzzle, the day before the oldest one. */
+  async function publish(puzzleId: string) {
+    await source.query(
+      `INSERT INTO daily_puzzles (date, "puzzleId")
+       SELECT (SELECT COALESCE(min(date), (now() AT TIME ZONE 'UTC')::date) FROM daily_puzzles) - 1, $1
+       WHERE NOT EXISTS (SELECT 1 FROM daily_puzzles WHERE "puzzleId" = $1)`,
+      [puzzleId],
+    );
+  }
   const engine = new ChessEngineService();
   const rules = new PuzzleRulesService(engine);
   const service = new PuzzlesService(source, rules);
@@ -53,10 +62,13 @@ export async function createPuzzleFixture() {
     async load() {
       return importPuzzles(source, rules, 'data/puzzles/lichess-sample.csv');
     },
+    /** The reference puzzle, published in the archive so that it can be played. */
     async reference() {
-      return source
+      const puzzle = await source
         .getRepository(Puzzle)
         .findOneByOrFail({ sourceId: 'lichess:00sHx' });
+      await publish(puzzle.id);
+      return puzzle;
     },
     async composed(
       fen: string,
@@ -64,10 +76,13 @@ export async function createPuzzleFixture() {
       themes: Puzzle['themes'] = [],
     ) {
       await rules.validate(fen, solution);
-      return source
+      const puzzle = await source
         .getRepository(Puzzle)
         .save({ fen, solution, themes, rating: 800, validatedAt: new Date() });
+      await publish(puzzle.id);
+      return puzzle;
     },
+    publish,
     async clear() {
       await source.query('TRUNCATE puzzle_attempts, daily_puzzles, puzzles');
     },

@@ -16,6 +16,7 @@ import { User } from '../users/user.entity.js';
 @Index('IDX_puzzle_attempts_user', ['userId', 'puzzleId', 'createdAt'])
 @Check('CHK_puzzle_attempts_metrics', `"attempts" >= 0 AND "duration" >= 0`)
 @Check('CHK_puzzle_attempts_version', `"version" >= 0`)
+@Check('CHK_puzzle_attempts_mistakes', `"mistakes" >= 0`)
 @Entity('puzzle_attempts')
 export class PuzzleAttempt {
   @PrimaryGeneratedColumn('uuid')
@@ -40,6 +41,14 @@ export class PuzzleAttempt {
   /** Elapsed solving time in milliseconds; NULL for unknown legacy measurements. */
   @Column({ type: 'integer', nullable: true })
   duration: number | null;
+  /** Wrong moves; the attempt ends at XP_RULES.maxPuzzleMistakes. */
+  @Column({ type: 'integer', default: 0 })
+  mistakes: number;
+  @Column({ type: 'boolean', default: false })
+  hintUsed: boolean;
+  /** The solution was shown: the attempt is over, unsolved. */
+  @Column({ type: 'boolean', default: false })
+  revealed: boolean;
   @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({
     name: 'userId',

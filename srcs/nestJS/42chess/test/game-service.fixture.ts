@@ -77,7 +77,7 @@ export function gameFixture(bot: BotEngine = new NativeBotAdapter()) {
 
   beforeEach(async () => {
     await source.query(
-      'TRUNCATE "oauth_flows", "auth_sessions", "oauth_accounts", "friend_requests", "friendships", "messages", "game_messages", "rating_history", "matchmaking_matches", "matchmaking_queue", "puzzle_attempts", "user_blocks", "moves", "game_players", "games", "users"',
+      'TRUNCATE "oauth_flows", "auth_sessions", "oauth_accounts", "friend_requests", "friendships", "messages", "game_messages", "rating_history", "matchmaking_matches", "matchmaking_queue", "puzzle_attempts", "user_blocks", "user_achievements", "xp_events", "user_progress", "moves", "game_players", "games", "users"',
     );
     const rows = await source.query(`INSERT INTO "users" ("username")
       VALUES ('white_player'), ('black_player'), ('outsider') RETURNING "id"`);

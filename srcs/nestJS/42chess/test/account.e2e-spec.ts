@@ -385,6 +385,14 @@ describe('Account self-service (e2e)', () => {
         'blockedPlayers',
       ])
         expect(data[key]).toEqual([]);
+      expect(data.progression).toEqual({
+        xp: 0,
+        puzzleStreak: 0,
+        bestPuzzleStreak: 0,
+        lastStreakDate: null,
+        experience: [],
+        achievements: [],
+      });
       expect(mail.last('data-exported', fay.email)).toBeDefined();
 
       // Friends on either side of the stored pair, and blocked players.
@@ -416,6 +424,40 @@ describe('Account self-service (e2e)', () => {
       expect(again.blockedPlayers).toEqual([
         { username: blocked.username, since: expect.any(String) },
       ]);
+
+      // Experience and achievements.
+      await database.query(
+        `INSERT INTO xp_events ("userId", source, "refId", amount) VALUES ($1, 'ACHIEVEMENT', 'FIRST_GAME', 10)`,
+        [fay.id],
+      );
+      await database.query(
+        `INSERT INTO user_progress ("userId", xp) VALUES ($1, 10)`,
+        [fay.id],
+      );
+      await database.query(
+        `INSERT INTO user_achievements ("userId", code) VALUES ($1, 'FIRST_GAME')`,
+        [fay.id],
+      );
+      const third = JSON.parse(
+        (
+          await http()
+            .get('/v1/users/me/export')
+            .auth(fay.token, { type: 'bearer' })
+            .expect(200)
+        ).text,
+      );
+      expect(third.progression).toMatchObject({
+        xp: 10,
+        experience: [
+          {
+            source: 'ACHIEVEMENT',
+            refId: 'FIRST_GAME',
+            amount: 10,
+            createdAt: expect.any(String),
+          },
+        ],
+        achievements: [{ code: 'FIRST_GAME', unlockedAt: expect.any(String) }],
+      });
     });
 
     it('deletes an account after confirmation and anonymizes what other players keep', async () => {
@@ -433,6 +475,18 @@ describe('Account self-service (e2e)', () => {
       await database.query(
         `INSERT INTO user_blocks ("blockerId", "blockedId") VALUES ($1, $2), ($2, $1)`,
         [gus.id, friend.id],
+      );
+      await database.query(
+        `INSERT INTO user_progress ("userId", xp) VALUES ($1, 30)`,
+        [gus.id],
+      );
+      await database.query(
+        `INSERT INTO xp_events ("userId", source, "refId", amount) VALUES ($1, 'GAME', 'some-game', 30)`,
+        [gus.id],
+      );
+      await database.query(
+        `INSERT INTO user_achievements ("userId", code) VALUES ($1, 'FIRST_WIN')`,
+        [gus.id],
       );
       const remove = (body: Record<string, unknown>) =>
         http()
@@ -464,7 +518,10 @@ describe('Account self-service (e2e)', () => {
       const [{ count }] = await database.query(
         `SELECT (SELECT count(*) FROM friendships WHERE "userId" = $1 OR "friendId" = $1)
               + (SELECT count(*) FROM messages WHERE "senderId" = $1 OR "recipientId" = $1)
-              + (SELECT count(*) FROM user_blocks WHERE "blockerId" = $1 OR "blockedId" = $1) AS count`,
+              + (SELECT count(*) FROM user_blocks WHERE "blockerId" = $1 OR "blockedId" = $1)
+              + (SELECT count(*) FROM user_progress WHERE "userId" = $1)
+              + (SELECT count(*) FROM xp_events WHERE "userId" = $1)
+              + (SELECT count(*) FROM user_achievements WHERE "userId" = $1) AS count`,
         [gus.id],
       );
       expect(Number(count)).toBe(0);

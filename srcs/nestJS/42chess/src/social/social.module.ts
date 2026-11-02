@@ -5,16 +5,20 @@ import { BlocksController } from './blocks.controller.js';
 import { BlocksService } from './blocks.service.js';
 import { ContactRules } from './contact-rules.js';
 import { UserBlock } from './user-block.entity.js';
-import { UserEvents } from './user-events.js';
+import { UserEventsModule } from './user-events.module.js';
 
 /**
  * What players allow each other (blocks, friends-only messages), and the per-user events
  * pushed on their sockets.
  */
 @Module({
-  imports: [HttpAuthModule, TypeOrmModule.forFeature([UserBlock])],
+  imports: [
+    HttpAuthModule,
+    UserEventsModule,
+    TypeOrmModule.forFeature([UserBlock]),
+  ],
   controllers: [BlocksController],
-  providers: [UserEvents, ContactRules, BlocksService],
-  exports: [UserEvents, ContactRules, BlocksService],
+  providers: [ContactRules, BlocksService],
+  exports: [UserEventsModule, ContactRules, BlocksService],
 })
 export class SocialModule {}
