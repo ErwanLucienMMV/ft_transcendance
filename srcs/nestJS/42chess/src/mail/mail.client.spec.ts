@@ -42,7 +42,9 @@ describe('MailClient', () => {
     await expect(
       mail.sendEmailVerification('alice@example.com', 'alice', 'tok'),
     ).rejects.toBeInstanceOf(MailUnavailableError);
-    expect(errorSpy).toHaveBeenCalledWith('forgemail answered 503');
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('forgemail could not send the email (HTTP 503)'),
+    );
   });
 
   it('fails when forgemail cannot be reached', async () => {

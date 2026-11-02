@@ -6,7 +6,7 @@ import { AuthFrame } from '../../shared/auth-frame';
   selector: 'app-not-found-page',
   imports: [RouterLink, AuthFrame],
   template: `
-    <app-auth-frame>
+    <app-auth-frame [aside]="false">
       <h2>Page not found</h2>
       <p class="auth-intro">
         The page you requested does not exist. A new move is always possible.

@@ -103,5 +103,8 @@ export const configurationOptions: ConfigModuleOptions = {
     resolve(process.cwd(), '.env'),
     resolve(process.cwd(), '../../.env'),
   ],
+  // Tests bring their own settings: a developer's srcs/.env (OAuth keys, URLs)
+  // must not leak into them, as it does not inside the Docker test stack.
+  ignoreEnvFile: Boolean(process.env['VITEST']),
   validate: validateEnvironment,
 };

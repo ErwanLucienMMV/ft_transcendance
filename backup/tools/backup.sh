@@ -2,6 +2,11 @@
 set -euo pipefail
 umask 077
 
+# Written at container start by entrypoint.sh (cron passes no environment).
+if [ -f /etc/transcendence-backup.env ]; then
+    . /etc/transcendence-backup.env
+fi
+
 DATE=$(date +"%Y-%m-%d_%H-%M-%S")
 BACKUP="/backups/transcendence_${DATE}.sql.gz"
 

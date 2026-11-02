@@ -29,6 +29,29 @@ describe('Google and GitHub provider protocol', () => {
     ).toEqual([]);
     expect(providers.enabled()).toEqual(['google', 'github']);
   });
+  it('explains at startup why a provider button is hidden', () => {
+    const lines = new OAuthProviders(
+      new ConfigService({
+        ...settings,
+        GITHUB_CALLBACK_URL:
+          'https://old.example/api/v1/auth/oauth/github/callback',
+      }),
+      http as unknown as typeof fetch,
+    ).diagnose();
+    expect(lines[0]).toBe(
+      'Google sign-in enabled (callback https://chess.example/api/v1/auth/oauth/google/callback)',
+    );
+    expect(lines[1]).toContain('GitHub sign-in disabled, its button is hidden');
+    expect(lines[1]).toContain(
+      'callback does not match the public application URL',
+    );
+    expect(
+      new OAuthProviders(
+        new ConfigService({}),
+        http as unknown as typeof fetch,
+      ).diagnose()[0],
+    ).toContain('This sign-in provider is not configured.');
+  });
   it.each(['google', 'github'] as const)(
     'sends state and S256 PKCE without exposing the %s secret',
     (name) => {

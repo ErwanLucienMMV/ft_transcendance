@@ -1,18 +1,27 @@
-<section class="history-page" aria-labelledby="history-title">
-  <span class="eyebrow">Your games</span>
-  <h2 id="history-title">Game history</h2>
+<section class="history-page page narrow" aria-labelledby="history-title">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Your games</span>
+      <h2 id="history-title">Game history</h2>
+      <p>Every finished game, newest first. Open one to replay it.</p>
+    </div>
+  </header>
 
   @if (failed()) {
-    <div class="history-error" role="alert">
+    <div class="alert" role="alert">
       <p>Your games could not be loaded.</p>
       <button type="button" class="button secondary" (click)="retry()">Try again</button>
     </div>
   } @else if (result(); as list) {
     @if (list.total === 0) {
-      <p class="muted">No finished games yet. Your games appear here once they end.</p>
-      <a class="button" routerLink="/play">Play a game</a>
+      <div class="empty">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><use href="/chess-pieces.svg#pawn" /></svg>
+        <strong>No finished games yet.</strong>
+        <p>Your games appear here once they end, ready to replay.</p>
+        <a class="button" routerLink="/play">Play a game</a>
+      </div>
     } @else {
-      <ol class="games" [attr.aria-busy]="loading()">
+      <ol class="games rows" [attr.aria-busy]="loading()">
         @for (item of list.items; track item.id) {
           <li>
             <a class="game" [routerLink]="['/replay', item.id]">
@@ -49,6 +58,6 @@
       }
     }
   } @else if (loading()) {
-    <p class="muted" role="status">Loading your games…</p>
+    <p class="empty" role="status">Loading your games…</p>
   }
 </section>

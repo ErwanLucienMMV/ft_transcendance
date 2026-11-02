@@ -7,7 +7,9 @@ test('upgrades through the development proxy and refuses an invalid access token
   const result = await page.evaluate(
     () =>
       new Promise<{ code: string; close: number }>((resolve, reject) => {
-        const socket = new WebSocket(`ws://${location.host}/ws`);
+        const socket = new WebSocket(
+          `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`,
+        );
         const timeout = setTimeout(() => {
           socket.close();
           reject(new Error('Realtime handshake timed out'));

@@ -20,4 +20,7 @@ RUN chmod 0644 /etc/cron.d/transcendence-backup \
 COPY ./tools/restore.sh /usr/local/bin/restore.sh
 RUN chmod +x /usr/local/bin/restore.sh
 
-CMD ["cron", "-f"]
+COPY ./tools/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+CMD ["/usr/local/bin/entrypoint.sh"]

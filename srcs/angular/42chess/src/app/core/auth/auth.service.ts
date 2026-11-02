@@ -1,6 +1,10 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { tap } from 'rxjs';
 import { ApiClient } from '../api/api-client';
+import { handledErrors } from '../api/api-error.interceptor';
+
+// The auth forms explain a mail outage themselves (see auth-feedback.ts).
+const MAIL_ERRORS = handledErrors('EMAIL_SERVICE_UNAVAILABLE');
 import { LoginCredentials, RegisterCredentials } from '../../features/auth/auth-form.models';
 import { AuthSession, AuthTokenResponse, AuthUser } from './auth-session';
 
@@ -17,7 +21,7 @@ export class AuthService {
   readonly needsTwoFactor = this.challenge.asReadonly();
 
   register(credentials: RegisterCredentials) {
-    return this.api.post<{ user: AuthUser }>('auth/register', credentials);
+    return this.api.post<{ user: AuthUser }>('auth/register', credentials, MAIL_ERRORS);
   }
 
   login(credentials: LoginCredentials) {
@@ -45,7 +49,7 @@ export class AuthService {
     return this.api.post<{ user: AuthUser }>('auth/verify-email', { token });
   }
   resendVerification(email: string) {
-    return this.api.post<void>('auth/resend-verification', { email });
+    return this.api.post<void>('auth/resend-verification', { email }, MAIL_ERRORS);
   }
   cancelChallenge(): void {
     this.challenge.set(null);

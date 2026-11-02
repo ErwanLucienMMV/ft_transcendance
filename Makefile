@@ -5,10 +5,22 @@ TEST_COMPOSE	= $(COMPOSE_DIR)/nestJS/42chess/test/docker-compose.yml
 
 all: env
 	@echo "Starting the building of images, be patient this can take a loooong time"
-	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) up --build -d > compose.log 2>&1
+	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) up --build -d > compose.log 2>&1 || { \
+		echo "Build or start failed, last lines of compose.log:"; \
+		tail -n 40 compose.log; \
+		echo "Last NestJS logs (an unhealthy nestjs blocks nginx):"; \
+		docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) logs --tail 20 nestjs 2>/dev/null; \
+		exit 1; }
 	@echo "Images have been built, now comes running them"
 	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) logs >> compose.log 2>&1
+	@$(MAKE) --no-print-directory puzzles
 	@echo "All set, feel free to test it"
+
+# Imports the bundled puzzle catalogue (checked by the chess engine). Puzzles
+# already present are skipped, so it is safe after every start.
+puzzles:
+	@echo "Importing the puzzle catalogue"
+	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) exec -T nestjs node dist/puzzles/run-puzzle-import.js
 
 loud: env
 	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) up --build
@@ -16,9 +28,11 @@ loud: env
 dev: env
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) up
 
-# Creates srcs/.env with random secrets, or fills the ones it lacks.
+# Creates srcs/.env with random secrets, or fills the ones it lacks, then
+# warns about settings that would break sign-in, emails or links.
 env:
 	@sh $(COMPOSE_DIR)/init-env.sh
+	@sh $(COMPOSE_DIR)/check-env.sh
 
 down:
 	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) down
@@ -41,14 +55,13 @@ backup-logs:
 
 full: all
 	@echo "Main stack is ready, starting the independent backup service"
-	@docker compose -f backup/docker-compose.yml up --build -d
-	@echo "All set, feel free to test it"
+	@$(MAKE) --no-print-directory backup
 
 stop-app:
-	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) stop chess-engine nginx prometheus nestjs grafana
+	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) stop chess-engine bot nginx prometheus nestjs forgemail grafana
 
 start-app:
-	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) start chess-engine nginx prometheus nestjs grafana
+	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) start chess-engine bot forgemail nestjs nginx prometheus grafana
 
 # The tests do not read srcs/.env: they bring their own settings.
 # --profile is required by podman-compose to see the `tests` service; the
@@ -81,4 +94,4 @@ clean:
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down -v
 	docker compose -f ./backup/docker-compose.yml down -v
 
-.PHONY: all loud dev env down backup backup-down backup-logs full test test-bot test-puzzles re clean
+.PHONY: all puzzles loud dev env down backup backup-down backup-logs full stop-app start-app test test-bot test-puzzles re clean

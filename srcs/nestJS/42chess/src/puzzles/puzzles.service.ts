@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { User } from '../users/user.entity.js';
 import { Puzzle } from './puzzles.entity.js';
@@ -14,11 +14,30 @@ import type {
 } from './puzzle-session.types.js';
 
 @Injectable()
-export class PuzzlesService {
+export class PuzzlesService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(PuzzlesService.name);
   constructor(
     private readonly source: DataSource,
     private readonly rules: PuzzleRulesService,
   ) {}
+
+  /** An empty catalogue makes the puzzle page fail: say how to fill it. */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      const [{ count }] = (await this.source.query(
+        `SELECT count(*)::int AS count FROM puzzles
+          WHERE "validatedAt" IS NOT NULL AND themes IS NOT NULL`,
+      )) as { count: number }[];
+      if (count === 0)
+        this.logger.warn(
+          'No validated puzzle: the puzzle page answers PUZZLE_CATALOG_EMPTY. ' +
+            'Import the catalogue with `make puzzles`.',
+        );
+      else this.logger.log(`${count} validated puzzles available`);
+    } catch {
+      // Diagnostics only: never block startup.
+    }
+  }
 
   /** UTC day and transaction lock come from PostgreSQL, shared by every API replica. */
   async daily(): Promise<DailyPuzzleResponse> {

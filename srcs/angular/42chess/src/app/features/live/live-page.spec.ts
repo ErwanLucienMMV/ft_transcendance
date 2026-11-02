@@ -86,7 +86,7 @@ describe('Live games page', () => {
     const { fixture, element } = setup();
     expect(element.textContent).toContain('No game is being played right now.');
     expect(live).toHaveBeenCalledTimes(1);
-    (element.querySelector('.heading button') as HTMLButtonElement).click();
+    (element.querySelector('.page-head button') as HTMLButtonElement).click();
     expect(live).toHaveBeenCalledTimes(2);
     live.mockReturnValue(of({ games: [game('g1')] }));
     vi.advanceTimersByTime(LIVE_REFRESH_MS);
@@ -102,7 +102,7 @@ describe('Live games page', () => {
     live.mockReturnValueOnce(of({ games: [game('g1')] }));
     live.mockReturnValueOnce(throwError(() => new Error('down')));
     const { fixture, element } = setup();
-    (element.querySelector('.heading button') as HTMLButtonElement).click();
+    (element.querySelector('.page-head button') as HTMLButtonElement).click();
     fixture.detectChanges();
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('could not be loaded');
     expect(element.querySelectorAll('.game')).toHaveLength(1);

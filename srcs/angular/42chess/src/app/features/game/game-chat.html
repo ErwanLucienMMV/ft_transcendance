@@ -1,4 +1,4 @@
-<section class="game-chat" aria-labelledby="chat-title">
+<section class="game-chat panel-section" aria-labelledby="chat-title">
   <h3 id="chat-title">Chat</h3>
   @if (loadFailed()) {
     <div class="error" role="alert">
@@ -27,10 +27,11 @@
   </div>
   @if (open()) {
     <form (submit)="$event.preventDefault(); send()">
-      <label for="game-chat-input">Message the game</label>
+      <label for="game-chat-input" class="sr-only">Message the game</label>
       <textarea
         id="game-chat-input"
-        rows="2"
+        rows="1"
+        placeholder="Say something to the table"
         [value]="draft()"
         [readOnly]="pending() !== null"
         [attr.aria-invalid]="tooLong()"

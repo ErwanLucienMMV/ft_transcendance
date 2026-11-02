@@ -1,70 +1,87 @@
-<section class="play-page" aria-labelledby="play-title">
-  <span class="eyebrow">Play</span>
-  <h2 id="play-title">Start a game</h2>
-
-  <fieldset>
-    <legend>Time control (minutes + seconds per move)</legend>
-    <div class="choices">
-      @for (control of controls; track control.label) {
-        <label class="choice" [class.chosen]="control === selected()">
-          <input
-            type="radio"
-            name="time-control"
-            [value]="control.label"
-            [checked]="control === selected()"
-            [disabled]="searching()"
-            (change)="selected.set(control)"
-          />
-          <strong>{{ control.label }}</strong>
-          <span>{{ control.category }}</span>
-        </label>
-      }
+<section class="play-page page" aria-labelledby="play-title">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Play</span>
+      <h2 id="play-title">Start a game</h2>
+      <p>Pick a time control, then play someone online, invite a friend or face the computer.</p>
     </div>
-  </fieldset>
+  </header>
 
-  <div class="cards">
-    <article class="play-card" aria-labelledby="match-title">
-      <h3 id="match-title">Find an opponent</h3>
-      @if (searching()) {
-        <p role="status" class="searching">
-          @if (search.state() === 'joining') {
-            Joining the queue…
-          } @else {
-            Searching for a {{ searchLabel() }} opponent ·
-            <time aria-label="Time waited">{{ waited() }}</time>
-          }
-        </p>
-        <p>Players are paired by Elo; the range widens the longer you wait.</p>
+  <section class="time card" aria-label="Time control">
+    <fieldset>
+      <legend>Time control (minutes + seconds per move)</legend>
+      <div class="choices">
+        @for (control of controls; track control.label) {
+          <label class="choice" [class.chosen]="control === selected()">
+            <input
+              type="radio"
+              name="time-control"
+              [value]="control.label"
+              [checked]="control === selected()"
+              [disabled]="searching()"
+              (change)="selected.set(control)"
+            />
+            <strong>{{ control.label }}</strong>
+            <span>{{ control.category }}</span>
+          </label>
+        }
+      </div>
+    </fieldset>
+  </section>
+
+  <div class="layout">
+    <div class="online card">
+      <h3 class="card-title">Online</h3>
+
+      <article class="play-card" aria-labelledby="match-title">
+        <h3 id="match-title">Find an opponent</h3>
+        @if (searching()) {
+          <p role="status" class="searching">
+            @if (search.state() === 'joining') {
+              Joining the queue…
+            } @else {
+              Searching for a {{ searchLabel() }} opponent ·
+              <time aria-label="Time waited">{{ waited() }}</time>
+            }
+          </p>
+          <p>Players are paired by Elo; the range widens the longer you wait.</p>
+          <button
+            type="button"
+            class="button secondary"
+            [disabled]="search.state() !== 'waiting'"
+            (click)="search.cancel()"
+          >
+            {{ search.state() === 'leaving' ? 'Cancelling…' : 'Cancel search' }}
+          </button>
+        } @else {
+          <p>A rated game against a player of similar Elo, with the time control above.</p>
+          <button type="button" (click)="findOpponent()">Find an opponent</button>
+        }
+        @if (search.error(); as message) {
+          <p class="play-error" role="alert">{{ message }}</p>
+        }
+      </article>
+
+      <article class="play-card" aria-labelledby="friend-title">
+        <h3 id="friend-title">Play a friend</h3>
+        <p>You get a link to send. The game starts when your friend opens it.</p>
+        @if (error(); as message) {
+          <p class="play-error" role="alert">{{ message }}</p>
+        }
         <button
           type="button"
-          class="button secondary"
-          [disabled]="search.state() !== 'waiting'"
-          (click)="search.cancel()"
+          class="secondary"
+          [disabled]="creating() || searching()"
+          (click)="create()"
         >
-          {{ search.state() === 'leaving' ? 'Cancelling…' : 'Cancel search' }}
+          {{ creating() ? 'Creating…' : 'Create game' }}
         </button>
-      } @else {
-        <p>A rated game against a player of similar Elo, with the time control above.</p>
-        <button type="button" (click)="findOpponent()">Find an opponent</button>
-      }
-      @if (search.error(); as message) {
-        <p class="play-error" role="alert">{{ message }}</p>
-      }
-    </article>
+      </article>
+    </div>
 
-    <article class="play-card" aria-labelledby="friend-title">
-      <h3 id="friend-title">Play a friend</h3>
-      <p>You get a link to send. The game starts when your friend opens it.</p>
-      @if (error(); as message) {
-        <p class="play-error" role="alert">{{ message }}</p>
-      }
-      <button type="button" [disabled]="creating() || searching()" (click)="create()">
-        {{ creating() ? 'Creating…' : 'Create game' }}
-      </button>
-    </article>
-
-    <article class="play-card" aria-labelledby="bot-title">
-      <h3 id="bot-title">Play the computer</h3>
+    <article class="play-card bot card" aria-labelledby="bot-title">
+      <h3 id="bot-title" class="card-title">Play the computer</h3>
+      <p>Not rated: a good place to practise an opening or a plan.</p>
       <fieldset>
         <legend>Difficulty</legend>
         <div class="choices levels">

@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { filter, Observable } from 'rxjs';
 import { ApiClient } from '../../core/api/api-client';
 import { ApiError } from '../../core/api/api-error';
+import { errorText } from '../../core/api/error-text';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { GamesApi, TimeControl } from './games-api';
 
@@ -114,7 +115,7 @@ export class MatchmakingSearch {
           this.resume();
           return;
         }
-        this.error.set(JOIN_ERRORS[code] ?? 'The search could not start. Try again.');
+        this.error.set(errorText(error, 'The search could not start. Try again.', JOIN_ERRORS));
       },
     });
   }
@@ -129,10 +130,10 @@ export class MatchmakingSearch {
         if (status.status === 'MATCHED' && status.gameId) this.open(status.gameId);
         else this.stop();
       },
-      error: () => {
+      error: (error: unknown) => {
         this.state.set('waiting');
         this.startHeartbeat();
-        this.error.set('The search could not be cancelled. Try again.');
+        this.error.set(errorText(error, 'The search could not be cancelled. Try again.'));
       },
     });
   }

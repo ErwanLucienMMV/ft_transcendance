@@ -105,6 +105,31 @@ Destroying the PostgreSQL data volume does not automatically destroy the backup 
 
 Likewise, destroying the backup volume would not destroy the live PostgreSQL database.
 
+## Database Access
+
+The backup container reads its settings from `srcs/.env` when it starts:
+`POSTGRES_BACKUP_USER`, `POSTGRES_BACKUP_PASSWORD` and `DATABASE_NAME`. It
+stops immediately with a clear message when one of them is missing. Because
+cron gives its jobs an empty environment, `tools/entrypoint.sh` writes them to
+`/etc/transcendence-backup.env` (readable by root only), and `backup.sh` and
+`restore.sh` load that file.
+
+`pg_dump` needs to read every table. A new PostgreSQL volume grants the
+`pg_read_all_data` role to the backup user during initialization. A volume
+created before this change needs the grant once, from the repository root:
+
+```bash
+set -a; . srcs/.env; set +a
+docker exec postgres su - postgres -c \
+    "psql -c 'GRANT pg_read_all_data TO \"$POSTGRES_BACKUP_USER\";'"
+```
+
+Check a backup by hand after the grant:
+
+```bash
+docker exec transcendence-backup /usr/local/bin/backup.sh
+```
+
 ---
 
 # Restoring a Backup
@@ -297,7 +322,7 @@ The equivalent of `make stop-app` is:
 
 ```bash
 docker compose -f srcs/docker-compose.yml \
-    stop chess-engine nginx prometheus nestjs grafana
+    stop chess-engine bot nginx prometheus nestjs forgemail grafana
 ```
 
 PostgreSQL is deliberately **not** included, the objective here is to prevent data corruption by removing any chance an exterior component tries to access the DB while we are editing it.
@@ -326,7 +351,7 @@ docker exec -it transcendence-backup \
 
 ```bash
 docker compose -f srcs/docker-compose.yml \
-    start chess-engine nginx prometheus nestjs grafana
+    start chess-engine bot forgemail nestjs nginx prometheus grafana
 ```
 
 ---

@@ -1,9 +1,14 @@
-<section class="friends-page" aria-labelledby="friends-title">
-  <span class="eyebrow">Community</span>
-  <h2 id="friends-title">Friends</h2>
+<section class="friends-page page narrow" aria-labelledby="friends-title">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Community</span>
+      <h2 id="friends-title">Friends</h2>
+      <p>Find players, answer friend requests and challenge your friends.</p>
+    </div>
+  </header>
 
-  <section class="panel" aria-labelledby="search-title">
-    <h3 id="search-title">Find players</h3>
+  <section class="panel card" aria-labelledby="search-title">
+    <h3 id="search-title" class="section-title">Find players</h3>
     <form class="search" role="search" [formGroup]="form" (ngSubmit)="submit()">
       <label class="sr-only" for="player-search">Username</label>
       <input
@@ -14,18 +19,21 @@
         placeholder="Search by username"
         [maxlength]="maxLength"
       />
-      <button type="submit" class="button">Search</button>
+      <button type="submit">Search</button>
     </form>
     @if (searchFailed()) {
-      <p class="error" role="alert">The search failed. Try again.</p>
+      <p class="alert" role="alert">The search failed. Try again.</p>
     } @else if (results(); as players) {
       @if (players.length === 0) {
         <p class="muted" role="status">No player matches “{{ query() }}”.</p>
       } @else {
-        <ul class="people" [attr.aria-busy]="searching()" aria-label="Search results">
+        <ul class="people rows" [attr.aria-busy]="searching()" aria-label="Search results">
           @for (player of players; track player.id) {
             <li>
               <a [routerLink]="['/players', player.id]">
+                <span class="initial" aria-hidden="true">{{
+                  player.username.charAt(0).toUpperCase()
+                }}</span>
                 <strong>{{ player.username }}</strong>
                 @if (self(player.id)) {
                   <small>(you)</small>
@@ -43,23 +51,28 @@
   </section>
 
   @if (actionError(); as message) {
-    <p class="error" role="alert">{{ message }}</p>
+    <p class="alert" role="alert">{{ message }}</p>
   }
 
   @if (requests()?.length) {
     <section class="panel" aria-labelledby="requests-title">
-      <h3 id="requests-title">Friend requests</h3>
-      <ul class="people" aria-label="Friend requests">
+      <h3 id="requests-title" class="section-title">
+        Friend requests <span class="count">{{ requests()?.length }}</span>
+      </h3>
+      <ul class="people rows" aria-label="Friend requests">
         @for (request of requests(); track request.id) {
           <li class="request">
             <a [routerLink]="['/players', request.senderId]"
+              ><span class="initial" aria-hidden="true">{{
+                (request.sender?.username ?? '?').charAt(0).toUpperCase()
+              }}</span
               ><strong>{{ request.sender?.username ?? 'A player' }}</strong></a
             >
             <span class="elo">{{ request.sender?.elo }}</span>
             <span class="actions">
               <button
                 type="button"
-                class="button"
+                class="small"
                 [disabled]="busy().has(request.id)"
                 (click)="accept(request)"
               >
@@ -67,7 +80,7 @@
               </button>
               <button
                 type="button"
-                class="button secondary"
+                class="secondary small"
                 [disabled]="busy().has(request.id)"
                 (click)="reject(request)"
               >
@@ -81,25 +94,30 @@
   }
 
   <section class="panel" aria-labelledby="list-title">
-    <h3 id="list-title">Your friends</h3>
+    <h3 id="list-title" class="section-title">Your friends</h3>
     @if (challengeFailed()) {
-      <p class="error" role="alert">The challenge could not be sent. Try again.</p>
+      <p class="alert" role="alert">The challenge could not be sent. Try again.</p>
     }
     @if (friendsFailed()) {
-      <div class="error" role="alert">
+      <div class="alert" role="alert">
         <p>Your friends could not be loaded.</p>
         <button type="button" class="button secondary" (click)="loadFriends()">Try again</button>
       </div>
     } @else if (friends(); as list) {
       @if (list.length === 0) {
-        <p class="muted">
-          No friends yet. Find a player above, open their profile and send a friend request.
-        </p>
+        <div class="empty">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><use href="/chess-pieces.svg#knight" /></svg>
+          <strong>No friends yet.</strong>
+          <p>Search for a player above, open their profile and send a friend request.</p>
+        </div>
       } @else {
-        <ul class="people" aria-label="Friends">
+        <ul class="people rows" aria-label="Friends">
           @for (friend of list; track friend.id) {
             <li>
               <a [routerLink]="['/players', friend.id]"
+                ><span class="initial" aria-hidden="true">{{
+                  friend.username.charAt(0).toUpperCase()
+                }}</span
                 ><strong>{{ friend.username }}</strong></a
               >
               <span class="elo">{{ friend.elo }}</span>
@@ -107,7 +125,7 @@
               <span class="actions">
                 <button
                   type="button"
-                  class="button secondary"
+                  class="secondary small"
                   [attr.aria-label]="'Challenge ' + friend.username"
                   [disabled]="challenging() !== null"
                   (click)="challenge(friend)"
@@ -117,7 +135,7 @@
                 @if (confirmingRemoval() === friend.id) {
                   <button
                     type="button"
-                    class="danger"
+                    class="danger small"
                     [disabled]="busy().has(friend.id)"
                     (click)="remove(friend)"
                   >
@@ -125,7 +143,7 @@
                   </button>
                   <button
                     type="button"
-                    class="button secondary"
+                    class="secondary small"
                     (click)="confirmingRemoval.set(null)"
                   >
                     Cancel
@@ -133,7 +151,7 @@
                 } @else {
                   <button
                     type="button"
-                    class="link"
+                    class="ghost small"
                     [attr.aria-label]="'Remove ' + friend.username"
                     (click)="confirmingRemoval.set(friend.id)"
                   >
@@ -146,7 +164,7 @@
         </ul>
       }
     } @else {
-      <p class="muted" role="status">Loading your friends…</p>
+      <p class="empty" role="status">Loading your friends…</p>
     }
   </section>
 </section>

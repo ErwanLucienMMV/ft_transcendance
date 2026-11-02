@@ -1,32 +1,41 @@
-<section class="live-page" aria-labelledby="live-title">
-  <div class="heading">
+<section class="live-page page" aria-labelledby="live-title">
+  <header class="page-head">
     <div>
       <span class="eyebrow">Spectate</span>
       <h2 id="live-title">Live games</h2>
+      <p>Games being played right now. Open one to follow it move by move.</p>
     </div>
-    <button type="button" class="button secondary" [disabled]="loading()" (click)="refresh()">
+    <button type="button" class="secondary" [disabled]="loading()" (click)="refresh()">
       Refresh
     </button>
-  </div>
+  </header>
 
   @if (failed()) {
-    <p class="live-error" role="alert">
-      The live games could not be loaded. Try again in a moment.
-    </p>
+    <p class="alert" role="alert">The live games could not be loaded. Try again in a moment.</p>
   }
 
   @if (games(); as list) {
     @if (list.length === 0) {
-      <p class="muted">No game is being played right now.</p>
-      <a class="button" routerLink="/play">Start one</a>
+      <div class="empty">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><use href="/chess-pieces.svg#queen" /></svg>
+        <strong>No game is being played right now.</strong>
+        <p>Start one and it shows up here for everyone to watch.</p>
+        <a class="button" routerLink="/play">Start a game</a>
+      </div>
     } @else {
-      <ul class="games" [attr.aria-busy]="loading()">
+      <ul class="games rows" [attr.aria-busy]="loading()">
         @for (game of list; track game.id) {
           <li class="game">
             <span class="players">
-              <strong>{{ name(game.whitePlayer) }}</strong>
+              <span class="side"
+                ><i class="white" aria-hidden="true"></i
+                ><strong>{{ name(game.whitePlayer) }}</strong></span
+              >
               <span class="versus">vs</span>
-              <strong>{{ name(game.blackPlayer) }}</strong>
+              <span class="side"
+                ><i class="black" aria-hidden="true"></i
+                ><strong>{{ name(game.blackPlayer) }}</strong></span
+              >
             </span>
             <span class="meta">
               {{ timeControlLabel(game.timeControl) }} ·
@@ -36,10 +45,10 @@
               </span>
             </span>
             @if (mine(game)) {
-              <a class="button" [routerLink]="['/game', game.id]">Back to your game</a>
+              <a class="button small" [routerLink]="['/game', game.id]">Back to your game</a>
             } @else {
               <a
-                class="button secondary"
+                class="button secondary small"
                 [routerLink]="['/game', game.id]"
                 [queryParams]="{ watch: 1 }"
                 >Watch</a
@@ -50,6 +59,6 @@
       </ul>
     }
   } @else if (!failed()) {
-    <p class="muted" role="status">Loading the live games…</p>
+    <p class="empty" role="status">Loading the live games…</p>
   }
 </section>

@@ -1,64 +1,69 @@
-.puzzle-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 32px 16px;
-  display: grid;
-  grid-template-columns: minmax(0, 600px) minmax(0, 1fr);
-  gap: 32px;
-  align-items: start;
+.board-placeholder {
+  aspect-ratio: 1;
+  place-content: center;
 }
-.puzzle-panel {
-  display: grid;
-  gap: 16px;
-  justify-items: start;
-}
-.puzzle-panel h2,
-.puzzle-panel p {
+.feedback {
   margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
 }
 .feedback:empty {
   display: none;
 }
 .feedback[data-feedback='correct'] {
+  background: var(--accent-soft);
   color: var(--accent);
 }
 .feedback[data-feedback='incorrect'] {
+  background: var(--error-bg);
   color: var(--error);
 }
-.puzzle-error {
-  padding: 10px 14px;
-  border: 1px solid var(--error-border);
-  border-radius: 8px;
-  color: var(--error);
-  background: var(--error-bg);
+.signin {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--field);
+}
+.signin p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 dl {
   margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 28px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
 }
 dt {
   color: var(--muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.35px;
-  text-transform: uppercase;
+  font-size: 13px;
 }
 dd {
-  margin: 4px 0 0;
-}
-.result dd {
-  font:
-    600 1.6rem/1.2 ui-monospace,
-    monospace;
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.muted {
+.details div:nth-child(3) {
+  grid-column: 1 / -1;
+}
+.details div:nth-child(3) dd {
+  font-family: var(--font-text);
+  font-size: 14px;
+  font-weight: 500;
   color: var(--muted);
 }
-@media (max-width: 760px) {
-  .puzzle-page {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.result {
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.result dd {
+  font-size: 28px;
+  color: var(--accent);
 }
