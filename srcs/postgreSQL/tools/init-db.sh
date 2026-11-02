@@ -1,9 +1,14 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 PGDATA="/var/lib/postgresql/data"
 PG_BIN="/usr/lib/postgresql/15/bin"
+
+# Runs a command as the postgres user without a shell, so values keep their quotes.
+as_postgres() {
+    HOME=/var/lib/postgresql setpriv --reuid=postgres --regid=postgres --init-groups "$@"
+}
 
 mkdir -p /var/run/postgresql
 chown postgres:postgres /var/run/postgresql
@@ -17,29 +22,39 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
 
     # Migrations and message content require Unicode, even on a minimal image
     # whose default locale would otherwise create a SQL_ASCII cluster.
-    su - postgres -c "$PG_BIN/initdb -D '$PGDATA' --encoding=UTF8 --locale=C.UTF-8"
+    as_postgres "$PG_BIN/initdb" -D "$PGDATA" --encoding=UTF8 --locale=C.UTF-8
 
+    # The server listens inside its container only; no port is published, and
+    # password logins are limited to the subnets the container is attached to
+    # (the Docker network of the stack).
     sed -i "s/^#listen_addresses = 'localhost'/listen_addresses = '*'/" \
         "$PGDATA/postgresql.conf"
-
-    echo "host all all 0.0.0.0/0 scram-sha-256" >> \
-        "$PGDATA/pg_hba.conf"
+    echo "host all all samenet scram-sha-256" >> "$PGDATA/pg_hba.conf"
 
     echo "Starting PostgreSQL temporarily..."
 
-    su - postgres -c "$PG_BIN/pg_ctl -D '$PGDATA' -o \"-c listen_addresses='localhost'\" -w start"
+    as_postgres "$PG_BIN/pg_ctl" -D "$PGDATA" -o "-c listen_addresses=localhost" -w start
 
-    su - postgres -c "psql -v ON_ERROR_STOP=1" <<-EOSQL
-        CREATE USER ${POSTGRES_USER} WITH PASSWORD '${POSTGRES_PASSWORD}';
-        CREATE DATABASE ${POSTGRES_DB} OWNER ${POSTGRES_USER};
-		CREATE ROLE "$POSTGRES_BACKUP_USER" WITH LOGIN PASSWORD '$POSTGRES_BACKUP_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE;
-		GRANT pg_read_all_data TO "$POSTGRES_BACKUP_USER";
-
+    # Values are passed as psql variables (:"name" for identifiers, :'name'
+    # for literals) so they are quoted by psql, never pasted into the SQL.
+    as_postgres psql -v ON_ERROR_STOP=1 \
+        -v app_user="$POSTGRES_USER" \
+        -v app_password="$POSTGRES_PASSWORD" \
+        -v app_db="$POSTGRES_DB" \
+        -v backup_user="$POSTGRES_BACKUP_USER" \
+        -v backup_password="$POSTGRES_BACKUP_PASSWORD" <<-'EOSQL'
+		CREATE USER :"app_user" WITH PASSWORD :'app_password';
+		CREATE DATABASE :"app_db" OWNER :"app_user";
+		CREATE ROLE :"backup_user" WITH LOGIN PASSWORD :'backup_password' NOSUPERUSER NOCREATEDB NOCREATEROLE;
+		GRANT pg_read_all_data TO :"backup_user";
 	EOSQL
 
-    su - postgres -c "$PG_BIN/pg_ctl -D '$PGDATA' -m fast -w stop"
+    as_postgres "$PG_BIN/pg_ctl" -D "$PGDATA" -m fast -w stop
 fi
 
 echo "Starting PostgreSQL..."
 
-exec su - postgres -c "$PG_BIN/postgres -D '$PGDATA'"
+# setpriv replaces this shell: postgres becomes PID 1 and receives the stop
+# signals from Docker directly.
+export HOME=/var/lib/postgresql
+exec setpriv --reuid=postgres --regid=postgres --init-groups "$PG_BIN/postgres" -D "$PGDATA"
