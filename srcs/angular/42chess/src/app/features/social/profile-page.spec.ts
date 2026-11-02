@@ -8,6 +8,7 @@ import { AuthSession } from '../../core/auth/auth-session';
 import { SessionLifecycle } from '../../core/auth/session-lifecycle';
 import { RealtimeService, ServerEvent } from '../../core/realtime/realtime.service';
 import { GamesApi } from '../game/games-api';
+import { ProgressionApi } from '../progression/progression-api';
 import { ProfilePage } from './profile-page';
 import { PublicProfile, UsersApi } from './users-api';
 
@@ -19,6 +20,36 @@ const alice: PublicProfile = {
   gamesPlayed: 3,
   online: true,
 };
+
+const aliceStats = {
+  rank: 4,
+  rankedPlayers: 20,
+  rated: { played: 3, won: 2, drawn: 0, lost: 1 },
+  casual: { played: 1, won: 0, drawn: 1, lost: 0 },
+  bots: { played: 2, won: 1, drawn: 0, lost: 1 },
+  progression: { xp: 150, level: 2, levelXp: 100, nextLevelXp: 300 },
+  puzzles: { solved: 4, streak: 3, bestStreak: 5, solvedToday: true },
+};
+const aliceAchievements = [
+  {
+    code: 'FIRST_WIN',
+    name: 'First victory',
+    description: 'Win a game against another player.',
+    goal: 1,
+    xp: 20,
+    progress: 1,
+    unlockedAt: '2026-10-28T10:00:00.000Z',
+  },
+  {
+    code: 'GAMES_10',
+    name: 'Regular',
+    description: 'Finish 10 games against other players.',
+    goal: 10,
+    xp: 30,
+    progress: 4,
+    unlockedAt: null,
+  },
+];
 
 const aliceAccount = {
   ...alice,
@@ -117,6 +148,13 @@ describe('Player profile page', () => {
           },
         },
         { provide: GamesApi, useValue: { history } },
+        {
+          provide: ProgressionApi,
+          useValue: {
+            stats: vi.fn(() => of(aliceStats)),
+            achievements: vi.fn(() => of({ achievements: aliceAchievements })),
+          },
+        },
         { provide: SessionLifecycle, useValue: { refreshUser } },
         { provide: RealtimeService, useValue: { events: events.asObservable() } },
       ],
@@ -140,7 +178,7 @@ describe('Player profile page', () => {
   it('shows a public profile with Elo, presence, rating changes and recent games', async () => {
     const { element } = await open('/players/alice');
     expect(profile).toHaveBeenCalledWith('alice');
-    expect(ratingHistory).toHaveBeenCalledWith('alice', 10);
+    expect(ratingHistory).toHaveBeenCalledWith('alice', 100);
     expect(history).toHaveBeenCalledWith('alice', 5, 0);
     expect(refreshUser).not.toHaveBeenCalled();
     expect(element.querySelector('h2')?.textContent).toBe('alice');
@@ -149,7 +187,30 @@ describe('Player profile page', () => {
     const stats = [...element.querySelectorAll('.stats div')].map(
       (item) => `${item.querySelector('dt')?.textContent} ${item.querySelector('dd')?.textContent}`,
     );
-    expect(stats).toEqual(['Elo 1452', 'Games 3']);
+    expect(stats.map((item) => item.replace(/\s+/g, ' ').trim())).toEqual([
+      'Rating 1452',
+      'Rank #4 of 20',
+      'Level 2',
+      'Puzzle streak 3 days, best 5',
+    ]);
+    expect(element.querySelector('.stats a')?.getAttribute('href')).toBe('/leaderboard?rank=4');
+    const results = [...element.querySelectorAll('.results tbody tr')].map((row) =>
+      [...row.children].map((cell) => cell.textContent?.trim()).join(' '),
+    );
+    expect(results).toEqual(['Rated 3 2 0 1', 'Casual 1 0 1 0', 'Computer 2 1 0 1']);
+    expect(
+      element.querySelector('app-level-bar [role="progressbar"]')?.getAttribute('aria-valuetext'),
+    ).toBe('150 XP to level 3');
+    expect(element.querySelector('#achievements h3')?.textContent).toContain('1 of 2 unlocked');
+    expect(element.querySelector('#achievements li.unlocked strong')?.textContent).toBe(
+      'First victory',
+    );
+    expect(
+      element.querySelector('#achievements [role="progressbar"]')?.getAttribute('aria-valuenow'),
+    ).toBe('4');
+    expect(element.querySelector('app-elo-chart svg')?.getAttribute('aria-label')).toBe(
+      'Rating over the last 2 rated games: from 1450 to 1452, lowest 1440, highest 1452.',
+    );
     const changes = [...element.querySelectorAll('[aria-labelledby="rating-title"] li a')];
     expect(changes.map((row) => row.querySelector('.change')?.textContent?.trim())).toEqual([
       '+12',
@@ -163,7 +224,7 @@ describe('Player profile page', () => {
     expect(element.querySelector('a[href="/session"]')).toBeNull();
   });
 
-  it('adds results and account links on the signed-in user own profile', async () => {
+  it('adds account links on the signed-in user own profile and refreshes the header', async () => {
     signIn('alice');
     // Like the real one, the refresh replaces the session user with a new object.
     const session = TestBed.inject(AuthSession);
@@ -176,8 +237,6 @@ describe('Player profile page', () => {
     expect(refreshUser).toHaveBeenCalledTimes(1);
     expect(profile).toHaveBeenCalledTimes(1);
     expect(element.querySelector('.eyebrow')?.textContent).toBe('Your profile');
-    const stats = [...element.querySelectorAll('.stats dt')].map((term) => term.textContent);
-    expect(stats).toEqual(['Elo', 'Games', 'Won', 'Drawn', 'Lost']);
     expect(element.querySelector('a[href="/settings"]')?.textContent).toBe('Account settings');
     expect(element.querySelector('a[href="/history"]')).not.toBeNull();
   });

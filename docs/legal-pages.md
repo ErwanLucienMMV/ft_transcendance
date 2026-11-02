@@ -16,7 +16,7 @@ The policy lists what the backend really stores and who can read it. Update it, 
 |---|---|
 | Data we collect | `users/user.entity.ts`, `auth/auth-session.entity.ts`, `oauth/oauth-accounts.entity.ts`, games, rating, puzzles, friends and presence entities |
 | Who can see it | public projections: `users/user-profile.ts` (`publicProfile`), `GET /v1/users/:id/games`, `GET /v1/users/:id/rating-history`, `GET /v1/games/live`, spectator mode |
-| Cookies and browser storage | `auth/session-cookie.ts` (`refresh_token`), `REFRESH_EXPIRES_IN`, `features/puzzle/puzzles-api.ts` (sessionStorage) |
+| Cookies and browser storage | `auth/session-cookie.ts` (`refresh_token`), `REFRESH_EXPIRES_IN`, `features/game/game-chat.ts` (localStorage, hide spectators) |
 | How long we keep it | `EMAIL_VERIFICATION_TTL_MS`, `CHALLENGE_TTL_SECONDS`, `REFRESH_EXPIRES_IN` |
 
 Account deletion is not available in the interface: the policy says the team handles it on

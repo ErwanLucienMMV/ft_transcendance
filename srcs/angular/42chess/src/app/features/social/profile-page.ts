@@ -6,10 +6,12 @@ import { catchError, forkJoin, map, Observable, of } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
 import { errorText } from '../../core/api/error-text';
 import { AuthSession } from '../../core/auth/auth-session';
-import { CurrentUser, SessionLifecycle } from '../../core/auth/session-lifecycle';
+import { SessionLifecycle } from '../../core/auth/session-lifecycle';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { PresenceBadge } from '../../shared/presence-badge';
 import { UserAvatar } from '../../shared/user-avatar';
+import { EloChart } from '../../shared/elo-chart';
+import { PlayerStatsPanel } from '../progression/player-stats';
 import { outcomeText, playerLabel } from '../../shared/chess/game-text';
 import { Challenges } from './challenge';
 import { GameHistoryItem, GamesApi } from '../game/games-api';
@@ -31,13 +33,15 @@ import {
 export type Friendship =
   'unknown' | 'none' | 'friends' | 'sent' | 'received' | 'pending' | 'failed';
 
+/** Rated games drawn on the rating curve; the list below it shows the latest few. */
+export const PROFILE_RATING_POINTS = 100;
 export const PROFILE_RATING_CHANGES = 10;
 export const PROFILE_RECENT_GAMES = 5;
 
 /** Public profile (spec §4); the owner also sees their results and links to their account. */
 @Component({
   selector: 'app-profile-page',
-  imports: [DatePipe, PresenceBadge, RouterLink, UserAvatar],
+  imports: [DatePipe, EloChart, PlayerStatsPanel, PresenceBadge, RouterLink, UserAvatar],
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.css',
 })
@@ -59,8 +63,7 @@ export class ProfilePage {
   readonly ratings = signal<RatingChange[] | null>(null);
   readonly recent = signal<GameHistoryItem[] | null>(null);
   readonly sideFailed = signal({ ratings: false, recent: false });
-  /** The owner's own counters, from GET /users/me. */
-  readonly own = signal<CurrentUser | null>(null);
+  readonly listed = PROFILE_RATING_CHANGES;
   /** A pushed presence change is newer than the profile it follows. */
   private readonly pushed = signal<PresenceStatus | null>(null);
 
@@ -294,7 +297,6 @@ export class ProfilePage {
     this.ratings.set(null);
     this.recent.set(null);
     this.sideFailed.set({ ratings: false, recent: false });
-    this.own.set(null);
     this.users.profile(id).subscribe({
       next: (profile) => this.profile.set(profile),
       error: (error: unknown) => {
@@ -307,7 +309,7 @@ export class ProfilePage {
       },
     });
     // Secondary sections fail on their own: the profile stays readable without them.
-    this.users.ratingHistory(id, PROFILE_RATING_CHANGES).subscribe({
+    this.users.ratingHistory(id, PROFILE_RATING_POINTS).subscribe({
       next: ({ history }) => this.ratings.set(history),
       error: () => this.sideFailed.update((failed) => ({ ...failed, ratings: true })),
     });
@@ -315,10 +317,11 @@ export class ProfilePage {
       next: ({ items }) => this.recent.set(items),
       error: () => this.sideFailed.update((failed) => ({ ...failed, recent: true })),
     });
+    // The header shows the signed-in player's rating: keep it current on their profile.
     if (mine)
       this.lifecycle
         .refreshUser()
         .pipe(catchError(() => of(null)))
-        .subscribe((user) => this.own.set(user));
+        .subscribe();
   }
 }

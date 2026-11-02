@@ -31,6 +31,29 @@ export const routes: Routes = [
     loadComponent: () => import('./features/puzzle/puzzle-page').then((m) => m.PuzzlePage),
   },
   {
+    path: 'puzzle/archive',
+    title: 'Puzzle archive | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/puzzle/puzzle-archive-page').then((m) => m.PuzzleArchivePage),
+  },
+  {
+    path: 'puzzle/:id',
+    title: 'Puzzle | 42 Chess',
+    loadComponent: () => import('./features/puzzle/puzzle-page').then((m) => m.PuzzlePage),
+  },
+  {
+    path: 'leaderboard',
+    title: 'Leaderboard | 42 Chess',
+    loadComponent: () =>
+      import('./features/progression/leaderboard-page').then((m) => m.LeaderboardPage),
+  },
+  {
+    path: 'progression',
+    title: 'How progression works | 42 Chess',
+    loadComponent: () => import('./features/progression/rules-page').then((m) => m.RulesPage),
+  },
+  {
     path: 'live',
     title: 'Live games | 42 Chess',
     loadComponent: () => import('./features/live/live-page').then((m) => m.LivePage),

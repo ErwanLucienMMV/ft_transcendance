@@ -28,7 +28,7 @@ test('finds a player, opens their profile with live presence and the own profile
   await result.getByRole('link', { name: targetName }).click();
   await expect(page).toHaveURL(/\/players\/[0-9a-f-]{36}$/);
   await expect(page.getByRole('heading', { name: targetName, level: 2 })).toBeVisible();
-  await expect(page.locator('.stats')).toContainText('Elo');
+  await expect(page.locator('.stats dt')).toHaveText(['Rating', 'Rank', 'Level', 'Puzzle streak']);
   await expect(page.locator('.stats dd').first()).toHaveText('1200');
   await expect(page.locator('app-presence-badge')).toHaveText('Online');
   await expect(page.getByText('No rated game yet.')).toBeVisible();
@@ -45,7 +45,8 @@ test('finds a player, opens their profile with live presence and the own profile
   await page.getByRole('link', { name: 'View your profile' }).click();
   await expect(page.getByRole('heading', { name: seeker, level: 2 })).toBeVisible();
   await expect(page.locator('.eyebrow')).toHaveText('Your profile');
-  await expect(page.locator('.stats dt')).toHaveText(['Elo', 'Games', 'Won', 'Drawn', 'Lost']);
+  await expect(page.locator('.results tbody th')).toHaveText(['Rated', 'Casual', 'Computer']);
+  await expect(page.locator('#achievements h3')).toContainText('0 of 14 unlocked');
   await expect(page.getByRole('link', { name: 'Account settings' })).toHaveAttribute(
     'href',
     '/settings',

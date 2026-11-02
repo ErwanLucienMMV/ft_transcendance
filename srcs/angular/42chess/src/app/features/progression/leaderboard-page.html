@@ -1,0 +1,102 @@
+<section class="leaderboard-page page narrow" aria-labelledby="leaderboard-title">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Players</span>
+      <h2 id="leaderboard-title">Leaderboard</h2>
+      <p>
+        Every player with a rated game, best rating first. Equal ratings share a rank.
+        <a routerLink="/progression">How ratings, XP and levels work</a>
+      </p>
+    </div>
+    @if (myRank(); as rank) {
+      <div class="my-rank" role="status">
+        <span>Your rank</span>
+        <strong>#{{ rank }}</strong>
+        @if (!meShown()) {
+          <button type="button" class="button secondary small" (click)="showMine()">
+            Show my rank
+          </button>
+        }
+      </div>
+    }
+  </header>
+
+  @if (failed()) {
+    <div class="alert" role="alert">
+      <p>The leaderboard could not be loaded.</p>
+      <button type="button" class="button secondary" (click)="retry()">Try again</button>
+    </div>
+  } @else if (rows(); as list) {
+    @if (total() === 0) {
+      <div class="empty">
+        <strong>No ranked player yet.</strong>
+        <p>Finish a rated game to appear here.</p>
+        <a class="button" routerLink="/play">Play a rated game</a>
+      </div>
+    } @else {
+      <table class="board" [attr.aria-busy]="loading()">
+        <caption class="sr-only">
+          Leaderboard, page
+          {{
+            page()
+          }}
+          of
+          {{
+            pages()
+          }}
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Rank</th>
+            <th scope="col">Player</th>
+            <th scope="col">Rating</th>
+            <th scope="col" class="wide">Won · Drawn · Lost</th>
+            <th scope="col">Level</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of list; track row.id) {
+            <tr [class.me]="mine(row)" [attr.aria-current]="mine(row) ? 'true' : null">
+              <td class="rank">{{ row.rank }}</td>
+              <th scope="row">
+                <a class="player" [routerLink]="['/players', row.id]">
+                  <app-avatar class="avatar" [username]="row.username" [url]="row.avatarUrl" />
+                  <span>{{ row.username }}</span>
+                  @if (mine(row)) {
+                    <small>you</small>
+                  }
+                </a>
+              </th>
+              <td class="elo">{{ row.elo }}</td>
+              <td class="wide">{{ row.gamesWon }} · {{ row.gamesDraw }} · {{ row.gamesLost }}</td>
+              <td>{{ row.level }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (pages() > 1) {
+        <nav class="pager" aria-label="Pages">
+          <button
+            type="button"
+            class="button secondary"
+            [disabled]="page() <= 1"
+            (click)="go(page() - 1)"
+          >
+            Previous
+          </button>
+          <span aria-current="page">Page {{ page() }} of {{ pages() }}</span>
+          <button
+            type="button"
+            class="button secondary"
+            [disabled]="page() >= pages()"
+            (click)="go(page() + 1)"
+          >
+            Next
+          </button>
+        </nav>
+      }
+    }
+  } @else if (loading()) {
+    <p class="empty" role="status">Loading the leaderboard…</p>
+  }
+</section>

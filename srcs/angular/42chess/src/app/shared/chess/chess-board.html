@@ -8,6 +8,7 @@
         [class.selected]="selected() === square.name"
         [class.last-move]="lastMove()?.from === square.name || lastMove()?.to === square.name"
         [class.check]="checkSquare() === square.name"
+        [class.hint]="hint() === square.name"
         [class.target]="targets().has(square.name)"
         [class.capture]="targets().has(square.name) && !!square.piece"
         [attr.data-square]="square.name"

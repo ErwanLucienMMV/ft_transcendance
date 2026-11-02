@@ -1,0 +1,134 @@
+<section class="rules-page page narrow" aria-labelledby="rules-title">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Progression</span>
+      <h2 id="rules-title">How progression works</h2>
+      <p>
+        Your rating measures your strength against other players. Experience (XP) rewards everything
+        you play: it raises your level and never goes down.
+      </p>
+    </div>
+  </header>
+
+  <section aria-labelledby="rating-rules" class="card">
+    <h3 id="rating-rules">Rating and leaderboard</h3>
+    <ul>
+      <li>Every account starts at 1200. Only rated games against other players change it.</li>
+      <li>
+        A win against a stronger player earns more than a win against a weaker one (Elo, K = 32).
+      </li>
+      <li>
+        The <a routerLink="/leaderboard">leaderboard</a> lists every player with at least one rated
+        game, best rating first. Equal ratings share a rank.
+      </li>
+    </ul>
+  </section>
+
+  @if (failed()) {
+    <p class="alert" role="alert">The XP table could not be loaded. Try again later.</p>
+  } @else if (rules(); as r) {
+    <section aria-labelledby="xp-rules" class="card">
+      <h3 id="xp-rules">Experience</h3>
+      <table>
+        <caption class="sr-only">
+          XP earned
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">You…</th>
+            <th scope="col">XP</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Win, draw or lose a game against a player</th>
+            <td>{{ r.xp.game.win }} · {{ r.xp.game.draw }} · {{ r.xp.game.loss }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Win or draw against the easy computer</th>
+            <td>{{ r.xp.bot.EASY.win }} · {{ r.xp.bot.EASY.draw }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Win or draw against the medium computer</th>
+            <td>{{ r.xp.bot.MEDIUM.win }} · {{ r.xp.bot.MEDIUM.draw }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Win or draw against the hard computer</th>
+            <td>{{ r.xp.bot.HARD.win }} · {{ r.xp.bot.HARD.draw }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Solve the daily puzzle on its day</th>
+            <td>{{ r.xp.puzzle.daily }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Solve a puzzle from the archive</th>
+            <td>{{ r.xp.puzzle.archive }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Daily streak bonus, per day of streak</th>
+            <td>
+              +{{ r.xp.streakBonusPerDay }}, up to +{{
+                r.xp.streakBonusPerDay * r.xp.streakBonusCap
+              }}
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Unlock an achievement</th>
+            <td>as listed below</td>
+          </tr>
+        </tbody>
+      </table>
+      <ul>
+        <li>
+          A game counts once each side has made {{ r.xp.minimumMovesEach }} moves. A loss against
+          the computer earns nothing.
+        </li>
+        <li>
+          A puzzle earns XP on your first and only attempt at it. Starting it again makes the new
+          attempt practice, which earns nothing.
+        </li>
+        <li>
+          {{ r.xp.maxPuzzleMistakes }} wrong moves end an attempt. A hint halves the puzzle XP (for
+          example {{ r.xp.puzzle.daily }} becomes {{ half(r.xp.puzzle.daily, r.xp.hintDivisor) }});
+          showing the solution ends the attempt without XP.
+        </li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="streak-rules" class="card">
+      <h3 id="streak-rules">Daily puzzle streak</h3>
+      <p>
+        Solve the daily puzzle on its day, on your first attempt, to add a day to your streak. Miss
+        a day, or fail the attempt, and the next solved daily puzzle starts a new streak. Days
+        change at midnight UTC.
+      </p>
+    </section>
+
+    <section aria-labelledby="level-rules" class="card">
+      <h3 id="level-rules">Levels</h3>
+      <p>Each level needs a little more XP than the one before.</p>
+      <ol class="levels">
+        @for (level of r.levels; track level.level) {
+          <li>
+            <strong>Level {{ level.level }}</strong> <span>{{ level.xp }} XP</span>
+          </li>
+        }
+      </ol>
+    </section>
+
+    <section aria-labelledby="achievement-rules" class="card">
+      <h3 id="achievement-rules">Achievements</h3>
+      <ul class="achievements">
+        @for (achievement of r.achievements; track achievement.code) {
+          <li>
+            <strong>{{ achievement.name }}</strong>
+            <span>{{ achievement.description }}</span>
+            <small>{{ achievement.xp ? '+' + achievement.xp + ' XP' : 'Badge only' }}</small>
+          </li>
+        }
+      </ul>
+    </section>
+  } @else {
+    <p class="empty" role="status">Loading the rules…</p>
+  }
+</section>

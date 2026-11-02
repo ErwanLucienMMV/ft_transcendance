@@ -50,6 +50,9 @@
 .square.last-move {
   box-shadow: inset 0 0 0 999px var(--last-move);
 }
+.square.hint {
+  box-shadow: inset 0 0 0 4px var(--warning);
+}
 .square.selected {
   box-shadow: inset 0 0 0 999px var(--selected);
 }

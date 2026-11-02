@@ -1,0 +1,121 @@
+<dl class="stats">
+  <div>
+    <dt>Rating</dt>
+    <dd>{{ elo() }}</dd>
+  </div>
+  <div>
+    <dt>Rank</dt>
+    <dd>
+      @if (stats(); as s) {
+        @if (s.rank !== null) {
+          <a routerLink="/leaderboard" [queryParams]="{ rank: s.rank }">#{{ s.rank }}</a>
+          <small> of {{ s.rankedPlayers }}</small>
+        } @else {
+          <small>Unranked</small>
+        }
+      } @else {
+        –
+      }
+    </dd>
+  </div>
+  <div>
+    <dt>Level</dt>
+    <dd>{{ stats()?.progression?.level ?? '–' }}</dd>
+  </div>
+  <div>
+    <dt>Puzzle streak</dt>
+    <dd>
+      {{ stats()?.puzzles?.streak ?? '–' }}
+      @if (stats(); as s) {
+        <small
+          >{{ s.puzzles.streak === 1 ? 'day' : 'days' }}, best {{ s.puzzles.bestStreak }}</small
+        >
+      }
+    </dd>
+  </div>
+</dl>
+
+@if (failed()) {
+  <p class="muted" role="status">Some statistics could not be loaded.</p>
+}
+
+@if (stats(); as s) {
+  <div class="stat-columns">
+    <section aria-labelledby="results-title">
+      <h3 id="results-title" class="section-title">Results</h3>
+      <table class="results">
+        <thead>
+          <tr>
+            <th scope="col">Games</th>
+            <th scope="col">Played</th>
+            <th scope="col">Won</th>
+            <th scope="col">Drawn</th>
+            <th scope="col">Lost</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.label) {
+            <tr>
+              <th scope="row">{{ row.label }}</th>
+              <td>{{ row.results.played }}</td>
+              <td>{{ row.results.won }}</td>
+              <td>{{ row.results.drawn }}</td>
+              <td>{{ row.results.lost }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <p class="muted small">
+        Only rated games change the rating. {{ s.puzzles.solved }}
+        {{ s.puzzles.solved === 1 ? 'puzzle' : 'puzzles' }} solved on the first try.
+      </p>
+    </section>
+    <section id="progression" aria-labelledby="level-title">
+      <h3 id="level-title" class="section-title">Progression</h3>
+      <app-level-bar [progress]="s.progression" />
+      <p class="muted small">
+        Games, puzzles and achievements earn XP.
+        <a routerLink="/progression">How progression works</a>
+      </p>
+    </section>
+  </div>
+}
+
+@if (achievements(); as list) {
+  <section id="achievements" class="achievements" aria-labelledby="achievements-title">
+    <h3 id="achievements-title" class="section-title">
+      Achievements <small>{{ unlocked() }} of {{ list.length }} unlocked</small>
+    </h3>
+    <ul>
+      @for (achievement of list; track achievement.code) {
+        <li [class.unlocked]="achievement.unlockedAt">
+          <span class="badge" aria-hidden="true">{{ achievement.unlockedAt ? '★' : '☆' }}</span>
+          <div>
+            <strong>{{ achievement.name }}</strong>
+            <p>{{ achievement.description }}</p>
+            @if (achievement.unlockedAt; as at) {
+              <small
+                >Unlocked {{ at | date: 'mediumDate' }}
+                @if (achievement.xp) {
+                  · +{{ achievement.xp }} XP
+                }
+              </small>
+            } @else {
+              <div
+                class="meter"
+                role="progressbar"
+                [attr.aria-label]="achievement.name + ' progress'"
+                aria-valuemin="0"
+                [attr.aria-valuemax]="achievement.goal"
+                [attr.aria-valuenow]="achievement.progress"
+              >
+                <span [style.width.%]="percent(achievement)"></span>
+              </div>
+              <small>{{ achievement.progress }} / {{ achievement.goal }}</small>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+}
