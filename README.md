@@ -5,6 +5,12 @@ Throughout commits and merge conflicts, we alone are the ones who forgot to pull
 ## OAuth documentation
 
 - [Google and GitHub configuration and flow](docs/oauth.md)
+## Configuration
+
+- [Environment reference](docs/environment.md)
+## Operations documentation
+
+- [Docker operation](docs/docker.md)
 
 ## Database documentation
 
