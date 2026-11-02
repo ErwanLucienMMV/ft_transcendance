@@ -1,4 +1,5 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
+import { tr } from '../i18n/i18n';
 
 export interface AuthUser {
   id: string;
@@ -45,7 +46,7 @@ export class AuthSession {
     this.current.set(response);
     this.expiration.set(expiresAt);
     this.timer = setTimeout(
-      () => this.clear('Your session expired. Please sign in again.'),
+      () => this.clear(tr('auth.sessionExpired')),
       Math.min(expiresAt - Date.now(), 2_147_483_647),
     );
   }

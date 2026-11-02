@@ -1,219 +1,221 @@
-<section class="play-page page" aria-labelledby="play-title">
-  <header class="page-head">
-    <div>
-      <span class="eyebrow">Play</span>
-      <h1 id="play-title">Start a game</h1>
-      <p>Pick a time control, then play someone online, invite a friend or face the computer.</p>
-    </div>
-  </header>
-
-  <section class="time card" aria-label="Time control">
-    <fieldset>
-      <legend>Time control (minutes + seconds per move)</legend>
-      <div class="choices">
-        @for (control of controls; track control.label) {
-          <label class="choice" [class.chosen]="control === selected()">
-            <input
-              type="radio"
-              name="time-control"
-              [value]="control.label"
-              [checked]="control === selected()"
-              [disabled]="searching()"
-              (change)="selected.set(control)"
-            />
-            <strong>{{ control.label }}</strong>
-            <span>{{ control.category }}</span>
-          </label>
-        }
+<ng-container *transloco="let t">
+  <section class="play-page page" aria-labelledby="play-title">
+    <header class="page-head">
+      <div>
+        <span class="eyebrow">{{ t('play.eyebrow') }}</span>
+        <h1 id="play-title">{{ t('play.title') }}</h1>
+        <p>{{ t('play.intro') }}</p>
       </div>
-    </fieldset>
-  </section>
+    </header>
 
-  <div class="layout">
-    <div class="online card">
-      <h2 class="card-title">Online</h2>
+    <section class="time card" [attr.aria-label]="t('play.timeControl')">
+      <fieldset>
+        <legend>{{ t('play.timeLegend') }}</legend>
+        <div class="choices">
+          @for (control of controls; track control.label) {
+            <label class="choice" [class.chosen]="control === selected()">
+              <input
+                type="radio"
+                name="time-control"
+                [value]="control.label"
+                [checked]="control === selected()"
+                [disabled]="searching()"
+                (change)="selected.set(control)"
+              />
+              <strong>{{ control.label }}</strong>
+              <span>{{ t('play.categories.' + control.category) }}</span>
+            </label>
+          }
+        </div>
+      </fieldset>
+    </section>
 
-      <article class="play-card" aria-labelledby="match-title">
-        <h2 id="match-title">Find an opponent</h2>
-        @if (searching()) {
-          <p role="status" class="searching">
-            @if (search.state() === 'joining') {
-              Joining the queue…
-            } @else {
-              Searching for a {{ searchLabel() }} opponent ·
-              <time aria-label="Time waited">{{ waited() }}</time>
+    <div class="layout">
+      <div class="online card">
+        <h2 class="card-title">{{ t('play.online') }}</h2>
+
+        <article class="play-card" aria-labelledby="match-title">
+          <h2 id="match-title">{{ t('play.find') }}</h2>
+          @if (searching()) {
+            <p role="status" class="searching">
+              @if (search.state() === 'joining') {
+                {{ t('play.joining') }}
+              } @else {
+                {{ t('play.searching', { control: searchLabel() }) }}
+                <time [attr.aria-label]="t('play.waited')">{{ waited() }}</time>
+              }
+            </p>
+            <p>{{ t('play.pairing') }}</p>
+            @if (suggestBot()) {
+              <div class="suggestion" role="status">
+                <p>{{ t('play.nobody') }}</p>
+                <button
+                  type="button"
+                  class="button secondary small"
+                  [disabled]="botCreating()"
+                  (click)="playBotInstead()"
+                >
+                  {{ t('play.botInstead') }}
+                </button>
+              </div>
             }
+            <button
+              type="button"
+              class="button secondary"
+              [disabled]="search.state() !== 'waiting'"
+              (click)="search.cancel()"
+            >
+              {{ search.state() === 'leaving' ? t('play.cancelling') : t('play.cancelSearch') }}
+            </button>
+          } @else {
+            <p>
+              {{ t('play.matchIntro') }}
+              <a routerLink="/rules">{{ t('play.rulesLink') }}</a>
+            </p>
+            <button type="button" (click)="findOpponent()">{{ t('play.find') }}</button>
+          }
+          @if (search.error(); as message) {
+            <p class="play-error" role="alert">{{ message }}</p>
+          }
+        </article>
+
+        <article class="play-card" aria-labelledby="friend-title">
+          <h2 id="friend-title">{{ t('play.friend') }}</h2>
+          <p>{{ t('play.friendIntro') }}</p>
+          <div class="form-field friend-field">
+            <label for="friend-choice">{{ t('play.opponent') }}</label>
+            <select
+              id="friend-choice"
+              [value]="friendId() ?? ''"
+              [disabled]="creating() || searching()"
+              (change)="friendId.set($any($event.target).value || null)"
+            >
+              <option value="">{{ t('play.anyone') }}</option>
+              @for (friend of friends(); track friend.id) {
+                <option [value]="friend.id">
+                  {{ friend.username }} ({{ friend.elo }}){{
+                    friend.status === 'OFFLINE' ? t('play.offlineSuffix') : ''
+                  }}
+                </option>
+              }
+            </select>
+            @if (!friends().length) {
+              <p>
+                <a routerLink="/friends">{{ t('play.addFriends') }}</a>
+                {{ t('play.addFriendsAfter') }}
+              </p>
+            }
+          </div>
+          <label class="toggle">
+            <input
+              type="checkbox"
+              [checked]="rated()"
+              (change)="rated.set($any($event.target).checked)"
+            />
+            <span>{{ t('play.ratedToggle') }}</span>
+          </label>
+          <p class="rated-note">
+            {{ rated() ? t('play.ratedNote') : t('play.casualNote') }}
           </p>
-          <p>Players are paired by Elo; the range widens the longer you wait.</p>
-          @if (suggestBot()) {
-            <div class="suggestion" role="status">
-              <p>Nobody is free for this time control right now.</p>
-              <button
-                type="button"
-                class="button secondary small"
-                [disabled]="botCreating()"
-                (click)="playBotInstead()"
-              >
-                Play the bot instead
-              </button>
-            </div>
+          @if (error(); as message) {
+            <p class="play-error" role="alert">{{ message }}</p>
           }
           <button
             type="button"
-            class="button secondary"
-            [disabled]="search.state() !== 'waiting'"
-            (click)="search.cancel()"
-          >
-            {{ search.state() === 'leaving' ? 'Cancelling…' : 'Cancel search' }}
-          </button>
-        } @else {
-          <p>
-            A rated game against a player of similar Elo, with the time control above.
-            <a routerLink="/rules">How games are won, drawn or aborted</a>
-          </p>
-          <button type="button" (click)="findOpponent()">Find an opponent</button>
-        }
-        @if (search.error(); as message) {
-          <p class="play-error" role="alert">{{ message }}</p>
-        }
-      </article>
-
-      <article class="play-card" aria-labelledby="friend-title">
-        <h2 id="friend-title">Play a friend</h2>
-        <p>
-          Choose who plays. With an open link, the first person to open it takes the other seat; a
-          friend you pick is told at once and the seat is theirs.
-        </p>
-        <div class="form-field friend-field">
-          <label for="friend-choice">Opponent</label>
-          <select
-            id="friend-choice"
-            [value]="friendId() ?? ''"
+            class="secondary"
             [disabled]="creating() || searching()"
-            (change)="friendId.set($any($event.target).value || null)"
+            (click)="create()"
           >
-            <option value="">Anyone with the link</option>
-            @for (friend of friends(); track friend.id) {
-              <option [value]="friend.id">
-                {{ friend.username }} ({{ friend.elo }}){{
-                  friend.status === 'OFFLINE' ? ' · offline' : ''
-                }}
-              </option>
-            }
-          </select>
-          @if (!friends().length) {
-            <p><a routerLink="/friends">Add friends</a> to challenge them directly.</p>
+            {{
+              creating()
+                ? t('play.creating')
+                : friendId()
+                  ? t('play.challenge', { name: friendName() })
+                  : rated()
+                    ? t('play.createRated')
+                    : t('play.createCasual')
+            }}
+          </button>
+          @if (invitations().length) {
+            <section class="invitations" aria-labelledby="invitations-title">
+              <h3 id="invitations-title">{{ t('play.invitations') }}</h3>
+              <p>{{ t('play.invitationsNote') }}</p>
+              <ul>
+                @for (invitation of invitations(); track invitation.id) {
+                  <li>
+                    <a [routerLink]="['/game', invitation.id]">
+                      {{ label(invitation.timeControl) }} ·
+                      {{ invitation.rated ? t('common.rated') : t('common.casual') }}
+                      @if (invitation.invitedOpponentId) {
+                        · {{ t('play.challengeTag') }}
+                      }
+                    </a>
+                    <button
+                      type="button"
+                      class="button secondary small"
+                      [disabled]="cancelling() === invitation.id"
+                      [attr.aria-label]="
+                        t('play.cancelInvitation', { control: label(invitation.timeControl) })
+                      "
+                      (click)="cancelInvitation(invitation.id)"
+                    >
+                      {{
+                        cancelling() === invitation.id ? t('play.cancelling') : t('common.cancel')
+                      }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            </section>
           }
-        </div>
-        <label class="toggle">
-          <input
-            type="checkbox"
-            [checked]="rated()"
-            (change)="rated.set($any($event.target).checked)"
-          />
-          <span>Rated game: the result changes both Elo ratings</span>
-        </label>
-        <p class="rated-note">
-          {{
-            rated()
-              ? 'Rated: the winner gains Elo and the loser loses some.'
-              : 'Casual: nobody’s rating changes.'
-          }}
-        </p>
-        @if (error(); as message) {
+        </article>
+      </div>
+
+      <article class="play-card bot card" aria-labelledby="bot-title">
+        <h2 id="bot-title" class="card-title">{{ t('play.computer') }}</h2>
+        <p>{{ t('play.computerIntro') }}</p>
+        <fieldset>
+          <legend>{{ t('play.difficulty') }}</legend>
+          <div class="choices levels">
+            @for (choice of levels; track choice.difficulty) {
+              <label class="choice" [class.chosen]="choice === level()">
+                <input
+                  type="radio"
+                  name="bot-level"
+                  [value]="choice.difficulty"
+                  [checked]="choice === level()"
+                  (change)="level.set(choice)"
+                />
+                <strong>{{ t('chess.bots.' + choice.difficulty) }}</strong>
+                <span>{{ t('play.levels.' + choice.difficulty) }}</span>
+              </label>
+            }
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>{{ t('play.yourColor') }}</legend>
+          <div class="choices">
+            @for (option of colors; track option.value) {
+              <label class="choice" [class.chosen]="option.value === color()">
+                <input
+                  type="radio"
+                  name="bot-color"
+                  [value]="option.value"
+                  [checked]="option.value === color()"
+                  (change)="color.set(option.value)"
+                />
+                <strong>{{ t(option.label) }}</strong>
+              </label>
+            }
+          </div>
+        </fieldset>
+        @if (botError(); as message) {
           <p class="play-error" role="alert">{{ message }}</p>
         }
-        <button
-          type="button"
-          class="secondary"
-          [disabled]="creating() || searching()"
-          (click)="create()"
-        >
-          {{
-            creating()
-              ? 'Creating…'
-              : friendId()
-                ? 'Challenge ' + friendName()
-                : rated()
-                  ? 'Create a rated game'
-                  : 'Create a casual game'
-          }}
+        <button type="button" [disabled]="botCreating() || searching()" (click)="createBot()">
+          {{ botCreating() ? t('play.starting') : t('play.playBot') }}
         </button>
-        @if (invitations().length) {
-          <section class="invitations" aria-labelledby="invitations-title">
-            <h3 id="invitations-title">Your open invitations</h3>
-            <p>They are removed after 24 hours if nobody joins.</p>
-            <ul>
-              @for (invitation of invitations(); track invitation.id) {
-                <li>
-                  <a [routerLink]="['/game', invitation.id]">
-                    {{ label(invitation.timeControl) }} ·
-                    {{ invitation.rated ? 'Rated' : 'Casual' }}
-                    @if (invitation.invitedOpponentId) {
-                      · challenge
-                    }
-                  </a>
-                  <button
-                    type="button"
-                    class="button secondary small"
-                    [disabled]="cancelling() === invitation.id"
-                    [attr.aria-label]="'Cancel the invitation ' + label(invitation.timeControl)"
-                    (click)="cancelInvitation(invitation.id)"
-                  >
-                    {{ cancelling() === invitation.id ? 'Cancelling…' : 'Cancel' }}
-                  </button>
-                </li>
-              }
-            </ul>
-          </section>
-        }
       </article>
     </div>
-
-    <article class="play-card bot card" aria-labelledby="bot-title">
-      <h2 id="bot-title" class="card-title">Play the computer</h2>
-      <p>Not rated: a good place to practise an opening or a plan.</p>
-      <fieldset>
-        <legend>Difficulty</legend>
-        <div class="choices levels">
-          @for (choice of levels; track choice.difficulty) {
-            <label class="choice" [class.chosen]="choice === level()">
-              <input
-                type="radio"
-                name="bot-level"
-                [value]="choice.difficulty"
-                [checked]="choice === level()"
-                (change)="level.set(choice)"
-              />
-              <strong>{{ choice.label }}</strong>
-              <span>{{ choice.description }}</span>
-            </label>
-          }
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend>Your colour</legend>
-        <div class="choices">
-          @for (option of colors; track option.value) {
-            <label class="choice" [class.chosen]="option.value === color()">
-              <input
-                type="radio"
-                name="bot-color"
-                [value]="option.value"
-                [checked]="option.value === color()"
-                (change)="color.set(option.value)"
-              />
-              <strong>{{ option.label }}</strong>
-            </label>
-          }
-        </div>
-      </fieldset>
-      @if (botError(); as message) {
-        <p class="play-error" role="alert">{{ message }}</p>
-      }
-      <button type="button" [disabled]="botCreating() || searching()" (click)="createBot()">
-        {{ botCreating() ? 'Starting…' : 'Play the bot' }}
-      </button>
-    </article>
-  </div>
-</section>
+  </section>
+</ng-container>

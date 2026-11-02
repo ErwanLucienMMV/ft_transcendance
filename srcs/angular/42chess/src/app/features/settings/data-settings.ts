@@ -8,97 +8,96 @@ import { RealtimeService } from '../../core/realtime/realtime.service';
 import { AccountApi, DeleteAccountRequest, downloadName, SecurityStatus } from './account-api';
 import { SECOND_FACTOR_CODE } from '../auth/second-factor-code';
 import { settingsError } from './settings-text';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { tr } from '../../core/i18n/i18n';
 
 /** A copy of the account's data, and the deletion of the account. */
 @Component({
   selector: 'app-data-settings',
-  imports: [ReactiveFormsModule],
+  imports: [TranslocoDirective, ReactiveFormsModule],
   template: `
-    <section class="card settings-section" aria-labelledby="data-settings-title">
-      <h2 id="data-settings-title" class="section-title">Your data</h2>
-      <div class="subsection">
-        <h3>Download your data</h3>
-        <p class="muted">
-          A JSON file with your profile, games, ratings, friends, messages and puzzle results.
-        </p>
-        <div class="row">
-          <button type="button" class="secondary" [disabled]="exporting()" (click)="exportData()">
-            {{ exporting() ? 'Preparing…' : 'Download my data' }}
-          </button>
-        </div>
-        @if (exportMessage(); as message) {
-          <p
-            [class]="message.ok ? 'saved' : 'field-error'"
-            [attr.role]="message.ok ? 'status' : 'alert'"
-          >
-            {{ message.text }}
-          </p>
-        }
-      </div>
-
-      <div class="subsection danger-zone">
-        <h3>Delete your account</h3>
-        <p class="muted">
-          Your profile, friends, messages and sign-in methods are erased. Finished games stay in
-          your opponents' history, under the name “Deleted player”. This cannot be undone.
-        </p>
-        @if (!confirming()) {
+    <ng-container *transloco="let t">
+      <section class="card settings-section" aria-labelledby="data-settings-title">
+        <h2 id="data-settings-title" class="section-title">{{ t('settings.data.title') }}</h2>
+        <div class="subsection">
+          <h3>{{ t('settings.data.download') }}</h3>
+          <p class="muted">{{ t('settings.data.downloadHelp') }}</p>
           <div class="row">
-            <button type="button" class="secondary" (click)="confirming.set(true)">
-              Delete my account…
+            <button type="button" class="secondary" [disabled]="exporting()" (click)="exportData()">
+              {{ exporting() ? t('settings.data.preparing') : t('settings.data.downloadButton') }}
             </button>
           </div>
-        } @else {
-          <form [formGroup]="form" (ngSubmit)="deleteAccount()" novalidate>
-            <div class="form-field">
-              <label for="delete-confirmation"
-                >Type your username, {{ username() }}, to confirm</label
-              >
-              <input
-                id="delete-confirmation"
-                formControlName="confirmation"
-                autocomplete="off"
-                spellcheck="false"
-              />
+          @if (exportMessage(); as message) {
+            <p
+              [class]="message.ok ? 'saved' : 'field-error'"
+              [attr.role]="message.ok ? 'status' : 'alert'"
+            >
+              {{ message.text }}
+            </p>
+          }
+        </div>
+
+        <div class="subsection danger-zone">
+          <h3>{{ t('settings.data.delete') }}</h3>
+          <p class="muted">{{ t('settings.data.deleteHelp') }}</p>
+          @if (!confirming()) {
+            <div class="row">
+              <button type="button" class="secondary" (click)="confirming.set(true)">
+                {{ t('settings.data.deleteButton') }}
+              </button>
             </div>
-            @if (status()?.hasPassword) {
+          } @else {
+            <form [formGroup]="form" (ngSubmit)="deleteAccount()" novalidate>
               <div class="form-field">
-                <label for="delete-password">Password</label>
+                <label for="delete-confirmation">{{
+                  t('settings.data.typeUsername', { name: username() })
+                }}</label>
                 <input
-                  id="delete-password"
-                  type="password"
-                  formControlName="password"
-                  autocomplete="current-password"
-                />
-              </div>
-            }
-            @if (status()?.twoFactorEnabled) {
-              <div class="form-field">
-                <label for="delete-code">Code from your app, or a recovery code</label>
-                <input
-                  id="delete-code"
-                  formControlName="code"
-                  autocomplete="one-time-code"
-                  maxlength="11"
+                  id="delete-confirmation"
+                  formControlName="confirmation"
+                  autocomplete="off"
                   spellcheck="false"
                 />
               </div>
-            }
-            <div class="row">
-              <button type="submit" class="danger" [disabled]="deleting() || !ready()">
-                {{ deleting() ? 'Deleting…' : 'Delete my account for good' }}
-              </button>
-              <button type="button" class="ghost" [disabled]="deleting()" (click)="cancel()">
-                Cancel
-              </button>
-            </div>
-            @if (deleteError(); as message) {
-              <p class="field-error" role="alert">{{ message }}</p>
-            }
-          </form>
-        }
-      </div>
-    </section>
+              @if (status()?.hasPassword) {
+                <div class="form-field">
+                  <label for="delete-password">{{ t('settings.data.password') }}</label>
+                  <input
+                    id="delete-password"
+                    type="password"
+                    formControlName="password"
+                    autocomplete="current-password"
+                  />
+                </div>
+              }
+              @if (status()?.twoFactorEnabled) {
+                <div class="form-field">
+                  <label for="delete-code">{{ t('settings.data.code') }}</label>
+                  <input
+                    id="delete-code"
+                    formControlName="code"
+                    autocomplete="one-time-code"
+                    maxlength="11"
+                    spellcheck="false"
+                  />
+                </div>
+              }
+              <div class="row">
+                <button type="submit" class="danger" [disabled]="deleting() || !ready()">
+                  {{ deleting() ? t('settings.data.deleting') : t('settings.data.deleteForGood') }}
+                </button>
+                <button type="button" class="ghost" [disabled]="deleting()" (click)="cancel()">
+                  {{ t('common.cancel') }}
+                </button>
+              </div>
+              @if (deleteError(); as message) {
+                <p class="field-error" role="alert">{{ message }}</p>
+              }
+            </form>
+          }
+        </div>
+      </section>
+    </ng-container>
   `,
 })
 export class DataSettings {
@@ -163,12 +162,12 @@ export class DataSettings {
           link.click();
           // Some browsers start the download after click() returns.
           setTimeout(() => URL.revokeObjectURL(url), 1000);
-          this.exportMessage.set({ ok: true, text: 'Your data was downloaded.' });
+          this.exportMessage.set({ ok: true, text: tr('settings.data.downloaded') });
         },
         error: (error: unknown) =>
           this.exportMessage.set({
             ok: false,
-            text: settingsError(error, 'Your data could not be prepared. Try again.'),
+            text: settingsError(error, tr('settings.data.exportFailed')),
           }),
       });
   }
@@ -200,15 +199,11 @@ export class DataSettings {
           this.deleted.emit();
           this.realtime.disconnect();
           this.auth.cancelChallenge();
-          this.auth.session.clear('Your account was deleted. Thank you for playing.');
+          this.auth.session.clear(tr('settings.data.deleted'));
           void this.router.navigate(['/login']);
         },
         error: (error: unknown) =>
-          this.deleteError.set(
-            settingsError(error, 'Your account could not be deleted. Try again.', {
-              INVALID_PASSWORD: 'The password is not correct.',
-            }),
-          ),
+          this.deleteError.set(settingsError(error, tr('settings.data.deleteFailed'))),
       });
   }
 }

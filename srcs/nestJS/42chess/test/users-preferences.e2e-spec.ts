@@ -70,6 +70,12 @@ describe('SCRUM-99 persisted preferences', () => {
         .preferences.messagesFromFriendsOnly,
     ).toBe(true);
   });
+  it('accepts each language the site is translated into', async () => {
+    for (const language of ['es', 'fr', 'en'])
+      expect(
+        (await patch({ language }).expect(200)).body.preferences.language,
+      ).toBe(language);
+  });
   it.each([
     null,
     [],

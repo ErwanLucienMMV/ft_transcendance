@@ -8,6 +8,7 @@ import { LEADERBOARD_PAGE, LeaderboardRow, ProgressionApi } from './progression-
 import { Alert } from '../../shared/ui/alert';
 import { EmptyState } from '../../shared/ui/empty-state';
 import { Pager } from '../../shared/ui/pager';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 /** Page holding a rank: `?rank=` (from a profile) opens the page that shows it. */
 export function pageOf(rank: number): number {
@@ -20,7 +21,7 @@ export function pageOf(rank: number): number {
  */
 @Component({
   selector: 'app-leaderboard-page',
-  imports: [Pager, EmptyState, Alert, RouterLink, UserAvatar],
+  imports: [TranslocoDirective, Pager, EmptyState, Alert, RouterLink, UserAvatar],
   templateUrl: './leaderboard-page.html',
   styleUrl: './leaderboard-page.css',
 })

@@ -8,10 +8,11 @@ import { safeReturnUrl } from '../../core/auth/auth.interceptor';
 import { authFeedback } from './auth-feedback';
 import { AuthFrame } from '../../shared/auth-frame';
 import { SECOND_FACTOR_CODE } from './second-factor-code';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 @Component({
   selector: 'app-two-factor-page',
-  imports: [ReactiveFormsModule, RouterLink, AuthFrame],
+  imports: [TranslocoDirective, ReactiveFormsModule, RouterLink, AuthFrame],
   templateUrl: './two-factor-page.html',
 })
 export class TwoFactorPage implements OnInit {

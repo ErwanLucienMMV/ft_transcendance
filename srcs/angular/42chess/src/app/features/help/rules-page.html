@@ -1,81 +1,261 @@
-<article class="legal-page" aria-labelledby="rules-title">
-  <span class="eyebrow">Help</span>
-  <h1 id="rules-title">How games end</h1>
-  <p>
-    Games follow the FIDE Laws of Chess. The server checks every move and decides every result: what
-    your browser shows is only a view of the game.
-  </p>
+<ng-container *transloco="let t">
+  <article class="legal-page" aria-labelledby="rules-title">
+    <span class="eyebrow">{{ t('app.help') }}</span>
+    <h1 id="rules-title">{{ t('titles.rules') }}</h1>
+    @switch (language()) {
+      @case ('fr') {
+        <p>
+          Les parties suivent les Règles du jeu d'échecs de la FIDE. Le serveur vérifie chaque coup
+          et décide de chaque résultat : ce que montre votre navigateur n'est qu'une vue de la
+          partie.
+        </p>
 
-  <h2>Winning</h2>
-  <ul>
-    <li><strong>Checkmate:</strong> the king is attacked and has no legal way out.</li>
-    <li><strong>Resignation:</strong> a player gives up with the <em>Resign</em> button.</li>
-    <li>
-      <strong>Time:</strong> a player whose clock reaches zero loses, unless the opponent has no way
-      left to checkmate (a lone king, or a king and a single bishop or knight against a lone king):
-      the game is then drawn.
-    </li>
-    <li>
-      <strong>Abandonment:</strong> when your opponent leaves the game, you are told at once. If
-      they have not come back after one minute, you can claim the win, or keep waiting.
-    </li>
-  </ul>
+        <h2>Gagner</h2>
+        <ul>
+          <li>
+            <strong>Échec et mat :</strong> le roi est attaqué et n'a aucun moyen légal d'y
+            échapper.
+          </li>
+          <li><strong>Abandon :</strong> un joueur renonce avec le bouton <em>Abandonner</em>.</li>
+          <li>
+            <strong>Temps :</strong> un joueur dont la pendule arrive à zéro perd, sauf si
+            l'adversaire n'a plus aucun moyen de mater (un roi seul, ou un roi et un seul fou ou
+            cavalier contre un roi seul) : la partie est alors nulle.
+          </li>
+          <li>
+            <strong>Départ :</strong> quand votre adversaire quitte la partie, vous êtes prévenu
+            tout de suite. S'il n'est pas revenu au bout d'une minute, vous pouvez réclamer la
+            victoire, ou continuer d'attendre.
+          </li>
+        </ul>
 
-  <h2>Draws</h2>
-  <ul>
-    <li><strong>Stalemate:</strong> the player to move has no legal move and is not in check.</li>
-    <li>
-      <strong>Insufficient material:</strong> neither side can checkmate any more, for example king
-      against king.
-    </li>
-    <li>
-      <strong>Agreement:</strong> a player offers a draw and the opponent accepts it. After a
-      refused offer, the same player plays two more moves before offering again.
-    </li>
-    <li>
-      <strong>Claim:</strong> the player to move can claim a draw when the same position appeared
-      three times, or after fifty moves by each side without a capture or a pawn move. A
-      <em>Claim draw</em> button appears in the game when it applies.
-    </li>
-    <li>
-      <strong>Automatic:</strong> without any claim, the game is drawn when the same position
-      appears five times, or after seventy-five moves by each side without a capture or a pawn move.
-    </li>
-  </ul>
+        <h2>Parties nulles</h2>
+        <ul>
+          <li>
+            <strong>Pat :</strong> le joueur au trait n'a aucun coup légal et n'est pas en échec.
+          </li>
+          <li>
+            <strong>Matériel insuffisant :</strong> aucun camp ne peut plus mater, par exemple roi
+            contre roi.
+          </li>
+          <li>
+            <strong>Accord :</strong> un joueur propose la nulle et l'adversaire l'accepte. Après un
+            refus, le même joueur doit jouer deux coups de plus avant de la proposer à nouveau.
+          </li>
+          <li>
+            <strong>Réclamation :</strong> le joueur au trait peut réclamer la nulle quand la même
+            position est apparue trois fois, ou après cinquante coups de chaque camp sans prise ni
+            coup de pion. Un bouton <em>Réclamer la nulle</em> apparaît dans la partie quand c'est
+            possible.
+          </li>
+          <li>
+            <strong>Automatique :</strong> sans aucune réclamation, la partie est nulle quand la
+            même position apparaît cinq fois, ou après soixante-quinze coups de chaque camp sans
+            prise ni coup de pion.
+          </li>
+        </ul>
 
-  <h2>Aborted games</h2>
-  <p>
-    Before both players have played their first move, either player can abort the game. Between two
-    people, a player who does not play their first move within 30 seconds aborts it too. An aborted
-    game has no result, changes no rating and does not appear in the history.
-  </p>
+        <h2>Parties annulées</h2>
+        <p>
+          Tant que les deux joueurs n'ont pas joué leur premier coup, chacun peut annuler la partie.
+          Entre deux personnes, un joueur qui ne joue pas son premier coup dans les 30 secondes
+          l'annule aussi. Une partie annulée n'a pas de résultat, ne change aucun classement et
+          n'apparaît pas dans l'historique.
+        </p>
 
-  <h2>Rated and casual games</h2>
-  <ul>
-    <li>
-      <strong>Find an opponent</strong> always gives a rated game against a player of similar Elo.
-      The colours are drawn at random.
-    </li>
-    <li>
-      <strong>Play a friend</strong> gives a casual game, unless you tick <em>Rated game</em> before
-      creating it. An invitation nobody accepts is removed after 24 hours, and you can cancel it
-      from the <a routerLink="/play">Play</a> page.
-    </li>
-    <li><strong>Games against the computer</strong> are never rated.</li>
-  </ul>
-  <p>
-    A rated game changes both Elo ratings: you gain more for beating a stronger player than a weaker
-    one. A player plays one game against another person at a time.
-  </p>
+        <h2>Parties classées et amicales</h2>
+        <ul>
+          <li>
+            <strong>Trouver un adversaire</strong> donne toujours une partie classée contre un
+            joueur d'Elo proche. Les couleurs sont tirées au sort.
+          </li>
+          <li>
+            <strong>Jouer contre un ami</strong> donne une partie amicale, sauf si vous cochez
+            <em>Partie classée</em> avant de la créer. Une invitation que personne n'accepte est
+            retirée après 24 heures, et vous pouvez l'annuler depuis la page
+            <a routerLink="/play">Jouer</a>.
+          </li>
+          <li><strong>Les parties contre l'ordinateur</strong> ne sont jamais classées.</li>
+        </ul>
+        <p>
+          Une partie classée change les deux classements Elo : battre un joueur plus fort rapporte
+          plus que battre un joueur plus faible. Un joueur ne joue qu'une partie à la fois contre
+          une autre personne.
+        </p>
 
-  <h2>Time controls</h2>
-  <p>
-    Each player has a clock. The first number is the time for the whole game in minutes, the second
-    the seconds added after each of your moves.
-  </p>
-  <ul>
-    @for (control of controls; track control.label) {
-      <li>{{ control.label }} ({{ control.category }})</li>
+        <h2>Cadences</h2>
+        <p>
+          Chaque joueur a une pendule. Le premier nombre est le temps pour toute la partie en
+          minutes, le second les secondes ajoutées après chacun de vos coups.
+        </p>
+      }
+      @case ('es') {
+        <p>
+          Las partidas siguen las Leyes del Ajedrez de la FIDE. El servidor comprueba cada jugada y
+          decide cada resultado: lo que muestra tu navegador es solo una vista de la partida.
+        </p>
+
+        <h2>Ganar</h2>
+        <ul>
+          <li><strong>Jaque mate:</strong> el rey está atacado y no tiene ninguna salida legal.</li>
+          <li><strong>Abandono:</strong> un jugador se rinde con el botón <em>Abandonar</em>.</li>
+          <li>
+            <strong>Tiempo:</strong> pierde el jugador cuyo reloj llega a cero, salvo que el rival
+            ya no pueda dar mate de ningún modo (un rey solo, o un rey y un solo alfil o caballo
+            contra un rey solo): entonces la partida es tablas.
+          </li>
+          <li>
+            <strong>Desconexión:</strong> cuando tu rival sale de la partida, se te avisa al
+            momento. Si no ha vuelto al cabo de un minuto, puedes reclamar la victoria o seguir
+            esperando.
+          </li>
+        </ul>
+
+        <h2>Tablas</h2>
+        <ul>
+          <li>
+            <strong>Ahogado:</strong> el jugador al que le toca mover no tiene jugadas legales y no
+            está en jaque.
+          </li>
+          <li>
+            <strong>Material insuficiente:</strong> ningún bando puede dar mate ya, por ejemplo rey
+            contra rey.
+          </li>
+          <li>
+            <strong>Acuerdo:</strong> un jugador ofrece tablas y el rival las acepta. Tras una
+            oferta rechazada, el mismo jugador debe hacer dos jugadas más antes de volver a
+            ofrecerlas.
+          </li>
+          <li>
+            <strong>Reclamación:</strong> el jugador al que le toca mover puede reclamar tablas
+            cuando la misma posición ha aparecido tres veces, o tras cincuenta jugadas de cada bando
+            sin capturas ni movimientos de peón. Cuando es posible, aparece en la partida un botón
+            <em>Reclamar tablas</em>.
+          </li>
+          <li>
+            <strong>Automáticas:</strong> sin ninguna reclamación, la partida es tablas cuando la
+            misma posición aparece cinco veces, o tras setenta y cinco jugadas de cada bando sin
+            capturas ni movimientos de peón.
+          </li>
+        </ul>
+
+        <h2>Partidas anuladas</h2>
+        <p>
+          Antes de que ambos jugadores hayan hecho su primera jugada, cualquiera de ellos puede
+          anular la partida. Entre dos personas, el jugador que no hace su primera jugada en 30
+          segundos también la anula. Una partida anulada no tiene resultado, no cambia ninguna
+          puntuación y no aparece en el historial.
+        </p>
+
+        <h2>Partidas clasificatorias y amistosas</h2>
+        <ul>
+          <li>
+            <strong>Buscar un rival</strong> siempre da una partida clasificatoria contra un jugador
+            de Elo parecido. Los colores se sortean.
+          </li>
+          <li>
+            <strong>Jugar con un amigo</strong> da una partida amistosa, salvo que marques
+            <em>Partida clasificatoria</em> antes de crearla. Una invitación que nadie acepta se
+            retira a las 24 horas, y puedes cancelarla desde la página
+            <a routerLink="/play">Jugar</a>.
+          </li>
+          <li><strong>Las partidas contra el ordenador</strong> nunca son clasificatorias.</li>
+        </ul>
+        <p>
+          Una partida clasificatoria cambia el Elo de ambos jugadores: ganas más por vencer a un
+          jugador más fuerte que a uno más débil. Cada jugador juega una sola partida a la vez
+          contra otra persona.
+        </p>
+
+        <h2>Ritmos de juego</h2>
+        <p>
+          Cada jugador tiene un reloj. El primer número es el tiempo de toda la partida en minutos,
+          y el segundo, los segundos que se añaden tras cada una de tus jugadas.
+        </p>
+      }
+      @default {
+        <p>
+          Games follow the FIDE Laws of Chess. The server checks every move and decides every
+          result: what your browser shows is only a view of the game.
+        </p>
+
+        <h2>Winning</h2>
+        <ul>
+          <li><strong>Checkmate:</strong> the king is attacked and has no legal way out.</li>
+          <li><strong>Resignation:</strong> a player gives up with the <em>Resign</em> button.</li>
+          <li>
+            <strong>Time:</strong> a player whose clock reaches zero loses, unless the opponent has
+            no way left to checkmate (a lone king, or a king and a single bishop or knight against a
+            lone king): the game is then drawn.
+          </li>
+          <li>
+            <strong>Abandonment:</strong> when your opponent leaves the game, you are told at once.
+            If they have not come back after one minute, you can claim the win, or keep waiting.
+          </li>
+        </ul>
+
+        <h2>Draws</h2>
+        <ul>
+          <li>
+            <strong>Stalemate:</strong> the player to move has no legal move and is not in check.
+          </li>
+          <li>
+            <strong>Insufficient material:</strong> neither side can checkmate any more, for example
+            king against king.
+          </li>
+          <li>
+            <strong>Agreement:</strong> a player offers a draw and the opponent accepts it. After a
+            refused offer, the same player plays two more moves before offering again.
+          </li>
+          <li>
+            <strong>Claim:</strong> the player to move can claim a draw when the same position
+            appeared three times, or after fifty moves by each side without a capture or a pawn
+            move. A <em>Claim draw</em> button appears in the game when it applies.
+          </li>
+          <li>
+            <strong>Automatic:</strong> without any claim, the game is drawn when the same position
+            appears five times, or after seventy-five moves by each side without a capture or a pawn
+            move.
+          </li>
+        </ul>
+
+        <h2>Aborted games</h2>
+        <p>
+          Before both players have played their first move, either player can abort the game.
+          Between two people, a player who does not play their first move within 30 seconds aborts
+          it too. An aborted game has no result, changes no rating and does not appear in the
+          history.
+        </p>
+
+        <h2>Rated and casual games</h2>
+        <ul>
+          <li>
+            <strong>Find an opponent</strong> always gives a rated game against a player of similar
+            Elo. The colours are drawn at random.
+          </li>
+          <li>
+            <strong>Play a friend</strong> gives a casual game, unless you tick
+            <em>Rated game</em> before creating it. An invitation nobody accepts is removed after 24
+            hours, and you can cancel it from the <a routerLink="/play">Play</a> page.
+          </li>
+          <li><strong>Games against the computer</strong> are never rated.</li>
+        </ul>
+        <p>
+          A rated game changes both Elo ratings: you gain more for beating a stronger player than a
+          weaker one. A player plays one game against another person at a time.
+        </p>
+
+        <h2>Time controls</h2>
+        <p>
+          Each player has a clock. The first number is the time for the whole game in minutes, the
+          second the seconds added after each of your moves.
+        </p>
+      }
     }
-  </ul>
-</article>
+    <ul>
+      @for (control of controls; track control.label) {
+        <li>{{ control.label }} ({{ t('play.categories.' + control.category) }})</li>
+      }
+    </ul>
+  </article>
+</ng-container>

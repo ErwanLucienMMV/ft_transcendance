@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { of, Subject } from 'rxjs';
+import { provideI18n } from '../../core/i18n/i18n';
 import { HealthReport, StatusApi } from './status-api';
 import { ago, StatusPage } from './status-page';
 
@@ -114,6 +115,8 @@ describe('Status page', () => {
       'No backup has been recorded yet.',
     );
     TestBed.resetTestingModule();
+    // The reset drops the dictionaries every test starts with.
+    TestBed.configureTestingModule({ providers: [provideI18n()] });
 
     const unreachable = create(() => of(null));
     expect(text(unreachable.element.querySelector('.overall h2'))).toBe('42 Chess is unreachable');

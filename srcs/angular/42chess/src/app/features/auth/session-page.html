@@ -1,13 +1,17 @@
-<app-auth-frame>
-  <h1>Signed in</h1>
-  <p class="auth-intro">Good to have you at the board.</p>
-  <p role="status">Welcome, {{ session.user()?.username }}.</p>
-  <p class="auth-intro">
-    You stay signed in on this browser, even after a reload, until you sign out.
-  </p>
-  @if (session.user(); as user) {
-    <a class="button secondary" [routerLink]="['/players', user.id]">View your profile</a>
-  }
-  <a class="button secondary" routerLink="/settings">Account settings</a>
-  <a class="button secondary" routerLink="/">Return home <span aria-hidden="true">→</span></a>
-</app-auth-frame>
+<ng-container *transloco="let t">
+  <app-auth-frame>
+    <h1>{{ t('auth.session.title') }}</h1>
+    <p class="auth-intro">{{ t('auth.session.intro') }}</p>
+    <p role="status">{{ t('auth.session.welcome', { name: session.user()?.username }) }}</p>
+    <p class="auth-intro">{{ t('auth.session.stay') }}</p>
+    @if (session.user(); as user) {
+      <a class="button secondary" [routerLink]="['/players', user.id]">{{
+        t('auth.session.profile')
+      }}</a>
+    }
+    <a class="button secondary" routerLink="/settings">{{ t('auth.session.settings') }}</a>
+    <a class="button secondary" routerLink="/"
+      >{{ t('auth.session.home') }} <span aria-hidden="true">→</span></a
+    >
+  </app-auth-frame>
+</ng-container>

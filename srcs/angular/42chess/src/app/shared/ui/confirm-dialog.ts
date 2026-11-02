@@ -1,4 +1,5 @@
 import { Component, ElementRef, input, output, viewChild } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 /**
  * Asks before an action that cannot be undone. A modal `<dialog>`: focus moves into it,
@@ -6,6 +7,7 @@ import { Component, ElementRef, input, output, viewChild } from '@angular/core';
  */
 @Component({
   selector: 'app-confirm-dialog',
+  imports: [TranslocoPipe],
   template: `
     <dialog
       #dialog
@@ -17,10 +19,10 @@ import { Component, ElementRef, input, output, viewChild } from '@angular/core';
       <div class="dialog-body" [id]="id + '-body'"><ng-content /></div>
       <div class="dialog-actions">
         <button type="button" class="button secondary" autofocus (click)="answer(false)">
-          {{ cancelLabel() }}
+          {{ cancelLabel() ?? ('common.cancel' | transloco) }}
         </button>
         <button type="button" [class.danger]="tone() === 'danger'" (click)="answer(true)">
-          {{ confirmLabel() }}
+          {{ confirmLabel() ?? ('common.confirm' | transloco) }}
         </button>
       </div>
     </dialog>
@@ -58,8 +60,9 @@ export class ConfirmDialog {
   private static next = 0;
   readonly id = `confirm-${++ConfirmDialog.next}`;
   readonly heading = input.required<string>();
-  readonly confirmLabel = input('Confirm');
-  readonly cancelLabel = input('Cancel');
+  /** Default: "Confirm" and "Cancel" in the language shown. */
+  readonly confirmLabel = input<string | null>(null);
+  readonly cancelLabel = input<string | null>(null);
   readonly tone = input<'danger' | 'default'>('default');
   readonly confirmed = output<void>();
   readonly cancelled = output<void>();

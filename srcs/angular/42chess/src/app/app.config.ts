@@ -14,6 +14,8 @@ import { GlobalErrorHandler } from './core/errors/global-error-handler';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { SessionRefresh } from './core/auth/session-refresh';
 import { PageTitle } from './core/title/page-title';
+import { I18n, provideI18n } from './core/i18n/i18n';
+import { Preferences } from './core/preferences/preferences';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -29,6 +31,9 @@ export const appConfig: ApplicationConfig = {
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
     // Route titles, prefixed with unread messages and "Your move".
     { provide: TitleStrategy, useExisting: PageTitle },
+    provideI18n(),
+    // The first page is drawn in the player's language: its texts load before it.
+    provideAppInitializer(() => inject(I18n).use(inject(Preferences).language())),
     // Non-blocking: pages render at once, and guarded routes wait for this answer.
     provideAppInitializer(() => inject(SessionRefresh).restore()),
   ],

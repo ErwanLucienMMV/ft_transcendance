@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiClient } from '../../core/api/api-client';
+import { TranslationKey, trIfExists } from '../../core/i18n/i18n';
 
 export interface Results {
   played: number;
@@ -64,6 +65,23 @@ export interface ProgressionRules {
 export const LEADERBOARD_PAGE = 25;
 
 /** Share of the current level already earned, from 0 to 1. */
+/** An achievement's name in the language shown; the server's English for an unknown code. */
+export function achievementName(code: unknown, fallback: unknown): string {
+  const known =
+    typeof code === 'string'
+      ? trIfExists(`progression.achievements.${code}.name` as TranslationKey)
+      : null;
+  return known ?? (typeof fallback === 'string' ? fallback : '');
+}
+
+export function achievementDescription(code: unknown, fallback: unknown): string {
+  const known =
+    typeof code === 'string'
+      ? trIfExists(`progression.achievements.${code}.description` as TranslationKey)
+      : null;
+  return known ?? (typeof fallback === 'string' ? fallback : '');
+}
+
 export function levelShare(progress: LevelProgress): number {
   const span = progress.nextLevelXp - progress.levelXp;
   return span > 0 ? Math.min(1, Math.max(0, (progress.xp - progress.levelXp) / span)) : 1;

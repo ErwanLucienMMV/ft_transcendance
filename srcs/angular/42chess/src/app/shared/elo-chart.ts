@@ -1,4 +1,6 @@
 import { Component, computed, input } from '@angular/core';
+import { trCount } from '../core/i18n/i18n';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 export interface RatingPoint {
   ratingBefore: number;
@@ -16,6 +18,7 @@ const PAD = 8;
  */
 @Component({
   selector: 'app-elo-chart',
+  imports: [TranslocoPipe],
   template: `
     @if (chart(); as c) {
       <figure>
@@ -36,9 +39,9 @@ const PAD = 8;
           <polyline class="line" [attr.points]="c.line" />
         </svg>
         <figcaption>
-          <span>Low {{ c.low }}</span>
-          <span>High {{ c.high }}</span>
-          <span>Now {{ c.now }}</span>
+          <span>{{ 'shared.eloScale.low' | transloco: { value: c.low } }}</span>
+          <span>{{ 'shared.eloScale.high' | transloco: { value: c.high } }}</span>
+          <span>{{ 'shared.eloScale.now' | transloco: { value: c.now } }}</span>
         </figcaption>
       </figure>
     }
@@ -101,7 +104,7 @@ export class EloChart {
       low,
       high,
       now,
-      label: `Rating over the last ${history.length} rated ${history.length === 1 ? 'game' : 'games'}: from ${values[0]} to ${now}, lowest ${low}, highest ${high}.`,
+      label: trCount('shared.eloChart', history.length, { from: values[0], now, low, high }),
     };
   });
 }

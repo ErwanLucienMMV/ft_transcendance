@@ -21,7 +21,7 @@ import { UserAvatar } from '../../shared/user-avatar';
 import { Challenges } from './challenge';
 import {
   Friend,
-  FRIEND_ERRORS,
+  friendErrors,
   FriendRequest,
   PlayerSearchResult,
   presenceChanges,
@@ -34,6 +34,8 @@ import {
 import { Alert } from '../../shared/ui/alert';
 import { ConfirmDialog } from '../../shared/ui/confirm-dialog';
 import { EmptyState } from '../../shared/ui/empty-state';
+import { tr } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 export interface IncomingRequest extends FriendRequest {
   /** Null when the sender's profile could not be read; the request stays actionable. */
@@ -56,6 +58,7 @@ function byName(a: Friend, b: Friend): number {
 @Component({
   selector: 'app-friends-page',
   imports: [
+    TranslocoDirective,
     ConfirmDialog,
     EmptyState,
     Alert,
@@ -154,7 +157,7 @@ export class FriendsPage {
     this.challenges.send(friend.id).subscribe({
       error: (error: unknown) => {
         this.challenging.set(null);
-        this.challengeError.set(errorText(error, 'The challenge could not be sent. Try again.'));
+        this.challengeError.set(errorText(error, tr('social.friends.challengeFailed')));
       },
       complete: () => this.challenging.set(null),
     });
@@ -314,13 +317,13 @@ export class FriendsPage {
         release();
         const code = error instanceof ApiError ? error.code : '';
         if (code === 'FRIEND_REQUEST_FINALIZED' || code === 'FRIEND_REQUEST_NOT_FOUND') {
-          this.actionError.set('This request is no longer pending.');
+          this.actionError.set(tr('social.friends.notPending'));
           this.dropRequest(id);
         } else if (code === 'FRIENDSHIP_NOT_FOUND') {
-          this.actionError.set('You are no longer friends with this player.');
+          this.actionError.set(tr('social.friends.noLongerFriends'));
           this.loadFriends();
         } else {
-          this.actionError.set(errorText(error, 'That did not work. Try again.', FRIEND_ERRORS));
+          this.actionError.set(errorText(error, tr('social.friends.failedAction'), friendErrors()));
         }
       },
     });

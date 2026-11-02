@@ -3,6 +3,7 @@ import { filter, map, Observable } from 'rxjs';
 import { ApiClient } from '../../core/api/api-client';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { AUTH_FIELD_LIMITS } from '../auth/auth-form.models';
+import { tr } from '../../core/i18n/i18n';
 
 /** Spec §29; a game in progress counts as online. */
 export type PresenceStatus = 'ONLINE' | 'IN_GAME' | 'OFFLINE';
@@ -68,14 +69,16 @@ export type SocialEvent =
   | { type: 'friend-removed'; userId: string };
 
 /** Texts for the friend request codes; other codes keep the server's own sentence. */
-export const FRIEND_ERRORS: Record<string, string> = {
-  FRIEND_REQUEST_SELF: 'You cannot add yourself as a friend.',
-  FRIEND_REQUEST_FORBIDDEN: 'You cannot answer this friend request.',
-  ALREADY_FRIENDS: 'You are already friends with this player.',
-  FRIEND_REQUEST_PENDING: 'A friend request is already pending with this player.',
-  FRIEND_REQUEST_DECLINED_RECENTLY:
-    'This player declined your last request. You can ask again in a few days.',
-};
+const FRIEND_CODES = [
+  'FRIEND_REQUEST_SELF',
+  'FRIEND_REQUEST_FORBIDDEN',
+  'ALREADY_FRIENDS',
+  'FRIEND_REQUEST_PENDING',
+  'FRIEND_REQUEST_DECLINED_RECENTLY',
+] as const;
+export function friendErrors(): Record<string, string> {
+  return Object.fromEntries(FRIEND_CODES.map((code) => [code, tr(`social.errors.${code}`)]));
+}
 
 /** The search accepts any username fragment, up to a full username. */
 export const SEARCH_MAX_LENGTH = AUTH_FIELD_LIMITS.usernameMax;

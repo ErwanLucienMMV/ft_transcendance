@@ -12,6 +12,7 @@ import { catchError, finalize, map, Observable, of, shareReplay } from 'rxjs';
 import { ApiClient } from '../api/api-client';
 import { ApiError } from '../api/api-error';
 import { AuthSession, AuthTokenResponse } from './auth-session';
+import { tr } from '../i18n/i18n';
 
 // Renew this long before the access token expires, so requests never carry a dead token.
 const RENEW_AHEAD_MS = 60_000;
@@ -68,7 +69,7 @@ export class SessionRefresh {
         map((response) => {
           if (this.session.token() !== before) return this.session.token();
           if (!response) {
-            if (before) this.session.clear('Your session expired. Please sign in again.');
+            if (before) this.session.clear(tr('auth.sessionExpired'));
             return null;
           }
           this.session.establish(response);
@@ -77,7 +78,7 @@ export class SessionRefresh {
         catchError((error: unknown) => {
           const expired = error instanceof ApiError && error.statusCode === 401;
           if (before && this.session.token() === before) {
-            if (expired) this.session.clear('Your session expired. Please sign in again.');
+            if (expired) this.session.clear(tr('auth.sessionExpired'));
             else this.retryLater();
           }
           return of(null);

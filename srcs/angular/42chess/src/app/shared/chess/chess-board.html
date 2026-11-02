@@ -1,113 +1,119 @@
-@if (position()) {
-  <div
-    #board
-    class="board"
-    role="group"
-    aria-label="Chessboard"
-    [attr.aria-describedby]="id + '-help'"
-    [class.dragging]="!!dragFrom()"
-    (pointerdown)="pointerDown($event)"
-    (pointermove)="pointerMove($event)"
-    (pointerup)="pointerUp($event)"
-    (pointercancel)="pointerCancel()"
-    (contextmenu)="contextMenu($event)"
-    (keydown)="keyDown($event)"
-    (focusin)="focusIn($event)"
-  >
-    @for (square of squares(); track square.name) {
-      <button
-        type="button"
-        class="square"
-        [class.dark]="square.dark"
-        [class.selected]="selected() === square.name"
-        [class.last-move]="lastMove()?.from === square.name || lastMove()?.to === square.name"
-        [class.check]="checkSquare() === square.name"
-        [class.hint]="hint() === square.name"
-        [class.target]="targets().has(square.name)"
-        [class.capture]="targets().has(square.name) && !!square.piece"
-        [class.movable]="movable(square.name)"
-        [class.premove]="premove()?.from === square.name || premove()?.to === square.name"
-        [class.drag-origin]="dragFrom() === square.name"
-        [attr.data-square]="square.name"
-        [attr.aria-label]="label(square)"
-        [attr.aria-pressed]="selected() === square.name"
-        [attr.aria-disabled]="!active()"
-        [attr.tabindex]="tabSquare() === square.name ? 0 : -1"
-        (click)="click($event, square.name)"
-      >
-        @if (square.piece; as piece) {
-          <svg viewBox="0 0 64 64" aria-hidden="true" [class]="'piece ' + piece.color">
-            <use [attr.href]="'/chess-pieces.svg#' + piece.name" />
-          </svg>
-        }
-        @if (square.rankLabel) {
-          <span class="coord rank" aria-hidden="true">{{ square.rankLabel }}</span>
-        }
-        @if (square.fileLabel) {
-          <span class="coord file" aria-hidden="true">{{ square.fileLabel }}</span>
-        }
-      </button>
-    }
-    @if (shapes().length) {
-      <svg class="shapes" viewBox="0 0 8 8" aria-hidden="true">
-        @for (shape of shapes(); track shape.key) {
-          @if (shape.circle; as circle) {
-            <circle [attr.cx]="circle.x" [attr.cy]="circle.y" r="0.44" />
-          } @else if (shape.arrow; as arrow) {
-            <line
-              [attr.x1]="arrow.x1"
-              [attr.y1]="arrow.y1"
-              [attr.x2]="arrow.x2"
-              [attr.y2]="arrow.y2"
-            />
-            <polygon [attr.points]="arrow.head" />
+<ng-container *transloco="let t">
+  @if (position()) {
+    <div
+      #board
+      class="board"
+      role="group"
+      [attr.aria-label]="t('chess.board.label')"
+      [attr.aria-describedby]="id + '-help'"
+      [class.dragging]="!!dragFrom()"
+      (pointerdown)="pointerDown($event)"
+      (pointermove)="pointerMove($event)"
+      (pointerup)="pointerUp($event)"
+      (pointercancel)="pointerCancel()"
+      (contextmenu)="contextMenu($event)"
+      (keydown)="keyDown($event)"
+      (focusin)="focusIn($event)"
+    >
+      @for (square of squares(); track square.name) {
+        <button
+          type="button"
+          class="square"
+          [class.dark]="square.dark"
+          [class.selected]="selected() === square.name"
+          [class.last-move]="lastMove()?.from === square.name || lastMove()?.to === square.name"
+          [class.check]="checkSquare() === square.name"
+          [class.hint]="hint() === square.name"
+          [class.target]="targets().has(square.name)"
+          [class.capture]="targets().has(square.name) && !!square.piece"
+          [class.movable]="movable(square.name)"
+          [class.premove]="premove()?.from === square.name || premove()?.to === square.name"
+          [class.drag-origin]="dragFrom() === square.name"
+          [attr.data-square]="square.name"
+          [attr.aria-label]="label(square)"
+          [attr.aria-pressed]="selected() === square.name"
+          [attr.aria-disabled]="!active()"
+          [attr.tabindex]="tabSquare() === square.name ? 0 : -1"
+          (click)="click($event, square.name)"
+        >
+          @if (square.piece; as piece) {
+            <svg viewBox="0 0 64 64" aria-hidden="true" [class]="'piece ' + piece.color">
+              <use [attr.href]="'/chess-pieces.svg#' + piece.name" />
+            </svg>
           }
-        }
-      </svg>
-    }
-    @if (ghost(); as piece) {
-      <svg
-        viewBox="0 0 64 64"
-        aria-hidden="true"
-        [class]="'piece ghost ' + piece.color"
-        [style.left.px]="piece.x"
-        [style.top.px]="piece.y"
-        [style.width.px]="piece.size"
-        [style.height.px]="piece.size"
-      >
-        <use [attr.href]="'/chess-pieces.svg#' + piece.name" />
-      </svg>
-    }
-    @if (promotion()) {
-      <div class="overlay" role="dialog" aria-label="Choose a promotion piece">
-        <div class="promotion">
-          @for (choice of promotionChoices(); track choice.type) {
-            <button
-              type="button"
-              [attr.aria-label]="'Promote to ' + choice.name"
-              [attr.data-promotion]="choice.type"
-              (click)="promote(choice.type)"
-            >
-              <svg viewBox="0 0 64 64" aria-hidden="true" [class]="'piece ' + choice.color">
-                <use [attr.href]="'/chess-pieces.svg#' + choice.name" />
-              </svg>
+          @if (square.rankLabel) {
+            <span class="coord rank" aria-hidden="true">{{ square.rankLabel }}</span>
+          }
+          @if (square.fileLabel) {
+            <span class="coord file" aria-hidden="true">{{ square.fileLabel }}</span>
+          }
+        </button>
+      }
+      @if (shapes().length) {
+        <svg class="shapes" viewBox="0 0 8 8" aria-hidden="true">
+          @for (shape of shapes(); track shape.key) {
+            @if (shape.circle; as circle) {
+              <circle [attr.cx]="circle.x" [attr.cy]="circle.y" r="0.44" />
+            } @else if (shape.arrow; as arrow) {
+              <line
+                [attr.x1]="arrow.x1"
+                [attr.y1]="arrow.y1"
+                [attr.x2]="arrow.x2"
+                [attr.y2]="arrow.y2"
+              />
+              <polygon [attr.points]="arrow.head" />
+            }
+          }
+        </svg>
+      }
+      @if (ghost(); as piece) {
+        <svg
+          viewBox="0 0 64 64"
+          aria-hidden="true"
+          [class]="'piece ghost ' + piece.color"
+          [style.left.px]="piece.x"
+          [style.top.px]="piece.y"
+          [style.width.px]="piece.size"
+          [style.height.px]="piece.size"
+        >
+          <use [attr.href]="'/chess-pieces.svg#' + piece.name" />
+        </svg>
+      }
+      @if (promotion()) {
+        <div class="overlay" role="dialog" [attr.aria-label]="t('chess.board.promotion')">
+          <div class="promotion">
+            @for (choice of promotionChoices(); track choice.type) {
+              <button
+                type="button"
+                [attr.aria-label]="
+                  t('chess.board.promoteTo', { piece: t('chess.pieces.' + choice.name) })
+                "
+                [attr.data-promotion]="choice.type"
+                (click)="promote(choice.type)"
+              >
+                <svg viewBox="0 0 64 64" aria-hidden="true" [class]="'piece ' + choice.color">
+                  <use [attr.href]="'/chess-pieces.svg#' + choice.name" />
+                </svg>
+              </button>
+            }
+            <button type="button" class="cancel" (click)="cancel()">
+              {{ t('common.cancel') }}
             </button>
-          }
-          <button type="button" class="cancel" (click)="cancel()">Cancel</button>
+          </div>
         </div>
-      </div>
-    } @else if (outcome(); as text) {
-      <div class="overlay result" role="status">
-        <p>{{ text }}</p>
-      </div>
-    }
-  </div>
-  <p class="sr-only" [id]="id + '-help'">
-    Arrow keys move between squares. Enter picks a piece, then its destination.
-    @if (annotations()) {
-      Right-click draws circles and arrows.
-    }
-  </p>
-} @else {
-  <p class="invalid" role="alert">This position cannot be displayed.</p>
-}
+      } @else if (outcome(); as text) {
+        <div class="overlay result" role="status">
+          <p>{{ text }}</p>
+        </div>
+      }
+    </div>
+    <p class="sr-only" [id]="id + '-help'">
+      {{ t('chess.board.help') }}
+      @if (annotations()) {
+        {{ t('chess.board.helpShapes') }}
+      }
+    </p>
+  } @else {
+    <p class="invalid" role="alert">{{ t('chess.board.invalid') }}</p>
+  }
+</ng-container>

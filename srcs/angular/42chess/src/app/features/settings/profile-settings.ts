@@ -8,116 +8,131 @@ import { UserAvatar } from '../../shared/user-avatar';
 import { AUTH_FIELD_LIMITS } from '../auth/auth-form.models';
 import { AccountApi, AVATAR_MAX_BYTES, AVATAR_TYPES } from './account-api';
 import { settingsError } from './settings-text';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { tr } from '../../core/i18n/i18n';
 
 /** Why a chosen file cannot be sent, before uploading it; null when it can. */
 export function avatarProblem(file: { type: string; size: number }): string | null {
-  if (!AVATAR_TYPES.includes(file.type)) return 'Choose a PNG, JPEG or WebP image.';
-  if (file.size > AVATAR_MAX_BYTES) return 'This image is larger than 2 MB. Choose a smaller one.';
+  if (!AVATAR_TYPES.includes(file.type)) return tr('settings.profile.wrongType');
+  if (file.size > AVATAR_MAX_BYTES) return tr('settings.profile.tooLarge');
   return null;
 }
 
 /** Username and picture. */
 @Component({
   selector: 'app-profile-settings',
-  imports: [ReactiveFormsModule, UserAvatar],
+  imports: [TranslocoDirective, ReactiveFormsModule, UserAvatar],
   template: `
-    <section class="card settings-section" aria-labelledby="profile-settings-title">
-      <h2 id="profile-settings-title" class="section-title">Profile</h2>
-      @if (session.user(); as user) {
-        <div class="avatar-editor">
-          @if (preview(); as url) {
-            <img class="avatar-large" [src]="url" alt="Preview of your new picture" />
-          } @else {
-            <app-avatar class="avatar-large" [username]="user.username" [url]="user.avatarUrl" />
-          }
-          <div class="avatar-actions">
-            <p class="muted">
-              Your picture appears on your profile, in games and in messages. PNG, JPEG or WebP, 2
-              MB at most.
-            </p>
-            @if (chosen()) {
-              <div class="row">
-                <button type="button" [disabled]="uploading()" (click)="upload()">
-                  {{ uploading() ? 'Uploading…' : 'Save picture' }}
-                </button>
-                <button
-                  type="button"
-                  class="secondary"
-                  [disabled]="uploading()"
-                  (click)="cancelChoice()"
-                >
-                  Cancel
-                </button>
-              </div>
-              @if (uploading()) {
-                <progress max="100" [value]="progress()" aria-label="Upload progress">
-                  {{ progress() }}%
-                </progress>
-              }
+    <ng-container *transloco="let t">
+      <section class="card settings-section" aria-labelledby="profile-settings-title">
+        <h2 id="profile-settings-title" class="section-title">
+          {{ t('settings.profile.title') }}
+        </h2>
+        @if (session.user(); as user) {
+          <div class="avatar-editor">
+            @if (preview(); as url) {
+              <img class="avatar-large" [src]="url" [alt]="t('settings.profile.preview')" />
             } @else {
-              <div class="row">
-                <label class="button secondary file-button">
-                  Choose a picture
-                  <input
-                    #picker
-                    class="sr-only"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    (change)="choose(picker.files); picker.value = ''"
-                  />
-                </label>
-                @if (user.avatarUrl) {
+              <app-avatar class="avatar-large" [username]="user.username" [url]="user.avatarUrl" />
+            }
+            <div class="avatar-actions">
+              <p class="muted">{{ t('settings.profile.pictureHelp') }}</p>
+              @if (chosen()) {
+                <div class="row">
+                  <button type="button" [disabled]="uploading()" (click)="upload()">
+                    {{
+                      uploading()
+                        ? t('settings.profile.uploading')
+                        : t('settings.profile.savePicture')
+                    }}
+                  </button>
                   <button
                     type="button"
-                    class="ghost"
-                    [disabled]="removing()"
-                    (click)="removeAvatar()"
+                    class="secondary"
+                    [disabled]="uploading()"
+                    (click)="cancelChoice()"
                   >
-                    Remove picture
+                    {{ t('common.cancel') }}
                   </button>
+                </div>
+                @if (uploading()) {
+                  <progress
+                    max="100"
+                    [value]="progress()"
+                    [attr.aria-label]="t('settings.profile.progress')"
+                  >
+                    {{ progress() }}%
+                  </progress>
                 }
-              </div>
-            }
-            @if (avatarError(); as message) {
+              } @else {
+                <div class="row">
+                  <label class="button secondary file-button">
+                    {{ t('settings.profile.choose') }}
+                    <input
+                      #picker
+                      class="sr-only"
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      (change)="choose(picker.files); picker.value = ''"
+                    />
+                  </label>
+                  @if (user.avatarUrl) {
+                    <button
+                      type="button"
+                      class="ghost"
+                      [disabled]="removing()"
+                      (click)="removeAvatar()"
+                    >
+                      {{ t('settings.profile.removePicture') }}
+                    </button>
+                  }
+                </div>
+              }
+              @if (avatarError(); as message) {
+                <p class="field-error" role="alert">{{ message }}</p>
+              }
+              @if (avatarSaved()) {
+                <p class="saved" role="status">{{ avatarSaved() }}</p>
+              }
+            </div>
+          </div>
+
+          <form class="username-form" (submit)="$event.preventDefault(); rename(user)" novalidate>
+            <div class="form-field">
+              <label for="settings-username">{{ t('settings.profile.username') }}</label>
+              <input
+                id="settings-username"
+                type="text"
+                autocomplete="username"
+                [formControl]="username"
+                [maxLength]="limits.usernameMax"
+                [attr.aria-invalid]="usernameInvalid()"
+                aria-describedby="settings-username-help"
+              />
+              <p id="settings-username-help">
+                {{
+                  t('settings.profile.usernameHelp', {
+                    min: limits.usernameMin,
+                    max: limits.usernameMax,
+                  })
+                }}
+              </p>
+            </div>
+            <div class="row">
+              <button type="submit" [disabled]="renaming() || !renamable(user)">
+                {{ renaming() ? t('common.saving') : t('settings.profile.saveUsername') }}
+              </button>
+            </div>
+            @if (usernameError(); as message) {
               <p class="field-error" role="alert">{{ message }}</p>
             }
-            @if (avatarSaved()) {
-              <p class="saved" role="status">{{ avatarSaved() }}</p>
+            @if (usernameSaved()) {
+              <p class="saved" role="status">{{ usernameSaved() }}</p>
             }
-          </div>
-        </div>
-
-        <form class="username-form" (submit)="$event.preventDefault(); rename(user)" novalidate>
-          <div class="form-field">
-            <label for="settings-username">Username</label>
-            <input
-              id="settings-username"
-              type="text"
-              autocomplete="username"
-              [formControl]="username"
-              [maxLength]="limits.usernameMax"
-              [attr.aria-invalid]="usernameInvalid()"
-              aria-describedby="settings-username-help"
-            />
-            <p id="settings-username-help">
-              {{ limits.usernameMin }}–{{ limits.usernameMax }} letters, digits or underscores.
-              Other players see it everywhere.
-            </p>
-          </div>
-          <div class="row">
-            <button type="submit" [disabled]="renaming() || !renamable(user)">
-              {{ renaming() ? 'Saving…' : 'Save username' }}
-            </button>
-          </div>
-          @if (usernameError(); as message) {
-            <p class="field-error" role="alert">{{ message }}</p>
-          }
-          @if (usernameSaved()) {
-            <p class="saved" role="status">{{ usernameSaved() }}</p>
-          }
-        </form>
-      }
-    </section>
+          </form>
+        }
+      </section>
+    </ng-container>
   `,
 })
 export class ProfileSettings {
@@ -181,12 +196,12 @@ export class ProfileSettings {
       .subscribe({
         next: (updated) => {
           if (token) this.session.updateUser(updated, token);
-          this.usernameSaved.set(`Your username is now ${updated.username}.`);
+          this.usernameSaved.set(tr('settings.profile.renamed', { name: updated.username }));
         },
         error: (error: unknown) =>
           this.usernameError.set(
-            settingsError(error, 'Your username could not be changed. Try again.', {
-              VALIDATION_ERROR: 'This username is reserved. Choose another one.',
+            settingsError(error, tr('settings.profile.renameFailed'), {
+              VALIDATION_ERROR: tr('settings.profile.reserved'),
             }),
           ),
       });
@@ -232,11 +247,11 @@ export class ProfileSettings {
           if (event.type === HttpEventType.Response && event.body) {
             if (token) this.session.updateUser(event.body, token);
             this.cancelChoice();
-            this.avatarSaved.set('Your new picture is saved.');
+            this.avatarSaved.set(tr('settings.profile.pictureSaved'));
           }
         },
         error: (error: unknown) =>
-          this.avatarError.set(settingsError(error, 'The picture could not be saved. Try again.')),
+          this.avatarError.set(settingsError(error, tr('settings.profile.pictureFailed'))),
       });
   }
 
@@ -255,12 +270,10 @@ export class ProfileSettings {
       .subscribe({
         next: (updated) => {
           if (token) this.session.updateUser(updated, token);
-          this.avatarSaved.set('Your picture was removed.');
+          this.avatarSaved.set(tr('settings.profile.pictureRemoved'));
         },
         error: (error: unknown) =>
-          this.avatarError.set(
-            settingsError(error, 'The picture could not be removed. Try again.'),
-          ),
+          this.avatarError.set(settingsError(error, tr('settings.profile.removeFailed'))),
       });
   }
 

@@ -1,18 +1,19 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthFrame } from '../../shared/auth-frame';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 @Component({
   selector: 'app-not-found-page',
-  imports: [RouterLink, AuthFrame],
+  imports: [TranslocoDirective, RouterLink, AuthFrame],
   template: `
-    <app-auth-frame [aside]="false">
-      <h1>Page not found</h1>
-      <p class="auth-intro">
-        The page you requested does not exist. A new move is always possible.
-      </p>
-      <a class="button" routerLink="/">Return home</a>
-    </app-auth-frame>
+    <ng-container *transloco="let t">
+      <app-auth-frame [aside]="false">
+        <h1>{{ t('home.notFound.title') }}</h1>
+        <p class="auth-intro">{{ t('home.notFound.text') }}</p>
+        <a class="button" routerLink="/">{{ t('home.notFound.back') }}</a>
+      </app-auth-frame>
+    </ng-container>
   `,
 })
 export class NotFoundPage {}

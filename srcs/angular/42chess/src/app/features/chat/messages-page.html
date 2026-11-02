@@ -1,244 +1,264 @@
-<section class="messages-page page" aria-labelledby="messages-title">
-  <header class="page-head">
-    <div>
-      <span class="eyebrow">Community</span>
-      <h1 id="messages-title">Messages</h1>
-    </div>
-  </header>
+<ng-container *transloco="let t">
+  <section class="messages-page page" aria-labelledby="messages-title">
+    <header class="page-head">
+      <div>
+        <span class="eyebrow">{{ t('chat.eyebrow') }}</span>
+        <h1 id="messages-title">{{ t('chat.title') }}</h1>
+      </div>
+    </header>
 
-  <div class="layout" [class.open]="peerId()">
-    <nav class="inbox" aria-labelledby="inbox-title">
-      <h2 id="inbox-title" class="pane-title">Conversations</h2>
-      @if (listFailed()) {
-        <div class="error" role="alert">
-          <p>Your conversations could not be loaded.</p>
-          <button type="button" class="button secondary" (click)="loadConversations()">
-            Try again
-          </button>
-        </div>
-      } @else if (conversations(); as list) {
-        @if (list.length === 0) {
-          <p class="muted">
-            No conversation yet. Open a player's profile from
-            <a routerLink="/friends">Friends</a> and choose Message.
-          </p>
-        } @else {
-          <ul class="conversations" aria-label="Conversations">
-            @for (conversation of list; track conversation.user.id) {
-              <li>
-                <a
-                  [routerLink]="['/messages', conversation.user.id]"
-                  [attr.aria-current]="conversation.user.id === peerId() ? 'page' : null"
-                >
-                  <app-avatar
-                    class="conv-initial"
-                    [username]="conversation.user.username"
-                    [url]="conversation.user.avatarUrl"
-                  />
-                  <strong>{{ conversation.user.username }}</strong>
-                  <span class="preview"
-                    >{{ mine(conversation.lastMessage) ? 'You: ' : ''
-                    }}{{ conversation.lastMessage.content }}</span
+    <div class="layout" [class.open]="peerId()">
+      <nav class="inbox" aria-labelledby="inbox-title">
+        <h2 id="inbox-title" class="pane-title">{{ t('chat.conversations') }}</h2>
+        @if (listFailed()) {
+          <div class="error" role="alert">
+            <p>{{ t('chat.listFailed') }}</p>
+            <button type="button" class="button secondary" (click)="loadConversations()">
+              {{ t('common.tryAgain') }}
+            </button>
+          </div>
+        } @else if (conversations(); as list) {
+          @if (list.length === 0) {
+            <p class="muted">
+              {{ t('chat.noneStart') }}
+              <a routerLink="/friends">{{ t('chat.friendsLink') }}</a> {{ t('chat.noneEnd') }}
+            </p>
+          } @else {
+            <ul class="conversations" [attr.aria-label]="t('chat.conversations')">
+              @for (conversation of list; track conversation.user.id) {
+                <li>
+                  <a
+                    [routerLink]="['/messages', conversation.user.id]"
+                    [attr.aria-current]="conversation.user.id === peerId() ? 'page' : null"
                   >
-                  @if (unread(conversation); as count) {
-                    <span class="unread" [attr.aria-label]="count + ' unread'">{{ count }}</span>
-                  }
-                </a>
-              </li>
-            }
-          </ul>
+                    <app-avatar
+                      class="conv-initial"
+                      [username]="conversation.user.username"
+                      [url]="conversation.user.avatarUrl"
+                    />
+                    <strong>{{ conversation.user.username }}</strong>
+                    <span class="preview"
+                      >{{ mine(conversation.lastMessage) ? t('chat.youPrefix') : ''
+                      }}{{ text(conversation.lastMessage) }}</span
+                    >
+                    @if (unread(conversation); as count) {
+                      <span class="unread" [attr.aria-label]="t('chat.unread', { count: count })">{{
+                        count
+                      }}</span>
+                    }
+                  </a>
+                </li>
+              }
+            </ul>
+          }
+        } @else {
+          <app-spinner [label]="t('chat.loadingList')" [showLabel]="true" />
         }
-      } @else {
-        <app-spinner label="Loading your conversations…" [showLabel]="true" />
-      }
-    </nav>
+      </nav>
 
-    <section class="conversation" aria-labelledby="conversation-title">
-      @if (!peerId()) {
-        <h2 id="conversation-title" class="sr-only">Conversation</h2>
-        <div class="placeholder">
-          <svg viewBox="0 0 64 64" aria-hidden="true"><use href="/chess-pieces.svg#knight" /></svg>
-          <p>Choose a conversation to read it and reply.</p>
-        </div>
-      } @else if (peerError(); as message) {
-        <h2 id="conversation-title">Conversation</h2>
-        <p class="error" role="alert">{{ message }}</p>
-      } @else if (peer(); as player) {
-        <header class="peer">
-          <a class="back" routerLink="/messages"
-            ><span aria-hidden="true">←</span> All conversations</a
-          >
-          <app-avatar class="peer-initial" [username]="player.username" [url]="player.avatarUrl" />
-          <h2 id="conversation-title">
-            <a [routerLink]="['/players', player.id]">{{ player.username }}</a>
-          </h2>
-          <app-presence-badge [status]="status()" />
-          @if (blocked() === false) {
-            <span class="peer-actions">
+      <section class="conversation" aria-labelledby="conversation-title">
+        @if (!peerId()) {
+          <h2 id="conversation-title" class="sr-only">{{ t('chat.conversation') }}</h2>
+          <div class="placeholder">
+            <svg viewBox="0 0 64 64" aria-hidden="true">
+              <use href="/chess-pieces.svg#knight" />
+            </svg>
+            <p>{{ t('chat.choose') }}</p>
+          </div>
+        } @else if (peerError(); as message) {
+          <h2 id="conversation-title">{{ t('chat.conversation') }}</h2>
+          <p class="error" role="alert">{{ message }}</p>
+        } @else if (peer(); as player) {
+          <header class="peer">
+            <a class="back" routerLink="/messages"
+              ><span aria-hidden="true">←</span> {{ t('chat.all') }}</a
+            >
+            <app-avatar
+              class="peer-initial"
+              [username]="player.username"
+              [url]="player.avatarUrl"
+            />
+            <h2 id="conversation-title">
+              <a [routerLink]="['/players', player.id]">{{ player.username }}</a>
+            </h2>
+            <app-presence-badge [status]="status()" />
+            @if (blocked() === false) {
+              <span class="peer-actions">
+                <button
+                  type="button"
+                  class="button secondary small"
+                  [disabled]="challenging()"
+                  (click)="challengePeer()"
+                >
+                  {{ t('chat.challenge') }}
+                </button>
+                @if (confirmingBlock()) {
+                  <button
+                    type="button"
+                    class="button danger small"
+                    [disabled]="peerBusy()"
+                    (click)="block()"
+                  >
+                    {{ t('chat.blockName', { name: player.username }) }}
+                  </button>
+                  <button
+                    type="button"
+                    class="button ghost small"
+                    (click)="confirmingBlock.set(false)"
+                  >
+                    {{ t('common.cancel') }}
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    class="button ghost small"
+                    [attr.aria-label]="t('chat.blockName', { name: player.username })"
+                    (click)="confirmingBlock.set(true)"
+                  >
+                    {{ t('chat.block') }}
+                  </button>
+                }
+              </span>
+            }
+          </header>
+          @if (confirmingBlock()) {
+            <p class="note" role="status">
+              {{ t('chat.blockNote', { name: player.username }) }}
+            </p>
+          }
+          @if (peerActionError(); as message) {
+            <p class="error" role="alert">{{ message }}</p>
+          }
+          @if (status() === 'OFFLINE') {
+            <p class="note" role="status">{{ t('chat.offline', { name: player.username }) }}</p>
+          }
+
+          @if (threadFailed()) {
+            <div class="error" role="alert">
+              <p>{{ t('chat.threadFailed') }}</p>
+              <button type="button" class="button secondary" (click)="retry()">
+                {{ t('common.tryAgain') }}
+              </button>
+            </div>
+          } @else if (thread(); as messages) {
+            @if (refreshFailed()) {
+              <div class="error" role="alert">
+                <p>{{ t('chat.refreshFailed') }}</p>
+                <button type="button" class="button secondary" (click)="reload()">
+                  {{ t('common.tryAgain') }}
+                </button>
+              </div>
+            }
+            <div
+              class="log"
+              #log
+              role="log"
+              [attr.aria-label]="t('chat.with', { name: player.username })"
+            >
+              @if (hasOlder()) {
+                <button
+                  type="button"
+                  class="button secondary older"
+                  [disabled]="loadingOlder()"
+                  (click)="loadOlder()"
+                >
+                  {{ t('chat.older') }}
+                </button>
+              }
+              @if (messages.length === 0) {
+                <p class="muted">{{ t('chat.empty', { name: player.username }) }}</p>
+              }
+              <ol class="bubbles">
+                @for (message of messages; track message.id) {
+                  <li [class.mine]="mine(message)">
+                    <span class="sr-only"
+                      >{{ mine(message) ? t('chat.you') : player.username }}:</span
+                    >
+                    <p>{{ text(message) }}</p>
+                    @if (challenge(message); as game) {
+                      <a class="button secondary" [routerLink]="['/game', game]">{{
+                        t('chat.openGame')
+                      }}</a>
+                    }
+                    <time [attr.datetime]="message.createdAt">{{
+                      message.createdAt | localDate: 'short'
+                    }}</time>
+                    @if (receipt()?.id === message.id) {
+                      <small class="receipt" [class.read]="message.readAt">
+                        @if (message.readAt; as readAt) {
+                          {{ t('chat.read', { time: readAt | localDate: 'shortTime' }) }}
+                        } @else {
+                          {{ t('chat.sent') }}
+                        }
+                      </small>
+                    }
+                  </li>
+                }
+              </ol>
+              @if (peerTyping()) {
+                <p class="typing" role="status">
+                  <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                  {{ t('chat.typing', { name: player.username }) }}
+                </p>
+              }
+            </div>
+          } @else {
+            <app-spinner [label]="t('chat.loading')" [showLabel]="true" />
+          }
+
+          @if (blocked()) {
+            <div class="note blocked" role="status">
+              <p>{{ t('chat.blocked', { name: player.username }) }}</p>
               <button
                 type="button"
                 class="button secondary small"
-                [disabled]="challenging()"
-                (click)="challengePeer()"
+                [disabled]="peerBusy()"
+                (click)="unblock()"
               >
-                Challenge
-              </button>
-              @if (confirmingBlock()) {
-                <button
-                  type="button"
-                  class="button danger small"
-                  [disabled]="peerBusy()"
-                  (click)="block()"
-                >
-                  Block {{ player.username }}
-                </button>
-                <button
-                  type="button"
-                  class="button ghost small"
-                  (click)="confirmingBlock.set(false)"
-                >
-                  Cancel
-                </button>
-              } @else {
-                <button
-                  type="button"
-                  class="button ghost small"
-                  [attr.aria-label]="'Block ' + player.username"
-                  (click)="confirmingBlock.set(true)"
-                >
-                  Block
-                </button>
-              }
-            </span>
-          }
-        </header>
-        @if (confirmingBlock()) {
-          <p class="note" role="status">
-            Blocking ends your friendship, requests and open challenges with {{ player.username }}.
-            They are not told, but can no longer message or challenge you.
-          </p>
-        }
-        @if (peerActionError(); as message) {
-          <p class="error" role="alert">{{ message }}</p>
-        }
-        @if (status() === 'OFFLINE') {
-          <p class="note" role="status">
-            {{ player.username }} is offline. They will find your messages when they come back.
-          </p>
-        }
-
-        @if (threadFailed()) {
-          <div class="error" role="alert">
-            <p>The conversation could not be loaded.</p>
-            <button type="button" class="button secondary" (click)="retry()">Try again</button>
-          </div>
-        } @else if (thread(); as messages) {
-          @if (refreshFailed()) {
-            <div class="error" role="alert">
-              <p>Recent messages could not be loaded, so some may be missing.</p>
-              <button type="button" class="button secondary" (click)="reload()">Try again</button>
-            </div>
-          }
-          <div class="log" #log role="log" [attr.aria-label]="'Messages with ' + player.username">
-            @if (hasOlder()) {
-              <button
-                type="button"
-                class="button secondary older"
-                [disabled]="loadingOlder()"
-                (click)="loadOlder()"
-              >
-                Load older messages
-              </button>
-            }
-            @if (messages.length === 0) {
-              <p class="muted">No message yet. Say hello to {{ player.username }}.</p>
-            }
-            <ol class="bubbles">
-              @for (message of messages; track message.id) {
-                <li [class.mine]="mine(message)">
-                  <span class="sr-only">{{ mine(message) ? 'You' : player.username }}:</span>
-                  <p>{{ message.content }}</p>
-                  @if (challenge(message); as game) {
-                    <a class="button secondary" [routerLink]="['/game', game]">Open the game</a>
-                  }
-                  <time [attr.datetime]="message.createdAt">{{
-                    message.createdAt | date: 'short'
-                  }}</time>
-                  @if (receipt()?.id === message.id) {
-                    <small class="receipt" [class.read]="message.readAt">
-                      @if (message.readAt; as readAt) {
-                        Read {{ readAt | date: 'shortTime' }}
-                      } @else {
-                        Sent
-                      }
-                    </small>
-                  }
-                </li>
-              }
-            </ol>
-            @if (peerTyping()) {
-              <p class="typing" role="status">
-                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                {{ player.username }} is typing…
-              </p>
-            }
-          </div>
-        } @else {
-          <app-spinner label="Loading the conversation…" [showLabel]="true" />
-        }
-
-        @if (blocked()) {
-          <div class="note blocked" role="status">
-            <p>You blocked {{ player.username }}. Unblock them to write again.</p>
-            <button
-              type="button"
-              class="button secondary small"
-              [disabled]="peerBusy()"
-              (click)="unblock()"
-            >
-              Unblock
-            </button>
-          </div>
-        } @else {
-          <form class="composer" (submit)="$event.preventDefault(); send()">
-            <label for="message-input" class="sr-only">Message {{ player.username }}</label>
-            <textarea
-              id="message-input"
-              rows="2"
-              [placeholder]="'Message ' + player.username"
-              [value]="draft()"
-              [readOnly]="pending() !== null"
-              [attr.aria-invalid]="tooLong()"
-              aria-describedby="message-count"
-              (input)="input($event)"
-              (keydown)="keydown($event)"
-            ></textarea>
-            <div class="row">
-              <span id="message-count" class="count" [class.over]="tooLong()"
-                >{{ length() }} / {{ maxLength }}</span
-              >
-              <button
-                type="submit"
-                class="button"
-                [disabled]="blank() || tooLong() || pending() !== null"
-              >
-                {{ pending() !== null ? 'Sending…' : 'Send' }}
+                {{ t('chat.unblock') }}
               </button>
             </div>
-            @if (tooLong()) {
-              <p class="error" role="alert">
-                A message can have at most {{ maxLength }} characters.
-              </p>
-            }
-            @if (sendError(); as message) {
-              <p class="error" role="alert">{{ message }}</p>
-            }
-          </form>
+          } @else {
+            <form class="composer" (submit)="$event.preventDefault(); send()">
+              <label for="message-input" class="sr-only">{{
+                t('chat.messageName', { name: player.username })
+              }}</label>
+              <textarea
+                id="message-input"
+                rows="2"
+                [placeholder]="t('chat.messageName', { name: player.username })"
+                [value]="draft()"
+                [readOnly]="pending() !== null"
+                [attr.aria-invalid]="tooLong()"
+                aria-describedby="message-count"
+                (input)="input($event)"
+                (keydown)="keydown($event)"
+              ></textarea>
+              <div class="row">
+                <span id="message-count" class="count" [class.over]="tooLong()"
+                  >{{ length() }} / {{ maxLength }}</span
+                >
+                <button
+                  type="submit"
+                  class="button"
+                  [disabled]="blank() || tooLong() || pending() !== null"
+                >
+                  {{ pending() !== null ? t('common.sending') : t('common.send') }}
+                </button>
+              </div>
+              @if (tooLong()) {
+                <p class="error" role="alert">{{ t('chat.tooLong', { max: maxLength }) }}</p>
+              }
+              @if (sendError(); as message) {
+                <p class="error" role="alert">{{ message }}</p>
+              }
+            </form>
+          }
+        } @else {
+          <h2 id="conversation-title" class="sr-only">{{ t('chat.conversation') }}</h2>
+          <app-spinner [label]="t('chat.loading')" [showLabel]="true" />
         }
-      } @else {
-        <h2 id="conversation-title" class="sr-only">Conversation</h2>
-        <app-spinner label="Loading the conversation…" [showLabel]="true" />
-      }
-    </section>
-  </div>
-</section>
+      </section>
+    </div>
+  </section>
+</ng-container>

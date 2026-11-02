@@ -11,11 +11,13 @@ import { DataSettings } from './data-settings';
 import { PrivacySettings } from './privacy-settings';
 import { ProfileSettings } from './profile-settings';
 import { SecuritySettings } from './security-settings';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 /** Everything about the signed-in account: profile, appearance, privacy, security, sign-in and data. */
 @Component({
   selector: 'app-settings-page',
   imports: [
+    TranslocoDirective,
     RouterLink,
     ProfileSettings,
     AppearanceSettings,

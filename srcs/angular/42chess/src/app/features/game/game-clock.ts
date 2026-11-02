@@ -1,4 +1,6 @@
 import { Component, computed, input } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
+import { tr } from '../../core/i18n/i18n';
 
 export const LOW_TIME_MS = 10_000;
 
@@ -13,13 +15,14 @@ export function formatClock(ms: number, tenths = true): string {
 
 @Component({
   selector: 'app-game-clock',
+  imports: [TranslocoPipe],
   template: `
     <div
       class="clock"
       [class.running]="running()"
       [class.low]="low()"
       role="timer"
-      [attr.aria-label]="label() + ' clock, ' + spoken()"
+      [attr.aria-label]="'game.clock' | transloco: { side: label(), time: spoken() }"
     >
       {{ text() }}
     </div>
@@ -69,8 +72,8 @@ export class GameClock {
   readonly low = computed(() => (this.remaining() ?? Infinity) < LOW_TIME_MS);
   readonly spoken = computed(() => {
     const ms = this.remaining();
-    if (ms === null) return 'no clock';
+    if (ms === null) return tr('game.noClock');
     const total = Math.ceil(Math.max(0, ms) / 1000);
-    return `${Math.floor(total / 60)} minutes ${total % 60} seconds`;
+    return tr('game.clockTime', { minutes: Math.floor(total / 60), seconds: total % 60 });
   });
 }

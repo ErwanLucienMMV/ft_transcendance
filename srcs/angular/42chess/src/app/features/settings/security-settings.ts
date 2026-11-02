@@ -14,6 +14,8 @@ import { SECOND_FACTOR_CODE } from '../auth/second-factor-code';
 import { AccountApi, SecurityStatus } from './account-api';
 import { settingsError } from './settings-text';
 import { Spinner } from '../../shared/ui/spinner';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { tr, trCount } from '../../core/i18n/i18n';
 
 function samePasswords(group: AbstractControl): ValidationErrors | null {
   const value = group.value as { newPassword: string; confirmPassword: string };
@@ -30,205 +32,218 @@ export function svgDataUrl(svg: string): string {
 /** Password change, and two-factor authentication with its recovery codes. */
 @Component({
   selector: 'app-security-settings',
-  imports: [Spinner, ReactiveFormsModule],
+  imports: [TranslocoDirective, Spinner, ReactiveFormsModule],
   template: `
-    <section class="card settings-section" aria-labelledby="security-settings-title">
-      <h2 id="security-settings-title" class="section-title">Security</h2>
-      @if (status(); as current) {
-        <div class="subsection">
-          <h3>Password</h3>
-          @if (current.hasPassword) {
-            <form [formGroup]="password" (ngSubmit)="changePassword()" novalidate>
-              <div class="form-field">
-                <label for="current-password">Current password</label>
-                <input
-                  id="current-password"
-                  type="password"
-                  formControlName="currentPassword"
-                  autocomplete="current-password"
-                />
-              </div>
-              <div class="form-field">
-                <label for="new-password">New password</label>
-                <input
-                  id="new-password"
-                  type="password"
-                  formControlName="newPassword"
-                  autocomplete="new-password"
-                  aria-describedby="new-password-help"
-                  [attr.aria-invalid]="invalid('newPassword')"
-                />
-                <p id="new-password-help">
-                  {{ limits.passwordMin }}–{{ limits.passwordMax }} characters.
-                </p>
-              </div>
-              <div class="form-field">
-                <label for="confirm-new-password">Confirm the new password</label>
-                <input
-                  id="confirm-new-password"
-                  type="password"
-                  formControlName="confirmPassword"
-                  autocomplete="new-password"
-                  [attr.aria-invalid]="mismatch()"
-                />
-                @if (mismatch()) {
-                  <p id="confirm-new-password-error">Enter the same password in both fields.</p>
+    <ng-container *transloco="let t">
+      <section class="card settings-section" aria-labelledby="security-settings-title">
+        <h2 id="security-settings-title" class="section-title">
+          {{ t('settings.security.title') }}
+        </h2>
+        @if (status(); as current) {
+          <div class="subsection">
+            <h3>{{ t('settings.security.password') }}</h3>
+            @if (current.hasPassword) {
+              <form [formGroup]="password" (ngSubmit)="changePassword()" novalidate>
+                <div class="form-field">
+                  <label for="current-password">{{ t('settings.security.current') }}</label>
+                  <input
+                    id="current-password"
+                    type="password"
+                    formControlName="currentPassword"
+                    autocomplete="current-password"
+                  />
+                </div>
+                <div class="form-field">
+                  <label for="new-password">{{ t('settings.security.new') }}</label>
+                  <input
+                    id="new-password"
+                    type="password"
+                    formControlName="newPassword"
+                    autocomplete="new-password"
+                    aria-describedby="new-password-help"
+                    [attr.aria-invalid]="invalid('newPassword')"
+                  />
+                  <p id="new-password-help">
+                    {{
+                      t('settings.security.length', {
+                        min: limits.passwordMin,
+                        max: limits.passwordMax,
+                      })
+                    }}
+                  </p>
+                </div>
+                <div class="form-field">
+                  <label for="confirm-new-password">{{ t('settings.security.confirm') }}</label>
+                  <input
+                    id="confirm-new-password"
+                    type="password"
+                    formControlName="confirmPassword"
+                    autocomplete="new-password"
+                    [attr.aria-invalid]="mismatch()"
+                  />
+                  @if (mismatch()) {
+                    <p id="confirm-new-password-error">{{ t('settings.security.mismatch') }}</p>
+                  }
+                </div>
+                <div class="row">
+                  <button type="submit" [disabled]="busy() === 'password'">
+                    {{ busy() === 'password' ? t('common.saving') : t('settings.security.change') }}
+                  </button>
+                </div>
+                @if (passwordMessage(); as message) {
+                  <p
+                    [class]="message.ok ? 'saved' : 'field-error'"
+                    [attr.role]="message.ok ? 'status' : 'alert'"
+                  >
+                    {{ message.text }}
+                  </p>
                 }
-              </div>
-              <div class="row">
-                <button type="submit" [disabled]="busy() === 'password'">
-                  {{ busy() === 'password' ? 'Saving…' : 'Change password' }}
-                </button>
-              </div>
-              @if (passwordMessage(); as message) {
-                <p
-                  [class]="message.ok ? 'saved' : 'field-error'"
-                  [attr.role]="message.ok ? 'status' : 'alert'"
-                >
-                  {{ message.text }}
-                </p>
-              }
-            </form>
-          } @else {
-            <p class="muted">
-              You sign in with an external account, so this account has no password to change.
-            </p>
-          }
-        </div>
+              </form>
+            } @else {
+              <p class="muted">{{ t('settings.security.external') }}</p>
+            }
+          </div>
 
-        <div class="subsection">
-          <h3>Two-factor authentication</h3>
-          @if (codes(); as list) {
-            <div class="recovery" role="region" aria-label="Recovery codes">
-              <p>
-                <strong>Save these recovery codes now.</strong> Each one lets you sign in once if
-                you lose your phone. They will not be shown again.
-              </p>
-              <ul class="codes">
-                @for (code of list; track code) {
-                  <li>
-                    <code>{{ code }}</code>
-                  </li>
+          <div class="subsection">
+            <h3>{{ t('settings.security.twoFactor') }}</h3>
+            @if (codes(); as list) {
+              <div
+                class="recovery"
+                role="region"
+                [attr.aria-label]="t('settings.security.recoveryCodes')"
+              >
+                <p>
+                  <strong>{{ t('settings.security.saveCodes') }}</strong>
+                  {{ t('settings.security.saveCodesHelp') }}
+                </p>
+                <ul class="codes">
+                  @for (code of list; track code) {
+                    <li>
+                      <code>{{ code }}</code>
+                    </li>
+                  }
+                </ul>
+                <div class="row">
+                  <button type="button" class="secondary" (click)="copyCodes(list)">
+                    {{ t('settings.security.copy') }}
+                  </button>
+                  <button type="button" class="secondary" (click)="downloadCodes(list)">
+                    {{ t('settings.security.download') }}
+                  </button>
+                  <button type="button" (click)="codes.set(null)">
+                    {{ t('settings.security.saved') }}
+                  </button>
+                </div>
+                @if (copied()) {
+                  <p class="saved" role="status">{{ t('settings.security.copied') }}</p>
                 }
-              </ul>
-              <div class="row">
-                <button type="button" class="secondary" (click)="copyCodes(list)">Copy</button>
-                <button type="button" class="secondary" (click)="downloadCodes(list)">
-                  Download
-                </button>
-                <button type="button" (click)="codes.set(null)">I saved them</button>
               </div>
-              @if (copied()) {
-                <p class="saved" role="status">Copied to the clipboard.</p>
-              }
-            </div>
-          } @else if (current.twoFactorEnabled) {
-            <p>
-              <span class="badge on">On</span>
-              Signing in asks for a code from your authenticator app.
-              @if (current.recoveryCodesLeft !== null) {
-                {{ current.recoveryCodesLeft }} recovery
-                {{ current.recoveryCodesLeft === 1 ? 'code' : 'codes' }} left.
-              }
-            </p>
-            <form class="inline-form" (submit)="$event.preventDefault()" novalidate>
-              <div class="form-field">
-                <label for="manage-2fa-code">Code from your app, or a recovery code</label>
-                <input
-                  id="manage-2fa-code"
-                  [formControl]="manageCode"
-                  autocomplete="one-time-code"
-                  maxlength="11"
-                  spellcheck="false"
-                />
-              </div>
+            } @else if (current.twoFactorEnabled) {
+              <p>
+                <span class="badge on">{{ t('settings.security.on') }}</span>
+                {{ t('settings.security.onHelp') }}
+                @if (current.recoveryCodesLeft !== null) {
+                  {{ codesLeft(current.recoveryCodesLeft) }}
+                }
+              </p>
+              <form class="inline-form" (submit)="$event.preventDefault()" novalidate>
+                <div class="form-field">
+                  <label for="manage-2fa-code">{{ t('settings.data.code') }}</label>
+                  <input
+                    id="manage-2fa-code"
+                    [formControl]="manageCode"
+                    autocomplete="one-time-code"
+                    maxlength="11"
+                    spellcheck="false"
+                  />
+                </div>
+                <div class="row">
+                  <button
+                    type="button"
+                    class="secondary"
+                    [disabled]="busy() !== null"
+                    (click)="regenerate()"
+                  >
+                    {{ t('settings.security.newCodes') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="danger"
+                    [disabled]="busy() !== null"
+                    (click)="disable()"
+                  >
+                    {{ t('settings.security.turnOff') }}
+                  </button>
+                </div>
+              </form>
+            } @else if (setup(); as pending) {
+              <ol class="setup-steps">
+                <li>
+                  {{ t('settings.security.scan') }}
+                  <img class="qr" [src]="pending.qr" [alt]="t('settings.security.qr')" />
+                  <details>
+                    <summary>{{ t('settings.security.cannotScan') }}</summary>
+                    <p>
+                      {{ t('settings.security.enterKey') }}
+                      <code class="secret">{{ pending.secret }}</code>
+                    </p>
+                  </details>
+                </li>
+                <li>
+                  <form class="inline-form" (submit)="$event.preventDefault(); enable()" novalidate>
+                    <div class="form-field">
+                      <label for="enable-2fa-code">{{ t('settings.security.enterCode') }}</label>
+                      <input
+                        id="enable-2fa-code"
+                        [formControl]="enableCode"
+                        inputmode="numeric"
+                        autocomplete="one-time-code"
+                        maxlength="6"
+                      />
+                    </div>
+                    <div class="row">
+                      <button type="submit" [disabled]="busy() !== null">
+                        {{ t('settings.security.turnOn') }}
+                      </button>
+                      <button type="button" class="ghost" (click)="setup.set(null)">
+                        {{ t('common.cancel') }}
+                      </button>
+                    </div>
+                  </form>
+                </li>
+              </ol>
+            } @else {
+              <p class="muted">
+                <span class="badge">{{ t('settings.security.off') }}</span>
+                {{ t('settings.security.offHelp') }}
+              </p>
               <div class="row">
                 <button
                   type="button"
                   class="secondary"
                   [disabled]="busy() !== null"
-                  (click)="regenerate()"
+                  (click)="start()"
                 >
-                  New recovery codes
-                </button>
-                <button
-                  type="button"
-                  class="danger"
-                  [disabled]="busy() !== null"
-                  (click)="disable()"
-                >
-                  Turn off
+                  {{ t('settings.security.setUp') }}
                 </button>
               </div>
-            </form>
-          } @else if (setup(); as pending) {
-            <ol class="setup-steps">
-              <li>
-                Scan this QR code with an authenticator app (Google Authenticator, Aegis,
-                1Password…).
-                <img
-                  class="qr"
-                  [src]="pending.qr"
-                  alt="QR code to add 42 Chess to your authenticator app"
-                />
-                <details>
-                  <summary>Cannot scan it?</summary>
-                  <p>
-                    Enter this key in the app instead:
-                    <code class="secret">{{ pending.secret }}</code>
-                  </p>
-                </details>
-              </li>
-              <li>
-                <form class="inline-form" (submit)="$event.preventDefault(); enable()" novalidate>
-                  <div class="form-field">
-                    <label for="enable-2fa-code">Enter the 6-digit code the app shows</label>
-                    <input
-                      id="enable-2fa-code"
-                      [formControl]="enableCode"
-                      inputmode="numeric"
-                      autocomplete="one-time-code"
-                      maxlength="6"
-                    />
-                  </div>
-                  <div class="row">
-                    <button type="submit" [disabled]="busy() !== null">Turn on</button>
-                    <button type="button" class="ghost" (click)="setup.set(null)">Cancel</button>
-                  </div>
-                </form>
-              </li>
-            </ol>
-          } @else {
-            <p class="muted">
-              <span class="badge">Off</span>
-              Add a second step to signing in: a code from an app on your phone.
-            </p>
-            <div class="row">
-              <button
-                type="button"
-                class="secondary"
-                [disabled]="busy() !== null"
-                (click)="start()"
+            }
+            @if (twoFactorMessage(); as message) {
+              <p
+                [class]="message.ok ? 'saved' : 'field-error'"
+                [attr.role]="message.ok ? 'status' : 'alert'"
               >
-                Set up two-factor authentication
-              </button>
-            </div>
-          }
-          @if (twoFactorMessage(); as message) {
-            <p
-              [class]="message.ok ? 'saved' : 'field-error'"
-              [attr.role]="message.ok ? 'status' : 'alert'"
-            >
-              {{ message.text }}
-            </p>
-          }
-        </div>
-      } @else if (failed()) {
-        <p class="field-error" role="alert">Your security settings could not be loaded.</p>
-      } @else {
-        <app-spinner label="Loading…" [showLabel]="true" />
-      }
-    </section>
+                {{ message.text }}
+              </p>
+            }
+          </div>
+        } @else if (failed()) {
+          <p class="field-error" role="alert">{{ t('settings.security.loadFailed') }}</p>
+        } @else {
+          <app-spinner [showLabel]="true" />
+        }
+      </section>
+    </ng-container>
   `,
 })
 export class SecuritySettings {
@@ -288,8 +303,11 @@ export class SecuritySettings {
       this.passwordMessage.set({
         ok: false,
         text: this.mismatch()
-          ? 'Enter the same new password in both fields.'
-          : `Fill in every field. The new password needs ${AUTH_FIELD_LIMITS.passwordMin} to ${AUTH_FIELD_LIMITS.passwordMax} characters.`,
+          ? tr('settings.security.mismatchNew')
+          : tr('settings.security.fillIn', {
+              min: AUTH_FIELD_LIMITS.passwordMin,
+              max: AUTH_FIELD_LIMITS.passwordMax,
+            }),
       });
       return;
     }
@@ -300,14 +318,14 @@ export class SecuritySettings {
         this.password.reset();
         this.passwordMessage.set({
           ok: true,
-          text: 'Your password was changed. Your other devices were signed out.',
+          text: tr('settings.security.changed'),
         });
       },
       error: (error) =>
         this.passwordMessage.set({
           ok: false,
-          text: settingsError(error, 'Your password could not be changed. Try again.', {
-            INVALID_PASSWORD: 'The current password is not correct.',
+          text: settingsError(error, tr('settings.security.changeFailed'), {
+            INVALID_PASSWORD: tr('settings.security.wrongCurrent'),
           }),
         }),
     });
@@ -331,14 +349,14 @@ export class SecuritySettings {
   enable(): void {
     this.twoFactorMessage.set(null);
     if (this.enableCode.invalid) {
-      this.twoFactorMessage.set({ ok: false, text: 'Enter the 6-digit code from the app.' });
+      this.twoFactorMessage.set({ ok: false, text: tr('settings.security.codeNeeded') });
       return;
     }
     this.run('two-factor', this.account.enableTwoFactor(this.enableCode.value), {
       next: ({ recoveryCodes }) => {
         this.setup.set(null);
         this.codes.set(recoveryCodes);
-        this.twoFactorMessage.set({ ok: true, text: 'Two-factor authentication is on.' });
+        this.twoFactorMessage.set({ ok: true, text: tr('settings.security.nowOn') });
         this.changed.emit();
       },
       error: (error) => this.twoFactorFailed(error),
@@ -354,7 +372,7 @@ export class SecuritySettings {
         this.codes.set(recoveryCodes);
         this.twoFactorMessage.set({
           ok: true,
-          text: 'New recovery codes were made. The old ones no longer work.',
+          text: tr('settings.security.regenerated'),
         });
         this.changed.emit();
       },
@@ -368,7 +386,7 @@ export class SecuritySettings {
     this.run('two-factor', this.account.disableTwoFactor(code), {
       next: () => {
         this.manageCode.reset();
-        this.twoFactorMessage.set({ ok: true, text: 'Two-factor authentication is off.' });
+        this.twoFactorMessage.set({ ok: true, text: tr('settings.security.nowOff') });
         this.changed.emit();
       },
       error: (error) => this.twoFactorFailed(error),
@@ -384,7 +402,9 @@ export class SecuritySettings {
 
   downloadCodes(codes: string[]): void {
     const url = URL.createObjectURL(
-      new Blob([`42 Chess recovery codes\n\n${codes.join('\n')}\n`], { type: 'text/plain' }),
+      new Blob([`${tr('settings.security.fileTitle')}\n\n${codes.join('\n')}\n`], {
+        type: 'text/plain',
+      }),
     );
     const link = document.createElement('a');
     link.href = url;
@@ -394,12 +414,16 @@ export class SecuritySettings {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  codesLeft(count: number): string {
+    return trCount('settings.security.codesLeft', count);
+  }
+
   private checkedCode(): string | null {
     this.twoFactorMessage.set(null);
     if (this.manageCode.invalid) {
       this.twoFactorMessage.set({
         ok: false,
-        text: 'Enter the 6-digit code from your app, or one of your recovery codes.',
+        text: tr('settings.security.manageCodeNeeded'),
       });
       return null;
     }
@@ -409,7 +433,7 @@ export class SecuritySettings {
   private twoFactorFailed(error: unknown): void {
     this.twoFactorMessage.set({
       ok: false,
-      text: settingsError(error, 'This could not be done. Try again.'),
+      text: settingsError(error, tr('settings.security.failed')),
     });
   }
 

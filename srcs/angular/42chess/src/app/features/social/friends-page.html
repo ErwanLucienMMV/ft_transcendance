@@ -1,209 +1,226 @@
-<section class="friends-page page narrow" aria-labelledby="friends-title">
-  <header class="page-head">
-    <div>
-      <span class="eyebrow">Community</span>
-      <h1 id="friends-title">Friends</h1>
-      <p>Find players, answer friend requests and challenge your friends.</p>
-    </div>
-    <div class="head-links">
-      <a class="button secondary small" routerLink="/settings" fragment="privacy"
-        >Blocked players</a
-      >
-    </div>
-  </header>
+<ng-container *transloco="let t">
+  <section class="friends-page page narrow" aria-labelledby="friends-title">
+    <header class="page-head">
+      <div>
+        <span class="eyebrow">{{ t('social.eyebrow') }}</span>
+        <h1 id="friends-title">{{ t('social.friends.title') }}</h1>
+        <p>{{ t('social.friends.intro') }}</p>
+      </div>
+      <div class="head-links">
+        <a class="button secondary small" routerLink="/settings" fragment="privacy">{{
+          t('social.friends.blocked')
+        }}</a>
+      </div>
+    </header>
 
-  <section class="panel card" aria-labelledby="search-title">
-    <h2 id="search-title" class="section-title">Find players</h2>
-    <form class="search" role="search" [formGroup]="form" (ngSubmit)="submit()">
-      <label class="sr-only" for="player-search">Username</label>
-      <input
-        id="player-search"
-        formControlName="q"
-        type="search"
-        autocomplete="off"
-        placeholder="Search by username"
-        [maxlength]="maxLength"
-      />
-      <button type="submit">Search</button>
-    </form>
-    @if (searchFailed()) {
-      <app-alert><p>The search failed. Try again.</p></app-alert>
-    } @else if (results(); as players) {
-      @if (players.length === 0) {
-        <p class="muted" role="status">No player matches “{{ query() }}”.</p>
-      } @else {
-        <ul class="people rows" [attr.aria-busy]="searching()" aria-label="Search results">
-          @for (player of players; track player.id) {
-            <li>
-              <a [routerLink]="['/players', player.id]">
-                <app-avatar class="initial" [username]="player.username" [url]="player.avatarUrl" />
-                <strong>{{ player.username }}</strong>
-                @if (self(player.id)) {
-                  <small>(you)</small>
-                }
-              </a>
-              <span class="elo">{{ player.elo }}</span>
-              <app-presence-badge [status]="player.online ? 'ONLINE' : 'OFFLINE'" />
-            </li>
-          }
-        </ul>
+    <section class="panel card" aria-labelledby="search-title">
+      <h2 id="search-title" class="section-title">{{ t('social.friends.find') }}</h2>
+      <form class="search" role="search" [formGroup]="form" (ngSubmit)="submit()">
+        <label class="sr-only" for="player-search">{{ t('social.friends.username') }}</label>
+        <input
+          id="player-search"
+          formControlName="q"
+          type="search"
+          autocomplete="off"
+          [placeholder]="t('social.friends.placeholder')"
+          [maxlength]="maxLength"
+        />
+        <button type="submit">{{ t('social.friends.search') }}</button>
+      </form>
+      @if (searchFailed()) {
+        <app-alert
+          ><p>{{ t('social.friends.searchFailed') }}</p></app-alert
+        >
+      } @else if (results(); as players) {
+        @if (players.length === 0) {
+          <p class="muted" role="status">{{ t('social.friends.noMatch', { query: query() }) }}</p>
+        } @else {
+          <ul
+            class="people rows"
+            [attr.aria-busy]="searching()"
+            [attr.aria-label]="t('social.friends.results')"
+          >
+            @for (player of players; track player.id) {
+              <li>
+                <a [routerLink]="['/players', player.id]">
+                  <app-avatar
+                    class="initial"
+                    [username]="player.username"
+                    [url]="player.avatarUrl"
+                  />
+                  <strong>{{ player.username }}</strong>
+                  @if (self(player.id)) {
+                    <small>{{ t('social.friends.you') }}</small>
+                  }
+                </a>
+                <span class="elo">{{ player.elo }}</span>
+                <app-presence-badge [status]="player.online ? 'ONLINE' : 'OFFLINE'" />
+              </li>
+            }
+          </ul>
+        }
+      } @else if (searching()) {
+        <p class="muted" role="status">{{ t('social.friends.searching') }}</p>
       }
-    } @else if (searching()) {
-      <p class="muted" role="status">Searching…</p>
-    }
-  </section>
-
-  @if (actionError(); as message) {
-    <app-alert
-      ><p>{{ message }}</p></app-alert
-    >
-  }
-
-  @if (requests()?.length) {
-    <section class="panel" aria-labelledby="requests-title">
-      <h2 id="requests-title" class="section-title">
-        Friend requests <span class="count">{{ requests()?.length }}</span>
-      </h2>
-      <ul class="people rows" aria-label="Friend requests">
-        @for (request of requests(); track request.id) {
-          <li class="request">
-            <a [routerLink]="['/players', request.senderId]"
-              ><app-avatar
-                class="initial"
-                [username]="request.sender?.username ?? '?'"
-                [url]="request.sender?.avatarUrl"
-              /><strong>{{ request.sender?.username ?? 'A player' }}</strong></a
-            >
-            <span class="elo">{{ request.sender?.elo }}</span>
-            <span class="actions">
-              <button
-                type="button"
-                class="small"
-                [disabled]="busy().has(request.id)"
-                (click)="accept(request)"
-              >
-                Accept
-              </button>
-              <button
-                type="button"
-                class="secondary small"
-                [disabled]="busy().has(request.id)"
-                (click)="reject(request)"
-              >
-                Decline
-              </button>
-            </span>
-          </li>
-        }
-      </ul>
     </section>
-  }
 
-  @if (sent()?.length) {
-    <section class="panel" aria-labelledby="sent-title">
-      <h2 id="sent-title" class="section-title">
-        Sent requests <span class="count">{{ sent()?.length }}</span>
-      </h2>
-      <ul class="people rows" aria-label="Sent requests">
-        @for (request of sent(); track request.id) {
-          <li class="request">
-            <a [routerLink]="['/players', request.recipientId]"
-              ><app-avatar
-                class="initial"
-                [username]="request.recipient?.username ?? '?'"
-                [url]="request.recipient?.avatarUrl"
-              /><strong>{{ request.recipient?.username ?? 'A player' }}</strong></a
-            >
-            <span class="elo">{{ request.recipient?.elo }}</span>
-            <span class="actions">
-              <small class="muted">Waiting for an answer</small>
-              <button
-                type="button"
-                class="ghost small"
-                [attr.aria-label]="
-                  'Cancel the request to ' + (request.recipient?.username ?? 'this player')
-                "
-                [disabled]="busy().has(request.id)"
-                (click)="cancel(request)"
-              >
-                Cancel
-              </button>
-            </span>
-          </li>
-        }
-      </ul>
-    </section>
-  }
-
-  <section class="panel" aria-labelledby="list-title">
-    <h2 id="list-title" class="section-title">Your friends</h2>
-    @if (challengeError(); as message) {
+    @if (actionError(); as message) {
       <app-alert
         ><p>{{ message }}</p></app-alert
       >
     }
-    @if (friendsFailed()) {
-      <app-alert>
-        <p>Your friends could not be loaded.</p>
-        <button type="button" class="button secondary" (click)="loadFriends()">Try again</button>
-      </app-alert>
-    } @else if (friends(); as list) {
-      @if (list.length === 0) {
-        <app-empty-state piece="knight" heading="No friends yet.">
-          <p>Search for a player above, open their profile and send a friend request.</p>
-        </app-empty-state>
-      } @else {
-        <ul class="people rows" aria-label="Friends">
-          @for (friend of list; track friend.id) {
-            <li>
-              <a [routerLink]="['/players', friend.id]"
+
+    @if (requests()?.length) {
+      <section class="panel" aria-labelledby="requests-title">
+        <h2 id="requests-title" class="section-title">
+          {{ t('social.friends.requests') }} <span class="count">{{ requests()?.length }}</span>
+        </h2>
+        <ul class="people rows" [attr.aria-label]="t('social.friends.requests')">
+          @for (request of requests(); track request.id) {
+            <li class="request">
+              <a [routerLink]="['/players', request.senderId]"
                 ><app-avatar
                   class="initial"
-                  [username]="friend.username"
-                  [url]="friend.avatarUrl"
-                /><strong>{{ friend.username }}</strong></a
+                  [username]="request.sender?.username ?? '?'"
+                  [url]="request.sender?.avatarUrl"
+                /><strong>{{ request.sender?.username ?? t('social.friends.aPlayer') }}</strong></a
               >
-              <span class="elo">{{ friend.elo }}</span>
-              <app-presence-badge [status]="friend.status" />
+              <span class="elo">{{ request.sender?.elo }}</span>
               <span class="actions">
                 <button
                   type="button"
-                  class="secondary small"
-                  [attr.aria-label]="'Challenge ' + friend.username"
-                  [disabled]="challenging() !== null"
-                  (click)="challenge(friend)"
+                  class="small"
+                  [disabled]="busy().has(request.id)"
+                  (click)="accept(request)"
                 >
-                  Challenge
+                  {{ t('social.friends.accept') }}
                 </button>
                 <button
                   type="button"
-                  class="ghost small"
-                  [attr.aria-label]="'Remove ' + friend.username"
-                  [disabled]="busy().has(friend.id)"
-                  (click)="askRemoval(friend)"
+                  class="secondary small"
+                  [disabled]="busy().has(request.id)"
+                  (click)="reject(request)"
                 >
-                  Remove
+                  {{ t('social.friends.decline') }}
                 </button>
               </span>
             </li>
           }
         </ul>
-      }
-    } @else {
-      <app-empty-state [loading]="true"><p>Loading your friends…</p></app-empty-state>
+      </section>
     }
+
+    @if (sent()?.length) {
+      <section class="panel" aria-labelledby="sent-title">
+        <h2 id="sent-title" class="section-title">
+          {{ t('social.friends.sent') }} <span class="count">{{ sent()?.length }}</span>
+        </h2>
+        <ul class="people rows" [attr.aria-label]="t('social.friends.sent')">
+          @for (request of sent(); track request.id) {
+            <li class="request">
+              <a [routerLink]="['/players', request.recipientId]"
+                ><app-avatar
+                  class="initial"
+                  [username]="request.recipient?.username ?? '?'"
+                  [url]="request.recipient?.avatarUrl"
+                /><strong>{{
+                  request.recipient?.username ?? t('social.friends.aPlayer')
+                }}</strong></a
+              >
+              <span class="elo">{{ request.recipient?.elo }}</span>
+              <span class="actions">
+                <small class="muted">{{ t('social.friends.waiting') }}</small>
+                <button
+                  type="button"
+                  class="ghost small"
+                  [attr.aria-label]="
+                    t('social.friends.cancelRequest', {
+                      name: request.recipient?.username ?? t('social.friends.thisPlayer'),
+                    })
+                  "
+                  [disabled]="busy().has(request.id)"
+                  (click)="cancel(request)"
+                >
+                  {{ t('common.cancel') }}
+                </button>
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <section class="panel" aria-labelledby="list-title">
+      <h2 id="list-title" class="section-title">{{ t('social.friends.yours') }}</h2>
+      @if (challengeError(); as message) {
+        <app-alert
+          ><p>{{ message }}</p></app-alert
+        >
+      }
+      @if (friendsFailed()) {
+        <app-alert>
+          <p>{{ t('social.friends.failed') }}</p>
+          <button type="button" class="button secondary" (click)="loadFriends()">
+            {{ t('common.tryAgain') }}
+          </button>
+        </app-alert>
+      } @else if (friends(); as list) {
+        @if (list.length === 0) {
+          <app-empty-state piece="knight" [heading]="t('social.friends.none')">
+            <p>{{ t('social.friends.noneHelp') }}</p>
+          </app-empty-state>
+        } @else {
+          <ul class="people rows" [attr.aria-label]="t('social.friends.list')">
+            @for (friend of list; track friend.id) {
+              <li>
+                <a [routerLink]="['/players', friend.id]"
+                  ><app-avatar
+                    class="initial"
+                    [username]="friend.username"
+                    [url]="friend.avatarUrl"
+                  /><strong>{{ friend.username }}</strong></a
+                >
+                <span class="elo">{{ friend.elo }}</span>
+                <app-presence-badge [status]="friend.status" />
+                <span class="actions">
+                  <button
+                    type="button"
+                    class="secondary small"
+                    [attr.aria-label]="t('social.friends.challengeName', { name: friend.username })"
+                    [disabled]="challenging() !== null"
+                    (click)="challenge(friend)"
+                  >
+                    {{ t('social.friends.challenge') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="ghost small"
+                    [attr.aria-label]="t('social.friends.removeName', { name: friend.username })"
+                    [disabled]="busy().has(friend.id)"
+                    (click)="askRemoval(friend)"
+                  >
+                    {{ t('social.friends.remove') }}
+                  </button>
+                </span>
+              </li>
+            }
+          </ul>
+        }
+      } @else {
+        <app-empty-state [loading]="true"
+          ><p>{{ t('social.friends.loading') }}</p></app-empty-state
+        >
+      }
+    </section>
+    <app-confirm-dialog
+      #removal
+      [heading]="t('social.friends.removeTitle', { name: removing()?.username ?? '' })"
+      [confirmLabel]="t('social.friends.removeConfirm')"
+      tone="danger"
+      (confirmed)="removeConfirmed()"
+      (cancelled)="removing.set(null)"
+    >
+      <p>{{ t('social.friends.removeText') }}</p>
+    </app-confirm-dialog>
   </section>
-  <app-confirm-dialog
-    #removal
-    [heading]="'Remove ' + (removing()?.username ?? '') + ' from your friends?'"
-    confirmLabel="Remove friend"
-    tone="danger"
-    (confirmed)="removeConfirmed()"
-    (cancelled)="removing.set(null)"
-  >
-    <p>
-      You will no longer see each other online or in your friend lists. Either of you can send a new
-      request later.
-    </p>
-  </app-confirm-dialog>
-</section>
+</ng-container>

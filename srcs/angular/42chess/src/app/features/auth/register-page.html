@@ -1,20 +1,22 @@
-<app-auth-frame>
-  <h1>Create an account</h1>
-  <p class="auth-intro">Your next chapter starts with a first move.</p>
-  @if (registered()) {
-    <p role="status">
-      Account created. Check your email for the verification link before signing in.
+<ng-container *transloco="let t">
+  <app-auth-frame>
+    <h1>{{ t('auth.register.title') }}</h1>
+    <p class="auth-intro">{{ t('auth.register.intro') }}</p>
+    @if (registered()) {
+      <p role="status">{{ t('auth.register.created') }}</p>
+      <a routerLink="/verify-email">{{ t('auth.register.verificationHelp') }}</a>
+    } @else {
+      <app-register-form
+        [submissionEnabled]="true"
+        [pending]="pending()"
+        (submitted)="submit($event)"
+      />
+    }
+    @if (error()) {
+      <p role="alert">{{ error() }}</p>
+    }
+    <p class="auth-switch">
+      {{ t('auth.register.already') }} <a routerLink="/login">{{ t('auth.register.signIn') }}</a>
     </p>
-    <a routerLink="/verify-email">Verification help</a>
-  } @else {
-    <app-register-form
-      [submissionEnabled]="true"
-      [pending]="pending()"
-      (submitted)="submit($event)"
-    />
-  }
-  @if (error()) {
-    <p role="alert">{{ error() }}</p>
-  }
-  <p class="auth-switch">Already have an account? <a routerLink="/login">Sign in</a></p>
-</app-auth-frame>
+  </app-auth-frame>
+</ng-container>

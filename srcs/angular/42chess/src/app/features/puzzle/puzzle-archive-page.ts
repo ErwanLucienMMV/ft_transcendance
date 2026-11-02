@@ -6,18 +6,13 @@ import { ARCHIVE_PAGE, ArchivedPuzzle, PuzzlesApi } from './puzzles-api';
 import { Alert } from '../../shared/ui/alert';
 import { EmptyState } from '../../shared/ui/empty-state';
 import { Pager } from '../../shared/ui/pager';
-
-const STATUS: Record<NonNullable<ArchivedPuzzle['status']> | 'NEW', string> = {
-  SOLVED: 'Solved',
-  FAILED: 'Failed',
-  STARTED: 'In progress',
-  NEW: 'Not tried',
-};
+import { tr } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 /** Earlier days' puzzles, newest first, with how the player did on each. */
 @Component({
   selector: 'app-puzzle-archive-page',
-  imports: [Pager, EmptyState, Alert, RouterLink],
+  imports: [TranslocoDirective, Pager, EmptyState, Alert, RouterLink],
   templateUrl: './puzzle-archive-page.html',
   styleUrl: './puzzle-archive-page.css',
 })
@@ -48,7 +43,7 @@ export class PuzzleArchivePage {
   }
 
   status(item: ArchivedPuzzle): string {
-    return STATUS[item.status ?? 'NEW'];
+    return tr(`puzzle.archive.status.${item.status ?? 'NEW'}`);
   }
 
   go(page: number): void {

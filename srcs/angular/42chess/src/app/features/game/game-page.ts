@@ -38,12 +38,14 @@ import { Icon } from '../../shared/ui/icon';
 import { Toasts } from '../../shared/ui/toasts';
 import { UserAvatar } from '../../shared/user-avatar';
 import { Challenges } from '../social/challenge';
-import { ApiError } from '../../core/api/api-error';
 import { GameChat } from './game-chat';
 import { GameClock } from './game-clock';
 import { GamesApi, timeControlLabel } from './games-api';
 import { formatClock } from './game-clock';
 import { EmptyState } from '../../shared/ui/empty-state';
+import { tr, trCount } from '../../core/i18n/i18n';
+import { errorText } from '../../core/api/error-text';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 /** A side that does not play its first move within this delay aborts the game (server rule). */
 const FIRST_MOVE_MS = 30_000;
@@ -66,6 +68,7 @@ interface Seat {
 @Component({
   selector: 'app-game-page',
   imports: [
+    TranslocoDirective,
     EmptyState,
     CapturedPieces,
     ChessBoard,
@@ -282,6 +285,7 @@ export class GamePage {
     const left = Math.max(0, Date.parse(entry.claimableAt) - now);
     return { left, claimable: left === 0 };
   });
+  readonly watchers = computed(() => trCount('game.watchers', this.spectators()));
   readonly format = formatClock;
   /** The server's time now, as far as the last clock sync tells: deadlines are the server's. */
   private serverNow(): number {
@@ -292,20 +296,23 @@ export class GamePage {
     const game = this.game();
     if (!game) return '';
     const label = timeControlLabel(game.timeControl);
-    if (this.bot()) return `Against the computer · ${label}`;
-    return `${game.rated ? 'Rated' : 'Casual'} · ${label}`;
+    if (this.bot()) return tr('game.kindBot', { control: label });
+    return tr('game.kind', {
+      kind: tr(game.rated ? 'common.rated' : 'common.casual'),
+      control: label,
+    });
   });
 
   readonly headline = computed(() => {
     const game = this.game();
     if (!game) return '';
-    if (game.status === 'WAITING') return 'Waiting for an opponent';
+    if (game.status === 'WAITING') return tr('game.waitingOpponent');
     if (game.status === 'FINISHED') return this.outcome();
-    if (!this.myColor()) return `${game.board.turn === 'WHITE' ? 'White' : 'Black'} to move`;
-    if (this.botFailed()) return 'The bot could not play';
-    if (this.botThinking()) return 'The bot is thinking…';
-    if (this.myTurn()) return this.previewing() ? 'Sending your move…' : 'Your turn';
-    return "Opponent's turn";
+    if (!this.myColor()) return tr('game.toMove', { side: tr(`game.sides.${game.board.turn}`) });
+    if (this.botFailed()) return tr('game.botCouldNot');
+    if (this.botThinking()) return tr('game.botThinking');
+    if (this.myTurn()) return tr(this.previewing() ? 'game.sending' : 'game.yourTurn');
+    return tr('game.opponentTurn');
   });
 
   /** The analysis board opens on the position the game reached. */
@@ -319,11 +326,11 @@ export class GamePage {
     switch (this.realtime.transport.state()) {
       case 'connecting':
       case 'authenticating':
-        return 'Connecting to the game…';
+        return tr('game.connecting');
       case 'reconnecting':
-        return 'Connection lost. Reconnecting…';
+        return tr('game.reconnecting');
       case 'unavailable':
-        return 'You are offline from this game.';
+        return tr('game.offline');
       default:
         return null;
     }
@@ -345,7 +352,9 @@ export class GamePage {
         untracked(() => this.realtime.watch(this.gameId(), 'spectator'));
     });
     // "Your move" in the tab title, so a player in another tab knows.
-    effect(() => this.title.status.set(this.myTurn() && !this.previewing() ? 'Your move' : null));
+    effect(() =>
+      this.title.status.set(this.myTurn() && !this.previewing() ? tr('game.yourMove') : null),
+    );
     this.soundsAndRating();
     if (this.browser) {
       const timer = setInterval(() => this.now.set(Date.now()), 200);
@@ -418,11 +427,7 @@ export class GamePage {
     this.rematching.set(true);
     const failed = (error: unknown) => {
       this.rematching.set(false);
-      this.toasts.error(
-        error instanceof ApiError
-          ? error.message
-          : 'The rematch could not be started. Check your connection, then try again.',
-      );
+      this.toasts.error(errorText(error, tr('game.rematchFailed')));
     };
     if (opponent.botDifficulty) {
       this.games
@@ -463,9 +468,9 @@ export class GamePage {
   async copyPgn(): Promise<void> {
     try {
       await navigator.clipboard.writeText(this.pgn());
-      this.toasts.success('PGN copied to the clipboard.');
+      this.toasts.success(tr('game.pgnCopied'));
     } catch {
-      this.toasts.error('The PGN could not be copied. Use Download PGN instead.');
+      this.toasts.error(tr('game.pgnFailed'));
     }
   }
 
@@ -492,7 +497,7 @@ export class GamePage {
       next: () => this.retryingBot.set(false),
       error: () => {
         this.retryingBot.set(false);
-        this.retryError.set('The bot is still unavailable. Try again in a moment.');
+        this.retryError.set(tr('game.botStillDown'));
       },
     });
   }
@@ -512,9 +517,11 @@ export class GamePage {
   }
 
   name(player: GamePlayer | null): string {
-    if (!player) return 'Waiting for a player';
+    if (!player) return tr('game.waitingPlayer');
     if (player.botDifficulty) return botName(player.botDifficulty);
-    return player.id === this.me() ? `${player.username} (you)` : displayName(player.username);
+    return player.id === this.me()
+      ? tr('game.you', { name: player.username })
+      : displayName(player.username);
   }
 
   /** Leaves the spectator room for the list of live games. */
@@ -557,6 +564,6 @@ export class GamePage {
 
   private outcome(): string {
     const result = this.game()?.result;
-    return result ? resultText(result, this.myColor()) : 'Game over';
+    return result ? resultText(result, this.myColor()) : tr('game.over');
   }
 }

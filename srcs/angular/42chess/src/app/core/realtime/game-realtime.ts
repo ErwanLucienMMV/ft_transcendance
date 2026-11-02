@@ -4,6 +4,7 @@ import { AuthSession } from '../auth/auth-session';
 import { GameClockSync, type ClockSample } from './game-clock-sync';
 import { RealtimeService, ServerEvent } from './realtime.service';
 import { isUuid } from '../api/ids';
+import { tr, TranslationKey, trIfExists } from '../i18n/i18n';
 
 export type PlayerColor = 'WHITE' | 'BLACK';
 export type Promotion = 'QUEEN' | 'ROOK' | 'BISHOP' | 'KNIGHT';
@@ -71,31 +72,6 @@ export interface GameSnapshot {
 }
 export type WatchMode = 'player' | 'spectator';
 
-/** Server codes the game page can explain; anything else gets the generic message. */
-const ERROR_MESSAGES: Record<string, string> = {
-  ILLEGAL_MOVE: 'That move is not legal in this position.',
-  WRONG_TURN: 'It is not your turn.',
-  GAME_NOT_ACTIVE: 'This game is not in progress.',
-  GAME_ALREADY_FINISHED: 'This game has already finished.',
-  NOT_A_PLAYER: 'Only the players of this game can join it.',
-  NOT_INVITED: 'This game is reserved for the invited player.',
-  OPPONENT_AWAY: 'The player who created this game is not here. Try again when they are back.',
-  SPECTATOR_READ_ONLY: 'Spectators cannot play in this game.',
-  GAME_NOT_FOUND: 'This game does not exist.',
-  GAME_BUSY: 'The bot is still thinking. Try again in a moment.',
-  DRAW_ALREADY_OFFERED: 'A draw offer is already pending.',
-  DRAW_NOT_OFFERED: 'There is no draw offer to answer.',
-  OWN_DRAW_OFFER: 'You cannot answer your own draw offer.',
-  BOT_DRAW_UNSUPPORTED: 'The bot does not accept draw offers.',
-  BOT_UNAVAILABLE: 'The bot is unavailable right now.',
-  TOO_MANY_REQUESTS: 'Too many actions at once. Slow down a little.',
-  DRAW_OFFER_TOO_SOON: 'Play a few more moves before offering a draw again.',
-  DRAW_NOT_CLAIMABLE: 'The position does not allow a draw claim yet.',
-  ABORT_TOO_LATE: 'Both players have moved: the game can no longer be aborted.',
-  OPPONENT_STILL_HERE: 'Your opponent has not been away long enough to claim the game.',
-  CLAIM_NOT_ALLOWED: 'This game cannot be claimed.',
-  ACTIVE_GAME_EXISTS: 'One of the players is already in another game.',
-};
 const SQUARE = /^[a-h][1-8]$/;
 
 /** View-independent adapter. GAME_STATE remains the authoritative full snapshot. */
@@ -269,7 +245,7 @@ export class GameRealtime {
       this.pending.set(false);
       this.error.set({
         code,
-        message: ERROR_MESSAGES[code] ?? 'The game request could not be completed.',
+        message: trIfExists(`game.errors.${code}` as TranslationKey) ?? tr('game.errors.generic'),
       });
       return;
     }

@@ -25,6 +25,8 @@ import { GamesApi, GameView } from '../game/games-api';
 import { Alert } from '../../shared/ui/alert';
 import { EmptyState } from '../../shared/ui/empty-state';
 import { isUuid } from '../../core/api/ids';
+import { tr } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 /** One move per step while the replay plays by itself. */
 export const AUTOPLAY_MS = 1000;
@@ -35,7 +37,7 @@ export const AUTOPLAY_MS = 1000;
  */
 @Component({
   selector: 'app-replay-page',
-  imports: [EmptyState, Alert, ChessBoard, Icon, MoveList, RouterLink],
+  imports: [TranslocoDirective, EmptyState, Alert, ChessBoard, Icon, MoveList, RouterLink],
   templateUrl: './replay-page.html',
   styleUrl: './replay-page.css',
   host: { '(document:keydown)': 'key($event)' },
@@ -74,7 +76,7 @@ export class ReplayPage {
   readonly atEnd = computed(() => this.ply() === this.moves().length);
   readonly headline = computed(() => {
     const result = this.game()?.result;
-    return result ? resultText(result, this.myColor()) : 'Game replay';
+    return result ? resultText(result, this.myColor()) : tr('history.replay.title');
   });
   /** The analysis board opens on the position shown. */
   readonly analysisLink = computed(() => ({ fen: this.fen() }));
@@ -151,7 +153,7 @@ export class ReplayPage {
     this.moves.set([]);
     if (!isUuid(id)) {
       this.loading.set(false);
-      this.error.set('This game does not exist.');
+      this.error.set(tr('history.replay.missing'));
       return;
     }
     this.loading.set(true);
@@ -166,8 +168,8 @@ export class ReplayPage {
         const status = error instanceof ApiError ? error.statusCode : 0;
         this.error.set(
           status === 404 || status === 400
-            ? 'This game does not exist.'
-            : 'The game could not be loaded. Try again later.',
+            ? tr('history.replay.missing')
+            : tr('history.replay.failed'),
         );
       },
     });

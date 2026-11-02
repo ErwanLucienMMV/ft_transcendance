@@ -1,16 +1,23 @@
-<app-auth-frame>
-  <h1>Welcome back</h1>
-  <p class="auth-intro">Sign in to pick up where you left off.</p>
-  @if (auth.session.notice()) {
-    <p role="status">{{ auth.session.notice() }}</p>
-  }
-  <app-login-form [submissionEnabled]="true" [pending]="pending()" (submitted)="submit($event)" />
-  <p class="auth-forgot"><a routerLink="/forgot-password">Forgot your password?</a></p>
-  @if (error()) {
-    <p role="alert">{{ error() }}</p>
-  }
-  <app-resend-verification />
-  <app-oauth-sign-in />
-  <p class="auth-switch">New to 42 Chess? <a routerLink="/register">Create an account</a></p>
-  <p class="auth-footnote">A familiar board. A fresh beginning.</p>
-</app-auth-frame>
+<ng-container *transloco="let t">
+  <app-auth-frame>
+    <h1>{{ t('auth.login.title') }}</h1>
+    <p class="auth-intro">{{ t('auth.login.intro') }}</p>
+    @if (auth.session.notice()) {
+      <p role="status">{{ auth.session.notice() }}</p>
+    }
+    <app-login-form [submissionEnabled]="true" [pending]="pending()" (submitted)="submit($event)" />
+    <p class="auth-forgot">
+      <a routerLink="/forgot-password">{{ t('auth.login.forgot') }}</a>
+    </p>
+    @if (error()) {
+      <p role="alert">{{ error() }}</p>
+    }
+    <app-resend-verification />
+    <app-oauth-sign-in />
+    <p class="auth-switch">
+      {{ t('auth.login.newHere') }}
+      <a routerLink="/register">{{ t('auth.login.createAccount') }}</a>
+    </p>
+    <p class="auth-footnote">{{ t('auth.login.footnote') }}</p>
+  </app-auth-frame>
+</ng-container>

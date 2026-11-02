@@ -1,209 +1,215 @@
-<section class="design-page page" aria-labelledby="design-title">
-  <header class="page-head">
-    <div>
-      <span class="eyebrow">Design system</span>
-      <h1 id="design-title">How 42 Chess looks</h1>
-      <p>
-        Every colour, text style and reusable component of the site, drawn by the real code. Switch
-        the theme to check both.
-      </p>
-    </div>
-    <app-segmented
-      label="Theme"
-      [options]="themes"
-      [value]="preferences.theme()"
-      (valueChange)="preferences.setTheme($event)"
-    />
-  </header>
+<ng-container *transloco="let t">
+  <section class="design-page page" aria-labelledby="design-title">
+    <header class="page-head">
+      <div>
+        <span class="eyebrow">{{ t('app.designSystem') }}</span>
+        <h1 id="design-title">{{ t('design.title') }}</h1>
+        <p>{{ t('design.intro') }}</p>
+      </div>
+      <app-segmented
+        [label]="t('app.theme')"
+        [options]="themes()"
+        [value]="preferences.theme()"
+        (valueChange)="preferences.setTheme($event)"
+      />
+    </header>
 
-  <nav class="toc card" aria-label="On this page">
-    @for (item of sections; track item.id) {
-      <a [routerLink]="[]" [fragment]="item.id">{{ item.label }}</a>
-    }
-  </nav>
+    <nav class="toc card" [attr.aria-label]="t('design.onThisPage')">
+      @for (item of sections; track item.id) {
+        <a [routerLink]="[]" [fragment]="item.id">{{ t(item.label) }}</a>
+      }
+    </nav>
 
-  <section id="colours" class="card" aria-labelledby="colours-title">
-    <h2 id="colours-title">Colours</h2>
-    <p class="muted">
-      Tokens on <code>:root</code> in <code>styles.css</code>; the light theme redefines them under
-      <code>[data-theme='light']</code>. Components use tokens only.
-    </p>
-    @for (group of palette; track group.group) {
-      <h3>{{ group.group }}</h3>
-      <ul class="swatches">
-        @for (token of group.tokens; track token) {
+    <section id="colours" class="card" aria-labelledby="colours-title">
+      <h2 id="colours-title">{{ t('design.sections.colours') }}</h2>
+      <p class="muted" [innerHTML]="t('design.coloursNote')"></p>
+      @for (group of palette; track group.group) {
+        <h3>{{ t('design.groups.' + group.group) }}</h3>
+        <ul class="swatches">
+          @for (token of group.tokens; track token) {
+            <li>
+              <span class="swatch" [style.background]="'var(' + token + ')'"></span>
+              <code>{{ token }}</code>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section id="type" class="card" aria-labelledby="type-title">
+      <h2 id="type-title">{{ t('design.sections.type') }}</h2>
+      <div class="type-scale">
+        <p class="eyebrow">{{ t('design.typeSamples.eyebrow') }}</p>
+        <p class="h1">{{ t('design.typeSamples.h1') }}</p>
+        <p class="h2">{{ t('design.typeSamples.h2') }}</p>
+        <p class="h3">{{ t('design.typeSamples.h3') }}</p>
+        <p>{{ t('design.typeSamples.body') }}</p>
+        <p class="muted">{{ t('design.typeSamples.muted') }}</p>
+        <p>
+          <small>{{ t('design.typeSamples.small') }}</small>
+        </p>
+        <p><code>1. e4 e5 2. Nf3</code> {{ t('design.typeSamples.mono') }}</p>
+      </div>
+    </section>
+
+    <section id="icons" class="card" aria-labelledby="icons-title">
+      <h2 id="icons-title">{{ t('design.sections.icons') }}</h2>
+      <p class="muted" [innerHTML]="t('design.iconsNote')"></p>
+      <ul class="icons">
+        @for (name of icons; track name) {
           <li>
-            <span class="swatch" [style.background]="'var(' + token + ')'"></span>
-            <code>{{ token }}</code>
+            <app-icon [name]="name" /><small>{{ name }}</small>
           </li>
         }
       </ul>
-    }
-  </section>
+    </section>
 
-  <section id="type" class="card" aria-labelledby="type-title">
-    <h2 id="type-title">Type</h2>
-    <div class="type-scale">
-      <p class="eyebrow">Eyebrow · section label</p>
-      <p class="h1">Page title (h1), 28 px display</p>
-      <p class="h2">Section title (h2), 17 px display</p>
-      <p class="h3">Subsection title (h3)</p>
-      <p>Body text, 15 px. A game ends by checkmate, resignation, time or agreement.</p>
-      <p class="muted">Muted text explains or adds detail.</p>
-      <p><small>Small text for dates and counts.</small></p>
-      <p><code>1. e4 e5 2. Nf3</code> monospace for moves, codes and tokens.</p>
-    </div>
-  </section>
-
-  <section id="icons" class="card" aria-labelledby="icons-title">
-    <h2 id="icons-title">Icons</h2>
-    <p class="muted">
-      <code>&lt;app-icon name="…" /&gt;</code>: 24 px strokes in the text colour, hidden from screen
-      readers, so a button keeps its words or an <code>aria-label</code>.
-    </p>
-    <ul class="icons">
-      @for (name of icons; track name) {
-        <li>
-          <app-icon [name]="name" /><small>{{ name }}</small>
-        </li>
-      }
-    </ul>
-  </section>
-
-  <section id="actions" class="card" aria-labelledby="actions-title">
-    <h2 id="actions-title">Buttons and fields</h2>
-    <div class="row">
-      <button type="button">Primary</button>
-      <button type="button" class="secondary">Secondary</button>
-      <button type="button" class="ghost">Ghost</button>
-      <button type="button" class="danger">Danger</button>
-      <button type="button" class="secondary small"><app-icon name="flip" />Small</button>
-      <button type="button" disabled>Disabled</button>
-      <a class="button secondary" routerLink="/play">A link as a button</a>
-    </div>
-    <div class="fields">
-      <div class="form-field">
-        <label for="design-name">Username</label>
-        <input id="design-name" placeholder="magnus" />
+    <section id="actions" class="card" aria-labelledby="actions-title">
+      <h2 id="actions-title">{{ t('design.sections.actions') }}</h2>
+      <div class="row">
+        <button type="button">{{ t('design.buttons.primary') }}</button>
+        <button type="button" class="secondary">{{ t('design.buttons.secondary') }}</button>
+        <button type="button" class="ghost">{{ t('design.buttons.ghost') }}</button>
+        <button type="button" class="danger">{{ t('design.buttons.danger') }}</button>
+        <button type="button" class="secondary small">
+          <app-icon name="flip" />{{ t('design.buttons.small') }}
+        </button>
+        <button type="button" disabled>{{ t('design.buttons.disabled') }}</button>
+        <a class="button secondary" routerLink="/play">{{ t('design.buttons.link') }}</a>
       </div>
-      <div class="form-field">
-        <label for="design-invalid">Email address</label>
-        <input
-          id="design-invalid"
-          value="not-an-email"
-          aria-invalid="true"
-          aria-describedby="design-invalid-error"
-        />
-        <p id="design-invalid-error">Enter a valid email address.</p>
-      </div>
-      <div class="form-field">
-        <label for="design-select">Time control</label>
-        <select id="design-select">
-          <option>10 + 0</option>
-          <option>5 + 3</option>
-        </select>
-      </div>
-    </div>
-    <label class="switch">
-      <input type="checkbox" checked />
-      <span>A switch: an on/off setting</span>
-    </label>
-  </section>
-
-  <section id="feedback" class="card" aria-labelledby="feedback-title">
-    <h2 id="feedback-title">Feedback</h2>
-    <h3>Alerts</h3>
-    <div class="stack">
-      @for (tone of tones; track tone) {
-        <app-alert [tone]="tone" [heading]="tone[0].toUpperCase() + tone.slice(1)">
-          <p>An {{ tone }} message about this page.</p>
-        </app-alert>
-      }
-    </div>
-    <h3>Toasts</h3>
-    <p class="muted">News from elsewhere, top right. Errors go when the player changes page.</p>
-    <div class="row">
-      @for (tone of tones; track tone) {
-        <button type="button" class="secondary small" (click)="toast(tone)">Show {{ tone }}</button>
-      }
-    </div>
-    <h3>Empty and loading</h3>
-    <div class="split">
-      <app-empty-state piece="pawn" heading="No finished games yet.">
-        <p>Your games appear here once they end.</p>
-        <a class="button" routerLink="/play">Play a game</a>
-      </app-empty-state>
-      <app-empty-state [loading]="true"
-        ><app-spinner label="Loading your games…" [showLabel]="true"
-      /></app-empty-state>
-    </div>
-    <h3>Badges</h3>
-    <div class="row">
-      @for (tone of badgeTones; track tone) {
-        <app-badge [tone]="tone">{{ tone }}</app-badge>
-      }
-    </div>
-    <h3>Dialog</h3>
-    <div class="row">
-      <button type="button" class="danger" (click)="dialog.open()">Remove a friend…</button>
-      @if (answer(); as text) {
-        <span class="muted" role="status">Answer: {{ text }}</span>
-      }
-    </div>
-    <app-confirm-dialog
-      #dialog
-      heading="Remove bob from your friends?"
-      confirmLabel="Remove friend"
-      tone="danger"
-      (confirmed)="answer.set('removed')"
-      (cancelled)="answer.set('kept')"
-    >
-      <p>Either of you can send a new request later.</p>
-    </app-confirm-dialog>
-  </section>
-
-  <section id="navigation" class="card" aria-labelledby="navigation-title">
-    <h2 id="navigation-title">Choices and pages</h2>
-    <app-segmented label="Speed" [options]="speeds" [(value)]="speed" />
-    <app-pager [page]="page()" [pages]="5" label="Example pages" (pageChange)="page.set($event)" />
-  </section>
-
-  <section id="chess" class="card" aria-labelledby="chess-title">
-    <h2 id="chess-title">Chess</h2>
-    <div class="chess">
-      <app-chess-board
-        [fen]="fen"
-        [lastMove]="{ from: 'c6', to: 'd5' }"
-        [annotations]="true"
-        [animate]="false"
-      />
-      <div class="stack">
-        <p class="muted">
-          Drag or click to move, arrow keys to walk the squares, right-click to draw arrows.
-        </p>
-        <app-captured-pieces [fen]="fen" color="WHITE" />
-        <app-captured-pieces [fen]="fen" color="BLACK" />
-        <div class="move-list">
-          <app-move-list
-            [rows]="rows"
-            [current]="ply()"
-            [navigable]="true"
-            (selected)="ply.set($event)"
+      <div class="fields">
+        <div class="form-field">
+          <label for="design-name">{{ t('auth.register.username') }}</label>
+          <input id="design-name" placeholder="magnus" />
+        </div>
+        <div class="form-field">
+          <label for="design-invalid">{{ t('auth.register.email') }}</label>
+          <input
+            id="design-invalid"
+            value="not-an-email"
+            aria-invalid="true"
+            aria-describedby="design-invalid-error"
           />
+          <p id="design-invalid-error">{{ t('auth.register.emailError') }}</p>
+        </div>
+        <div class="form-field">
+          <label for="design-select">{{ t('play.timeControl') }}</label>
+          <select id="design-select">
+            <option>10 + 0</option>
+            <option>5 + 3</option>
+          </select>
         </div>
       </div>
-    </div>
-  </section>
+      <label class="switch">
+        <input type="checkbox" checked />
+        <span>{{ t('design.switch') }}</span>
+      </label>
+    </section>
 
-  <section id="players" class="card" aria-labelledby="players-title">
-    <h2 id="players-title">Players</h2>
-    <div class="row">
-      <app-avatar username="alice" />
-      <app-avatar username="bob" />
-      <app-presence-badge status="ONLINE" />
-      <app-presence-badge status="IN_GAME" />
-      <app-presence-badge status="OFFLINE" />
-    </div>
-    <app-level-bar [progress]="progress" />
+    <section id="feedback" class="card" aria-labelledby="feedback-title">
+      <h2 id="feedback-title">{{ t('design.sections.feedback') }}</h2>
+      <h3>{{ t('design.alerts') }}</h3>
+      <div class="stack">
+        @for (tone of tones; track tone) {
+          <app-alert [tone]="tone" [heading]="t('design.tones.' + tone + '.heading')">
+            <p>{{ t('design.tones.' + tone + '.text') }}</p>
+          </app-alert>
+        }
+      </div>
+      <h3>{{ t('design.toasts') }}</h3>
+      <p class="muted">{{ t('design.toastsNote') }}</p>
+      <div class="row">
+        @for (tone of tones; track tone) {
+          <button type="button" class="secondary small" (click)="toast(tone)">
+            {{ t('design.show', { tone: t('design.tones.' + tone + '.name') }) }}
+          </button>
+        }
+      </div>
+      <h3>{{ t('design.empty') }}</h3>
+      <div class="split">
+        <app-empty-state piece="pawn" [heading]="t('history.none')">
+          <p>{{ t('history.noneHelp') }}</p>
+          <a class="button" routerLink="/play">{{ t('history.play') }}</a>
+        </app-empty-state>
+        <app-empty-state [loading]="true"
+          ><app-spinner [label]="t('history.loading')" [showLabel]="true"
+        /></app-empty-state>
+      </div>
+      <h3>{{ t('design.badges') }}</h3>
+      <div class="row">
+        @for (tone of badgeTones; track tone) {
+          <app-badge [tone]="tone">{{ t('design.badgeTones.' + tone) }}</app-badge>
+        }
+      </div>
+      <h3>{{ t('design.dialog') }}</h3>
+      <div class="row">
+        <button type="button" class="danger" (click)="dialog.open()">
+          {{ t('design.removeFriend') }}
+        </button>
+        @if (answer(); as text) {
+          <span class="muted" role="status">{{
+            t('design.answer', { text: t('design.answers.' + text) })
+          }}</span>
+        }
+      </div>
+      <app-confirm-dialog
+        #dialog
+        [heading]="t('social.friends.removeTitle', { name: 'bob' })"
+        [confirmLabel]="t('social.friends.removeConfirm')"
+        tone="danger"
+        (confirmed)="answer.set('removed')"
+        (cancelled)="answer.set('kept')"
+      >
+        <p>{{ t('design.shortRemoveText') }}</p>
+      </app-confirm-dialog>
+    </section>
+
+    <section id="navigation" class="card" aria-labelledby="navigation-title">
+      <h2 id="navigation-title">{{ t('design.sections.navigation') }}</h2>
+      <app-segmented [label]="t('design.speed')" [options]="speeds()" [(value)]="speed" />
+      <app-pager
+        [page]="page()"
+        [pages]="5"
+        [label]="t('design.examplePages')"
+        (pageChange)="page.set($event)"
+      />
+    </section>
+
+    <section id="chess" class="card" aria-labelledby="chess-title">
+      <h2 id="chess-title">{{ t('design.sections.chess') }}</h2>
+      <div class="chess">
+        <app-chess-board
+          [fen]="fen"
+          [lastMove]="{ from: 'c6', to: 'd5' }"
+          [annotations]="true"
+          [animate]="false"
+        />
+        <div class="stack">
+          <p class="muted">{{ t('design.boardHelp') }}</p>
+          <app-captured-pieces [fen]="fen" color="WHITE" />
+          <app-captured-pieces [fen]="fen" color="BLACK" />
+          <div class="move-list">
+            <app-move-list
+              [rows]="rows"
+              [current]="ply()"
+              [navigable]="true"
+              (selected)="ply.set($event)"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="players" class="card" aria-labelledby="players-title">
+      <h2 id="players-title">{{ t('design.sections.players') }}</h2>
+      <div class="row">
+        <app-avatar username="alice" />
+        <app-avatar username="bob" />
+        <app-presence-badge status="ONLINE" />
+        <app-presence-badge status="IN_GAME" />
+        <app-presence-badge status="OFFLINE" />
+      </div>
+      <app-level-bar [progress]="progress" />
+    </section>
   </section>
-</section>
+</ng-container>

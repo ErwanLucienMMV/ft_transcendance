@@ -69,13 +69,28 @@ export function squareIndex(name: string): number {
   return (8 - Number(name[1])) * 8 + FILES.indexOf(name[0]);
 }
 
+/** What is wrong with a FEN, so a page can say it in the player's language (`board.fen`). */
+export type FenProblem =
+  'fields' | 'ranks' | 'piece' | 'width' | 'kings' | 'turn' | 'castling' | 'enPassant' | 'counters';
+
+export class FenError extends Error {
+  constructor(
+    readonly problem: FenProblem,
+    message: string,
+    /** The offending text, such as the unknown piece letter. */
+    readonly value = '',
+  ) {
+    super(message);
+  }
+}
+
 /** Throws on anything the board cannot draw safely; full legality is the server's job. */
 export function parseFen(fen: string): Position {
   const fields = fen.trim().split(/\s+/);
-  if (fields.length !== 6) throw new Error('A FEN needs six fields.');
+  if (fields.length !== 6) throw new FenError('fields', 'A FEN needs six fields.');
   const [placement, turn, castling, enPassant, halfmove, fullmove] = fields;
   const ranks = placement.split('/');
-  if (ranks.length !== 8) throw new Error('A FEN needs eight ranks.');
+  if (ranks.length !== 8) throw new FenError('ranks', 'A FEN needs eight ranks.');
   const board: (Piece | null)[] = [];
   for (const rank of ranks) {
     let width = 0;
@@ -90,22 +105,22 @@ export function parseFen(fen: string): Position {
           type: char.toLowerCase() as PieceType,
         });
       } else {
-        throw new Error(`Invalid FEN piece: ${char}`);
+        throw new FenError('piece', `Invalid FEN piece: ${char}`, char);
       }
     }
-    if (width !== 8) throw new Error('Each FEN rank needs eight squares.');
+    if (width !== 8) throw new FenError('width', 'Each FEN rank needs eight squares.');
   }
   for (const color of ['w', 'b'] as const) {
     if (board.filter((piece) => piece?.type === 'k' && piece.color === color).length !== 1)
-      throw new Error('Each side needs exactly one king.');
+      throw new FenError('kings', 'Each side needs exactly one king.');
   }
-  if (turn !== 'w' && turn !== 'b') throw new Error('Invalid side to move.');
+  if (turn !== 'w' && turn !== 'b') throw new FenError('turn', 'Invalid side to move.');
   if (!/^(-|K?Q?k?q?)$/.test(castling) || castling === '')
-    throw new Error('Invalid castling field.');
+    throw new FenError('castling', 'Invalid castling field.');
   if (enPassant !== '-' && !new RegExp(`^[a-h]${turn === 'w' ? 6 : 3}$`).test(enPassant))
-    throw new Error('Invalid en passant square.');
+    throw new FenError('enPassant', 'Invalid en passant square.');
   if (!/^\d+$/.test(halfmove) || !/^[1-9]\d*$/.test(fullmove))
-    throw new Error('Invalid move counters.');
+    throw new FenError('counters', 'Invalid move counters.');
   return {
     board,
     turn,

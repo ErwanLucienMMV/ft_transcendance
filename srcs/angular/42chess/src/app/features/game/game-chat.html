@@ -1,82 +1,84 @@
-<section class="game-chat panel-section" aria-labelledby="chat-title">
-  <div class="chat-head">
-    <h2 id="chat-title">Chat</h2>
-    @if (seatedViewer()) {
-      <label class="switch small-switch">
-        <input type="checkbox" [checked]="hideSpectators()" (change)="toggleSpectators($event)" />
-        <span>Hide spectators</span>
-      </label>
-    }
-  </div>
-  @if (loadFailed()) {
-    <div class="error" role="alert">
-      <p>Chat messages could not be loaded, so some may be missing.</p>
-      <button type="button" class="button secondary" (click)="retry()">Try again</button>
-    </div>
-  }
-  <div class="log" #log role="log" aria-label="Game chat">
-    @if (truncated()) {
-      <p class="muted">Only the latest messages are shown.</p>
-    }
-    @if (loaded() && messages().length === 0) {
-      <p class="muted">No message yet.</p>
-    }
-    @if (hidden(); as count) {
-      <p class="muted">
-        {{ count }} spectator {{ count === 1 ? 'message is' : 'messages are' }} hidden.
-      </p>
-    }
-    <ol>
-      @for (message of visible(); track message.id) {
-        <li [class.mine]="mine(message)" [class.spectator]="spectator(message)">
-          <strong
-            >{{ message.sender.username }}
-            @if (spectator(message)) {
-              <small class="tag">spectator</small>
-            }
-          </strong>
-          <p>{{ message.content }}</p>
-          <time [attr.datetime]="message.createdAt">{{
-            message.createdAt | date: 'shortTime'
-          }}</time>
-        </li>
+<ng-container *transloco="let t">
+  <section class="game-chat panel-section" aria-labelledby="chat-title">
+    <div class="chat-head">
+      <h2 id="chat-title">{{ t('game.chat.title') }}</h2>
+      @if (seatedViewer()) {
+        <label class="switch small-switch">
+          <input type="checkbox" [checked]="hideSpectators()" (change)="toggleSpectators($event)" />
+          <span>{{ t('game.chat.hideSpectators') }}</span>
+        </label>
       }
-    </ol>
-  </div>
-  @if (open()) {
-    <form (submit)="$event.preventDefault(); send()">
-      <label for="game-chat-input" class="sr-only">Message the game</label>
-      <textarea
-        id="game-chat-input"
-        rows="1"
-        placeholder="Say something to the table"
-        [value]="draft()"
-        [readOnly]="pending() !== null"
-        [attr.aria-invalid]="tooLong()"
-        aria-describedby="game-chat-count"
-        (input)="input($event)"
-        (keydown)="keydown($event)"
-      ></textarea>
-      <div class="row">
-        <span id="game-chat-count" class="count" [class.over]="tooLong()"
-          >{{ length() }} / {{ maxLength }}</span
-        >
-        <button
-          type="submit"
-          class="button secondary"
-          [disabled]="blank() || tooLong() || pending() !== null"
-        >
-          {{ pending() !== null ? 'Sending…' : 'Send' }}
+    </div>
+    @if (loadFailed()) {
+      <div class="error" role="alert">
+        <p>{{ t('game.chat.loadFailed') }}</p>
+        <button type="button" class="button secondary" (click)="retry()">
+          {{ t('common.tryAgain') }}
         </button>
       </div>
-      @if (tooLong()) {
-        <p class="error" role="alert">A message can have at most {{ maxLength }} characters.</p>
+    }
+    <div class="log" #log role="log" [attr.aria-label]="t('game.chat.log')">
+      @if (truncated()) {
+        <p class="muted">{{ t('game.chat.truncated') }}</p>
       }
-      @if (sendError(); as message) {
-        <p class="error" role="alert">{{ message }}</p>
+      @if (loaded() && messages().length === 0) {
+        <p class="muted">{{ t('game.chat.empty') }}</p>
       }
-    </form>
-  } @else {
-    <p class="muted" role="status">The chat closed when the game ended.</p>
-  }
-</section>
+      @if (hidden(); as count) {
+        <p class="muted">{{ hiddenText(count) }}</p>
+      }
+      <ol>
+        @for (message of visible(); track message.id) {
+          <li [class.mine]="mine(message)" [class.spectator]="spectator(message)">
+            <strong
+              >{{ message.sender.username }}
+              @if (spectator(message)) {
+                <small class="tag">{{ t('game.chat.spectator') }}</small>
+              }
+            </strong>
+            <p>{{ message.content }}</p>
+            <time [attr.datetime]="message.createdAt">{{
+              message.createdAt | localDate: 'shortTime'
+            }}</time>
+          </li>
+        }
+      </ol>
+    </div>
+    @if (open()) {
+      <form (submit)="$event.preventDefault(); send()">
+        <label for="game-chat-input" class="sr-only">{{ t('game.chat.label') }}</label>
+        <textarea
+          id="game-chat-input"
+          rows="1"
+          [placeholder]="t('game.chat.placeholder')"
+          [value]="draft()"
+          [readOnly]="pending() !== null"
+          [attr.aria-invalid]="tooLong()"
+          aria-describedby="game-chat-count"
+          (input)="input($event)"
+          (keydown)="keydown($event)"
+        ></textarea>
+        <div class="row">
+          <span id="game-chat-count" class="count" [class.over]="tooLong()"
+            >{{ length() }} / {{ maxLength }}</span
+          >
+          <button
+            type="submit"
+            class="button secondary"
+            [disabled]="blank() || tooLong() || pending() !== null"
+          >
+            {{ pending() !== null ? t('common.sending') : t('common.send') }}
+          </button>
+        </div>
+        @if (tooLong()) {
+          <p class="error" role="alert">{{ t('game.chat.tooLong', { max: maxLength }) }}</p>
+        }
+        @if (sendError(); as message) {
+          <p class="error" role="alert">{{ message }}</p>
+        }
+      </form>
+    } @else {
+      <p class="muted" role="status">{{ t('game.chat.closed') }}</p>
+    }
+  </section>
+</ng-container>

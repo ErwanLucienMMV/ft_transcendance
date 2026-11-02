@@ -1,11 +1,6 @@
 import { Component, computed, input } from '@angular/core';
 import type { PresenceStatus } from '../features/social/users-api';
-
-const LABELS: Record<PresenceStatus, string> = {
-  ONLINE: 'Online',
-  IN_GAME: 'In a game',
-  OFFLINE: 'Offline',
-};
+import { tr } from '../core/i18n/i18n';
 
 /** Coloured dot plus a word, so the state never relies on colour alone. */
 @Component({
@@ -37,5 +32,5 @@ const LABELS: Record<PresenceStatus, string> = {
 })
 export class PresenceBadge {
   readonly status = input.required<PresenceStatus>();
-  readonly label = computed(() => LABELS[this.status()]);
+  readonly label = computed(() => tr(`shared.presence.${this.status()}`));
 }

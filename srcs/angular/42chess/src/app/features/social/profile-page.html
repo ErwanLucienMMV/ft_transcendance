@@ -1,226 +1,245 @@
-<section class="profile-page page" aria-labelledby="profile-title">
-  @if (error(); as message) {
-    <span class="eyebrow">Player</span>
-    <h1 id="profile-title">Player profile</h1>
-    <app-alert
-      ><p>{{ message }}</p></app-alert
-    >
-    <a class="button secondary" routerLink="/friends">Find players</a>
-  } @else if (profile(); as player) {
-    <header class="identity card">
-      <app-avatar class="avatar initial" [username]="player.username" [url]="player.avatarUrl" />
-      <div class="who">
-        <span class="eyebrow">{{ mine() ? 'Your profile' : 'Player' }}</span>
-        <h1 id="profile-title">{{ player.username }}</h1>
-        <app-presence-badge [status]="status()" />
-      </div>
-      <div class="identity-actions">
-        @if (blocked()) {
-          <p class="note" role="status">
-            You blocked this player. They cannot message you, challenge you or send you a friend
-            request.
-          </p>
-          <p class="actions">
-            <button
-              type="button"
-              class="button secondary"
-              [disabled]="sending()"
-              (click)="unblock()"
-            >
-              Unblock
-            </button>
-          </p>
-        } @else {
-          @switch (friendship()) {
-            @case ('none') {
+<ng-container *transloco="let t">
+  <section class="profile-page page" aria-labelledby="profile-title">
+    @if (error(); as message) {
+      <span class="eyebrow">{{ t('social.profile.player') }}</span>
+      <h1 id="profile-title">{{ t('social.profile.title') }}</h1>
+      <app-alert
+        ><p>{{ message }}</p></app-alert
+      >
+      <a class="button secondary" routerLink="/friends">{{ t('social.profile.findPlayers') }}</a>
+    } @else if (profile(); as player) {
+      <header class="identity card">
+        <app-avatar class="avatar initial" [username]="player.username" [url]="player.avatarUrl" />
+        <div class="who">
+          <span class="eyebrow">{{
+            mine() ? t('social.profile.yours') : t('social.profile.player')
+          }}</span>
+          <h1 id="profile-title">{{ player.username }}</h1>
+          <app-presence-badge [status]="status()" />
+        </div>
+        <div class="identity-actions">
+          @if (blocked()) {
+            <p class="note" role="status">{{ t('social.profile.blocked') }}</p>
+            <p class="actions">
+              <button
+                type="button"
+                class="button secondary"
+                [disabled]="sending()"
+                (click)="unblock()"
+              >
+                {{ t('social.profile.unblock') }}
+              </button>
+            </p>
+          } @else {
+            @switch (friendship()) {
+              @case ('none') {
+                <p class="actions">
+                  <button type="button" class="button" [disabled]="sending()" (click)="addFriend()">
+                    {{ t('social.profile.addFriend') }}
+                  </button>
+                </p>
+              }
+              @case ('failed') {
+                <p class="actions">
+                  <button type="button" class="button" [disabled]="sending()" (click)="addFriend()">
+                    {{ t('social.profile.addFriend') }}
+                  </button>
+                  <span class="note" role="alert">{{ requestError() }}</span>
+                </p>
+              }
+              @case ('sent') {
+                <p class="actions">
+                  <span class="note" role="status">{{ t('social.profile.requestSent') }}</span>
+                  <button
+                    type="button"
+                    class="button ghost"
+                    [disabled]="sending()"
+                    (click)="dropRequest()"
+                  >
+                    {{ t('social.profile.cancelRequest') }}
+                  </button>
+                </p>
+              }
+              @case ('received') {
+                <p class="actions">
+                  <span class="note" role="status">{{
+                    t('social.profile.received', { name: player.username })
+                  }}</span>
+                  <button
+                    type="button"
+                    class="button"
+                    [disabled]="sending()"
+                    (click)="acceptRequest()"
+                  >
+                    {{ t('social.friends.accept') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="button secondary"
+                    [disabled]="sending()"
+                    (click)="dropRequest()"
+                  >
+                    {{ t('social.friends.decline') }}
+                  </button>
+                </p>
+              }
+              @case ('pending') {
+                <p class="note" role="status">
+                  {{ t('social.profile.pending') }}
+                  <a routerLink="/friends">{{ t('social.profile.seeRequests') }}</a>
+                </p>
+              }
+              @case ('friends') {
+                <p class="note" role="status">
+                  {{
+                    becameFriends()
+                      ? t('social.profile.nowFriends', { name: player.username })
+                      : t('social.profile.friends')
+                  }}
+                </p>
+              }
+            }
+
+            @if (canMessage()) {
               <p class="actions">
-                <button type="button" class="button" [disabled]="sending()" (click)="addFriend()">
-                  Add friend
-                </button>
-              </p>
-            }
-            @case ('failed') {
-              <p class="actions">
-                <button type="button" class="button" [disabled]="sending()" (click)="addFriend()">
-                  Add friend
-                </button>
-                <span class="note" role="alert">{{ requestError() }}</span>
-              </p>
-            }
-            @case ('sent') {
-              <p class="actions">
-                <span class="note" role="status">Friend request sent.</span>
-                <button
-                  type="button"
-                  class="button ghost"
-                  [disabled]="sending()"
-                  (click)="dropRequest()"
-                >
-                  Cancel request
-                </button>
-              </p>
-            }
-            @case ('received') {
-              <p class="actions">
-                <span class="note" role="status"
-                  >{{ player.username }} sent you a friend request.</span
-                >
-                <button
-                  type="button"
-                  class="button"
-                  [disabled]="sending()"
-                  (click)="acceptRequest()"
-                >
-                  Accept
-                </button>
-                <button
-                  type="button"
-                  class="button secondary"
-                  [disabled]="sending()"
-                  (click)="dropRequest()"
-                >
-                  Decline
-                </button>
-              </p>
-            }
-            @case ('pending') {
-              <p class="note" role="status">
-                A friend request between you is already pending.
-                <a routerLink="/friends">See your requests</a>
-              </p>
-            }
-            @case ('friends') {
-              <p class="note" role="status">
-                {{
-                  becameFriends()
-                    ? player.username + ' had already asked: you are now friends.'
-                    : 'You are friends.'
-                }}
+                <a class="button secondary" [routerLink]="['/messages', player.id]">{{
+                  t('social.profile.message')
+                }}</a>
+                @if (friendship() === 'friends') {
+                  <button
+                    type="button"
+                    class="button secondary"
+                    [disabled]="challenging()"
+                    (click)="challenge(player.id)"
+                  >
+                    {{ t('social.friends.challenge') }}
+                  </button>
+                }
+                @if (challengeError(); as message) {
+                  <span class="note" role="alert">{{ message }}</span>
+                }
               </p>
             }
           }
 
-          @if (canMessage()) {
+          @if (canMessage() && blocked() === false) {
             <p class="actions">
-              <a class="button secondary" [routerLink]="['/messages', player.id]">Message</a>
-              @if (friendship() === 'friends') {
+              @if (confirmingBlock()) {
+                <span class="note">{{
+                  t('social.profile.confirmBlock', { name: player.username })
+                }}</span>
                 <button
                   type="button"
-                  class="button secondary"
-                  [disabled]="challenging()"
-                  (click)="challenge(player.id)"
+                  class="button danger"
+                  [disabled]="sending()"
+                  (click)="block()"
                 >
-                  Challenge
+                  {{ t('social.profile.block') }}
                 </button>
-              }
-              @if (challengeError(); as message) {
-                <span class="note" role="alert">{{ message }}</span>
+                <button type="button" class="button ghost" (click)="confirmingBlock.set(false)">
+                  {{ t('common.cancel') }}
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="button ghost small"
+                  (click)="confirmingBlock.set(true)"
+                >
+                  {{ t('social.profile.blockPlayer') }}
+                </button>
               }
             </p>
           }
-        }
+          @if (blockError(); as message) {
+            <p class="note" role="alert">{{ message }}</p>
+          }
 
-        @if (canMessage() && blocked() === false) {
-          <p class="actions">
-            @if (confirmingBlock()) {
-              <span class="note">
-                Block {{ player.username }}? This ends your friendship, requests and open
-                challenges. They are not told.
-              </span>
-              <button type="button" class="button danger" [disabled]="sending()" (click)="block()">
-                Block
-              </button>
-              <button type="button" class="button ghost" (click)="confirmingBlock.set(false)">
-                Cancel
-              </button>
+          @if (mine()) {
+            <p class="actions">
+              <a class="button secondary" routerLink="/history">{{
+                t('social.profile.allGames')
+              }}</a>
+              <a class="button secondary" routerLink="/settings">{{
+                t('social.profile.settings')
+              }}</a>
+            </p>
+          }
+        </div>
+      </header>
+
+      <app-player-stats [userId]="player.id" [elo]="player.elo" />
+
+      <div class="columns">
+        <section aria-labelledby="rating-title">
+          <h2 id="rating-title" class="section-title">{{ t('social.profile.ratings') }}</h2>
+          @if (sideFailed().ratings) {
+            <p class="muted">{{ t('social.profile.ratingsFailed') }}</p>
+          } @else if (ratings(); as changes) {
+            @if (changes.length === 0) {
+              <p class="empty">{{ t('social.profile.noRated') }}</p>
             } @else {
-              <button type="button" class="button ghost small" (click)="confirmingBlock.set(true)">
-                Block player
-              </button>
+              <app-elo-chart [history]="changes" />
+              <ol class="rows list">
+                @for (change of changes.slice(0, listed); track change.gameId) {
+                  <li>
+                    <a [routerLink]="['/replay', change.gameId]">
+                      <span
+                        class="change"
+                        [attr.data-sign]="
+                          change.change > 0 ? 'up' : change.change < 0 ? 'down' : 'even'
+                        "
+                        >{{ signed(change.change) }}</span
+                      >
+                      <span>{{ change.ratingBefore }} → {{ change.ratingAfter }}</span>
+                      <time [attr.datetime]="change.createdAt">{{
+                        change.createdAt | localDate: 'mediumDate'
+                      }}</time>
+                    </a>
+                  </li>
+                }
+              </ol>
             }
-          </p>
-        }
-        @if (blockError(); as message) {
-          <p class="note" role="alert">{{ message }}</p>
-        }
+          } @else {
+            <app-spinner [showLabel]="true" />
+          }
+        </section>
 
-        @if (mine()) {
-          <p class="actions">
-            <a class="button secondary" routerLink="/history">All your games</a>
-            <a class="button secondary" routerLink="/settings">Account settings</a>
-          </p>
-        }
+        <section aria-labelledby="recent-title">
+          <h2 id="recent-title" class="section-title">{{ t('social.profile.recent') }}</h2>
+          @if (sideFailed().recent) {
+            <p class="muted">{{ t('social.profile.recentFailed') }}</p>
+          } @else if (recent(); as games) {
+            @if (games.length === 0) {
+              <p class="empty">{{ t('social.profile.noFinished') }}</p>
+            } @else {
+              <ol class="rows list">
+                @for (game of games; track game.id) {
+                  <li>
+                    <a [routerLink]="['/replay', game.id]">
+                      <span class="outcome" [attr.data-outcome]="game.outcome">{{
+                        outcome(game.outcome)
+                      }}</span>
+                      <span>{{
+                        t('social.profile.versus', { name: opponent(game.opponent) })
+                      }}</span>
+                      <time [attr.datetime]="game.endedAt">{{
+                        game.endedAt | localDate: 'mediumDate'
+                      }}</time>
+                    </a>
+                  </li>
+                }
+              </ol>
+            }
+          } @else {
+            <app-spinner [showLabel]="true" />
+          }
+        </section>
       </div>
-    </header>
-
-    <app-player-stats [userId]="player.id" [elo]="player.elo" />
-
-    <div class="columns">
-      <section aria-labelledby="rating-title">
-        <h2 id="rating-title" class="section-title">Rating changes</h2>
-        @if (sideFailed().ratings) {
-          <p class="muted">Rating changes could not be loaded.</p>
-        } @else if (ratings(); as changes) {
-          @if (changes.length === 0) {
-            <p class="empty">No rated game yet.</p>
-          } @else {
-            <app-elo-chart [history]="changes" />
-            <ol class="rows list">
-              @for (change of changes.slice(0, listed); track change.gameId) {
-                <li>
-                  <a [routerLink]="['/replay', change.gameId]">
-                    <span
-                      class="change"
-                      [attr.data-sign]="
-                        change.change > 0 ? 'up' : change.change < 0 ? 'down' : 'even'
-                      "
-                      >{{ signed(change.change) }}</span
-                    >
-                    <span>{{ change.ratingBefore }} → {{ change.ratingAfter }}</span>
-                    <time [attr.datetime]="change.createdAt">{{
-                      change.createdAt | date: 'mediumDate'
-                    }}</time>
-                  </a>
-                </li>
-              }
-            </ol>
-          }
-        } @else {
-          <app-spinner label="Loading…" [showLabel]="true" />
-        }
-      </section>
-
-      <section aria-labelledby="recent-title">
-        <h2 id="recent-title" class="section-title">Recent games</h2>
-        @if (sideFailed().recent) {
-          <p class="muted">Recent games could not be loaded.</p>
-        } @else if (recent(); as games) {
-          @if (games.length === 0) {
-            <p class="empty">No finished game yet.</p>
-          } @else {
-            <ol class="rows list">
-              @for (game of games; track game.id) {
-                <li>
-                  <a [routerLink]="['/replay', game.id]">
-                    <span class="outcome" [attr.data-outcome]="game.outcome">{{
-                      outcome(game.outcome)
-                    }}</span>
-                    <span>vs {{ opponent(game.opponent) }}</span>
-                    <time [attr.datetime]="game.endedAt">{{
-                      game.endedAt | date: 'mediumDate'
-                    }}</time>
-                  </a>
-                </li>
-              }
-            </ol>
-          }
-        } @else {
-          <app-spinner label="Loading…" [showLabel]="true" />
-        }
-      </section>
-    </div>
-  } @else {
-    <h1 id="profile-title" class="sr-only">Player profile</h1>
-    <app-empty-state [loading]="true"><p>Loading the profile…</p></app-empty-state>
-  }
-</section>
+    } @else {
+      <h1 id="profile-title" class="sr-only">{{ t('social.profile.title') }}</h1>
+      <app-empty-state [loading]="true"
+        ><p>{{ t('social.profile.loading') }}</p></app-empty-state
+      >
+    }
+  </section>
+</ng-container>

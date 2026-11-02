@@ -1,10 +1,12 @@
 import { Component, input } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 /** Something is loading; the label is read out and may be shown beside the ring. */
 @Component({
   selector: 'app-spinner',
+  imports: [TranslocoPipe],
   template: `<span class="ring" aria-hidden="true"></span
-    ><span [class.sr-only]="!showLabel()">{{ label() }}</span>`,
+    ><span [class.sr-only]="!showLabel()">{{ label() ?? ('common.loading' | transloco) }}</span>`,
   styles: `
     :host {
       display: inline-flex;
@@ -34,6 +36,7 @@ import { Component, input } from '@angular/core';
   host: { role: 'status' },
 })
 export class Spinner {
-  readonly label = input('Loading…');
+  /** Default: "Loading…" in the language shown. */
+  readonly label = input<string | null>(null);
   readonly showLabel = input(false);
 }

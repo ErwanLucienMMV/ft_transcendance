@@ -9,7 +9,6 @@ import {
   signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { ApiError } from '../../core/api/api-error';
 import { AuthSession } from '../../core/auth/auth-session';
 import { Challenges } from '../social/challenge';
 import { Friend, UsersApi } from '../social/users-api';
@@ -25,6 +24,9 @@ import {
 } from './games-api';
 import { formatClock } from './game-clock';
 import { MatchmakingSearch } from './matchmaking';
+import { tr, TranslationKey } from '../../core/i18n/i18n';
+import { errorText } from '../../core/api/error-text';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 export type ColorChoice = PlayerColor | 'RANDOM';
 
@@ -38,7 +40,7 @@ export const BOT_SUGGESTION_MS = 60_000;
  */
 @Component({
   selector: 'app-play-page',
-  imports: [RouterLink],
+  imports: [TranslocoDirective, RouterLink],
   templateUrl: './play-page.html',
   styleUrl: './play-page.css',
   providers: [MatchmakingSearch],
@@ -68,10 +70,10 @@ export class PlayPage {
   readonly levels = BOT_LEVELS;
   readonly level = signal<BotChoice>(BOT_LEVELS[0]);
   readonly color = signal<ColorChoice>('WHITE');
-  readonly colors: readonly { value: ColorChoice; label: string }[] = [
-    { value: 'WHITE', label: 'White' },
-    { value: 'RANDOM', label: 'Random' },
-    { value: 'BLACK', label: 'Black' },
+  readonly colors: readonly { value: ColorChoice; label: TranslationKey }[] = [
+    { value: 'WHITE', label: 'common.white' },
+    { value: 'RANDOM', label: 'common.random' },
+    { value: 'BLACK', label: 'common.black' },
   ];
   readonly botCreating = signal(false);
   readonly botError = signal<string | null>(null);
@@ -135,11 +137,7 @@ export class PlayPage {
           next: () => this.creating.set(false),
           error: (error: unknown) => {
             this.creating.set(false);
-            this.error.set(
-              error instanceof ApiError
-                ? error.message
-                : 'The challenge could not be sent. Check your connection, then try again.',
-            );
+            this.error.set(errorText(error, tr('play.errors.challenge')));
           },
         });
       return;
@@ -148,9 +146,7 @@ export class PlayPage {
       next: ({ gameId }) => void this.router.navigate(['/game', gameId]),
       error: (error: unknown) => {
         this.creating.set(false);
-        this.error.set(
-          error instanceof ApiError ? error.message : 'The game could not be created.',
-        );
+        this.error.set(errorText(error, tr('play.errors.create')));
       },
     });
   }
@@ -200,9 +196,7 @@ export class PlayPage {
         next: ({ gameId }) => void this.router.navigate(['/game', gameId]),
         error: (error: unknown) => {
           this.botCreating.set(false);
-          this.botError.set(
-            error instanceof ApiError ? error.message : 'The bot game could not be created.',
-          );
+          this.botError.set(errorText(error, tr('play.errors.bot')));
         },
       });
   }

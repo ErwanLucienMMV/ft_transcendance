@@ -1,167 +1,576 @@
-<article class="legal-page" aria-labelledby="privacy-title">
-  <span class="eyebrow">Legal</span>
-  <h1 id="privacy-title">Privacy Policy</h1>
-  <p class="updated">
-    Last updated <time [attr.datetime]="updated">{{ updated | date: 'longDate' : 'UTC' }}</time>
-  </p>
-  <p>
-    42 Chess is an online chess site built by a team of students at 42 school as part of the
-    ft_transcendence project. This page explains which personal data the site keeps, why, who can
-    see it and how long it is kept. It applies to every page of the site and to its realtime
-    connection.
-  </p>
+<ng-container *transloco="let t">
+  <article class="legal-page" aria-labelledby="privacy-title">
+    <span class="eyebrow">{{ t('app.legal') }}</span>
+    <h1 id="privacy-title">{{ t('app.privacy') }}</h1>
+    <p class="updated">
+      {{ t('legal.updated') }}
+      <time [attr.datetime]="updated">{{ updated | localDate: 'longDate' : 'UTC' }}</time>
+    </p>
+    @switch (language()) {
+      @case ('fr') {
+        <p>
+          42 Chess est un site d'échecs en ligne réalisé par une équipe d'étudiants de l'école 42
+          dans le cadre du projet ft_transcendence. Cette page explique quelles données personnelles
+          le site conserve, pourquoi, qui peut les voir et combien de temps elles sont gardées. Elle
+          s'applique à toutes les pages du site et à sa connexion en temps réel.
+        </p>
 
-  <h2>Data we collect</h2>
-  <ul>
-    <li>
-      <strong>Account:</strong> your username, your email address and a password. The password is
-      never stored as typed: we keep only an Argon2id hash of it. If you sign in with Google or
-      GitHub, we keep the identifier that provider gives your account instead of a password.
-    </li>
-    <li>
-      <strong>Email verification:</strong> the date your address was confirmed, and a one-time code
-      (stored as a hash) that expires after 30 minutes.
-    </li>
-    <li>
-      <strong>Two-factor authentication</strong>, if you turn it on: the secret used to check your
-      codes, a fingerprint of each unused recovery code (never the code itself) and a count of
-      failed attempts, to block repeated guessing.
-    </li>
-    <li>
-      <strong>Profile:</strong> the picture you upload, if you upload one (or the one your sign-in
-      provider gave when the account was created), and your display preferences.
-    </li>
-    <li>
-      <strong>Play:</strong> the games you play (players, moves, clocks, result and dates), your Elo
-      rating and its changes after each rated game, your win, draw and loss counts, your puzzle
-      attempts (wrong tries, hints, shown solutions), and the experience points, level, daily puzzle
-      streak and achievements they earn you.
-    </li>
-    <li>
-      <strong>Social:</strong> your friends and friend requests (with the date a request was
-      answered), the players you blocked, whether only friends may write to you, when you read a
-      private message, whether you are online or in a game, and when you were last seen. While you
-      type a private message, the other player is told that you are typing; nothing you type is sent
-      before you send it.
-    </li>
-    <li>
-      <strong>Sessions:</strong> one record for each signed-in browser, with its expiry date and
-      whether you signed it out.
-    </li>
-  </ul>
-  <p>
-    We do not collect your real name, your address, payment details or your location. We do not use
-    advertising, tracking or third-party analytics.
-  </p>
+        <h2>Données collectées</h2>
+        <ul>
+          <li>
+            <strong>Compte :</strong> votre nom d'utilisateur, votre adresse e-mail et un mot de
+            passe. Le mot de passe n'est jamais stocké tel que saisi : nous n'en gardons qu'une
+            empreinte Argon2id. Si vous vous connectez avec Google ou GitHub, nous gardons
+            l'identifiant que ce fournisseur donne à votre compte à la place d'un mot de passe.
+          </li>
+          <li>
+            <strong>Vérification de l'e-mail :</strong> la date de confirmation de votre adresse et
+            un code à usage unique (stocké sous forme d'empreinte) qui expire au bout de 30 minutes.
+          </li>
+          <li>
+            <strong>Double authentification</strong>, si vous l'activez : le secret qui sert à
+            vérifier vos codes, une empreinte de chaque code de secours non utilisé (jamais le code
+            lui-même) et un compteur d'essais ratés, pour bloquer les tentatives répétées.
+          </li>
+          <li>
+            <strong>Profil :</strong> la photo que vous envoyez, si vous en envoyez une (ou celle
+            donnée par votre fournisseur de connexion à la création du compte), et vos préférences
+            d'affichage.
+          </li>
+          <li>
+            <strong>Jeu :</strong> les parties que vous jouez (joueurs, coups, pendules, résultat et
+            dates), votre classement Elo et son évolution après chaque partie classée, vos nombres
+            de victoires, nulles et défaites, vos essais de problèmes (erreurs, indices, solutions
+            affichées), ainsi que les points d'expérience, le niveau, la série de problèmes du jour
+            et les succès qu'ils vous rapportent.
+          </li>
+          <li>
+            <strong>Social :</strong> vos amis et demandes d'ami (avec la date de réponse), les
+            joueurs que vous avez bloqués, si seuls vos amis peuvent vous écrire, quand vous avez lu
+            un message privé, si vous êtes en ligne ou en partie, et quand vous avez été vu pour la
+            dernière fois. Pendant que vous écrivez un message privé, l'autre joueur est prévenu que
+            vous écrivez ; rien de ce que vous tapez n'est envoyé avant que vous l'envoyiez.
+          </li>
+          <li>
+            <strong>Messages :</strong> les messages privés que vous envoyez et recevez (texte, date
+            et heure de lecture) et les messages que vous écrivez dans le chat d'une partie.
+          </li>
+          <li>
+            <strong>Sessions :</strong> un enregistrement par navigateur connecté, avec sa date
+            d'expiration et l'indication que vous l'avez déconnecté ou non.
+          </li>
+        </ul>
+        <p>
+          Nous ne collectons ni votre vrai nom, ni votre adresse postale, ni vos données de
+          paiement, ni votre position. Nous n'utilisons ni publicité, ni pistage, ni outil de mesure
+          d'audience tiers.
+        </p>
 
-  <h2>Why we use it</h2>
-  <ul>
-    <li>
-      To create your account, sign you in and keep it secure (verification, two-factor, sessions).
-    </li>
-    <li>To run games in real time, rate them fairly and keep your game history.</li>
-    <li>To show friends when you are online and let them challenge you.</li>
-    <li>
-      To keep the service working: we measure request counts, response times and the number of games
-      in progress. These measurements never contain user or game identifiers.
-    </li>
-  </ul>
-  <p>
-    The legal basis is the agreement you accept when creating an account (the
-    <a routerLink="/terms">Terms of Service</a>) and our interest in keeping the site secure.
-  </p>
+        <h2>Pourquoi nous les utilisons</h2>
+        <ul>
+          <li>
+            Pour créer votre compte, vous connecter et le protéger (vérification, double
+            authentification, sessions).
+          </li>
+          <li>
+            Pour faire tourner les parties en temps réel, les classer équitablement et garder votre
+            historique.
+          </li>
+          <li>Pour montrer à vos amis que vous êtes en ligne et leur permettre de vous défier.</li>
+          <li>
+            Pour que le service fonctionne : nous mesurons le nombre de requêtes, les temps de
+            réponse et le nombre de parties en cours. Ces mesures ne contiennent jamais
+            d'identifiant d'utilisateur ou de partie.
+          </li>
+        </ul>
+        <p>
+          La base légale est le contrat que vous acceptez en créant un compte (les
+          <a routerLink="/terms">Conditions d'utilisation</a>) et notre intérêt à garder le site
+          sûr.
+        </p>
 
-  <h2>Who can see it</h2>
-  <ul>
-    <li>
-      <strong>Everyone</strong>, including visitors who are not signed in: your username, avatar,
-      Elo rating, rating history, rank, results against players and the computer, level, puzzle
-      streak and achievements, whether you are online, your finished games and their moves, and the
-      games you are playing now (anyone can watch a game in progress).
-    </li>
-    <li><strong>Your friends:</strong> when you come online, go offline or start a game.</li>
-    <li>
-      <strong>Only you:</strong> your email address, preferences, friend requests, puzzle attempts
-      and sessions.
-    </li>
-    <li>
-      <strong>Nobody:</strong> your password and two-factor secret are never sent back by the site,
-      not even to you.
-    </li>
-  </ul>
-  <p>We never sell or rent your data.</p>
+        <h2>Qui peut les voir</h2>
+        <ul>
+          <li>
+            <strong>Tout le monde</strong>, y compris les visiteurs non connectés : votre nom
+            d'utilisateur, votre avatar, votre classement Elo et son historique, votre rang, vos
+            résultats contre les joueurs et contre l'ordinateur, votre niveau, votre série de
+            problèmes et vos succès, si vous êtes en ligne, vos parties terminées et leurs coups, et
+            les parties que vous jouez en ce moment (tout le monde peut regarder une partie en
+            cours).
+          </li>
+          <li>
+            <strong>Vos amis :</strong> quand vous vous connectez, vous déconnectez ou commencez une
+            partie.
+          </li>
+          <li>
+            <strong>Les joueurs connectés :</strong> les messages du chat d'une partie, pendant et
+            après la partie, quand ils ouvrent cette partie.
+          </li>
+          <li>
+            <strong>Vous et l'autre joueur seulement :</strong> vos messages privés. L'équipe ne les
+            lit pas, sauf pour traiter un signalement d'abus.
+          </li>
+          <li>
+            <strong>Vous seul :</strong> votre adresse e-mail, vos préférences, vos demandes d'ami,
+            vos essais de problèmes et vos sessions.
+          </li>
+          <li>
+            <strong>Personne :</strong> votre mot de passe et votre secret de double
+            authentification ne sont jamais renvoyés par le site, pas même à vous.
+          </li>
+        </ul>
+        <p>Nous ne vendons ni ne louons jamais vos données.</p>
 
-  <h2>Other services involved</h2>
-  <ul>
-    <li>
-      <strong>Google and GitHub</strong>, only if you choose to sign in with them. They tell us your
-      account identifier and email address; their own privacy policies apply on their pages.
-    </li>
-    <li>
-      <strong>Our email provider</strong>, which delivers the verification email to your address.
-    </li>
-  </ul>
+        <h2>Autres services concernés</h2>
+        <ul>
+          <li>
+            <strong>Google et GitHub</strong>, seulement si vous choisissez de vous connecter avec
+            eux. Ils nous transmettent l'identifiant de votre compte et votre adresse e-mail ; leurs
+            propres politiques de confidentialité s'appliquent sur leurs pages.
+          </li>
+          <li>
+            <strong>Notre prestataire d'e-mail</strong>, qui envoie l'e-mail de vérification à votre
+            adresse.
+          </li>
+        </ul>
 
-  <h2>Cookies and browser storage</h2>
-  <p>The site sets a single cookie, and it is strictly necessary:</p>
-  <ul>
-    <li>
-      <code>refresh_token</code> keeps you signed in after a reload. It cannot be read by scripts
-      (httpOnly), is only sent to the sign-in service of this site (SameSite=Strict) and expires
-      after seven days, or as soon as you sign out.
-    </li>
-  </ul>
-  <p>
-    Your short-lived access token stays in the page's memory only. If you hide spectator messages in
-    a game chat, your browser's local storage remembers that choice. No consent banner is needed:
-    nothing else is stored, and nothing is used to track you.
-  </p>
+        <h2>Cookies et stockage du navigateur</h2>
+        <p>Le site dépose un seul cookie, strictement nécessaire :</p>
+        <ul>
+          <li>
+            <code>refresh_token</code> vous garde connecté après un rechargement. Il ne peut pas
+            être lu par les scripts (httpOnly), n'est envoyé qu'au service de connexion de ce site
+            (SameSite=Strict) et expire au bout de sept jours, ou dès que vous vous déconnectez.
+          </li>
+        </ul>
+        <p>
+          Votre jeton d'accès de courte durée reste uniquement dans la mémoire de la page. Le
+          stockage local de votre navigateur garde vos préférences d'affichage et de jeu (langue,
+          thème, son, confirmation des coups et prémoves) et, si vous masquez les messages des
+          spectateurs dans le chat d'une partie, ce choix. Aucun bandeau de consentement n'est
+          nécessaire : rien d'autre n'est stocké, et rien ne sert à vous pister.
+        </p>
 
-  <h2>How long we keep it</h2>
-  <ul>
-    <li>Account, profile, games and ratings: as long as your account exists.</li>
-    <li>Sessions: they stop working after seven days or when you sign out.</li>
-    <li>
-      Email verification and password reset links: 30 minutes. Two-factor sign-in challenges: 5
-      minutes.
-    </li>
-  </ul>
-  <p>
-    You can delete your account at any time from your settings. Your email, password, picture,
-    friends, messages and sign-in methods are erased at once. Finished games stay in your opponents'
-    history under the name "Deleted player", without your username or rating.
-  </p>
+        <h2>Durée de conservation</h2>
+        <ul>
+          <li>Compte, profil, parties, classements et messages : tant que votre compte existe.</li>
+          <li>
+            Sessions : elles cessent de fonctionner au bout de sept jours ou à la déconnexion.
+          </li>
+          <li>
+            Liens de vérification d'e-mail et de réinitialisation du mot de passe : 30 minutes.
+            Étapes de connexion à double authentification : 5 minutes.
+          </li>
+        </ul>
+        <p>
+          Vous pouvez supprimer votre compte à tout moment depuis vos paramètres. Votre e-mail,
+          votre mot de passe, votre photo, vos amis, vos messages et vos moyens de connexion sont
+          effacés aussitôt. Les parties terminées restent dans l'historique de vos adversaires sous
+          le nom « Joueur supprimé », sans votre nom d'utilisateur ni votre classement.
+        </p>
 
-  <h2>Your rights</h2>
-  <p>
-    Under the General Data Protection Regulation (GDPR) you can ask to see the data we hold about
-    you, to correct it, to receive a copy of it, to have it deleted, or object to how it is used.
-    Signing out ends the session of that browser at once. Your settings let you change your profile,
-    download a copy of your data as a file, and delete your account yourself. For anything else,
-    contact the team members through the 42 school intranet; we answer within one month. You may
-    also complain to the CNIL, the French data protection authority (<a
-      href="https://www.cnil.fr"
-      rel="noopener"
-      >www.cnil.fr</a
-    >).
-  </p>
+        <h2>Vos droits</h2>
+        <p>
+          Selon le Règlement général sur la protection des données (RGPD), vous pouvez demander à
+          voir les données que nous détenons sur vous, à les corriger, à en recevoir une copie, à
+          les faire supprimer, ou vous opposer à leur utilisation. Se déconnecter met fin aussitôt à
+          la session de ce navigateur. Vos paramètres vous permettent de modifier votre profil, de
+          télécharger une copie de vos données dans un fichier et de supprimer vous-même votre
+          compte. Pour toute autre demande, contactez les membres de l'équipe via l'intranet de
+          l'école 42 ; nous répondons sous un mois. Vous pouvez aussi adresser une réclamation à la
+          CNIL, l'autorité française de protection des données (<a
+            href="https://www.cnil.fr"
+            rel="noopener"
+            >www.cnil.fr</a
+          >).
+        </p>
 
-  <h2>Security</h2>
-  <p>
-    The site is served over HTTPS only. Passwords are hashed with Argon2id, repeated wrong
-    two-factor codes are blocked, and every request and realtime connection checks that its session
-    is still valid.
-  </p>
+        <h2>Sécurité</h2>
+        <p>
+          Le site n'est servi qu'en HTTPS. Les mots de passe sont hachés avec Argon2id, les codes de
+          double authentification faux répétés sont bloqués, et chaque requête et connexion en temps
+          réel vérifie que sa session est toujours valide.
+        </p>
 
-  <h2>Children</h2>
-  <p>
-    The site is meant for people aged 15 or older. Younger players need a parent's or guardian's
-    permission to create an account.
-  </p>
+        <h2>Enfants</h2>
+        <p>
+          Le site s'adresse aux personnes de 15 ans ou plus. Les joueurs plus jeunes ont besoin de
+          l'autorisation d'un parent ou d'un tuteur pour créer un compte.
+        </p>
 
-  <h2>Changes</h2>
-  <p>
-    If this policy changes, the date at the top of this page changes with it. A change that affects
-    how your data is used will be announced on the site before it applies.
-  </p>
-</article>
+        <h2>Modifications</h2>
+        <p>
+          Si cette politique change, la date en haut de cette page change aussi. Un changement qui
+          modifie l'usage de vos données sera annoncé sur le site avant de s'appliquer.
+        </p>
+      }
+      @case ('es') {
+        <p>
+          42 Chess es un sitio de ajedrez en línea creado por un equipo de estudiantes de la escuela
+          42 dentro del proyecto ft_transcendence. Esta página explica qué datos personales guarda
+          el sitio, por qué, quién puede verlos y cuánto tiempo se conservan. Se aplica a todas las
+          páginas del sitio y a su conexión en tiempo real.
+        </p>
+
+        <h2>Datos que recogemos</h2>
+        <ul>
+          <li>
+            <strong>Cuenta:</strong> tu nombre de usuario, tu correo electrónico y una contraseña.
+            La contraseña nunca se guarda tal como la escribes: solo conservamos un hash Argon2id.
+            Si inicias sesión con Google o GitHub, guardamos el identificador que ese proveedor da a
+            tu cuenta en lugar de una contraseña.
+          </li>
+          <li>
+            <strong>Verificación del correo:</strong> la fecha en que se confirmó tu dirección y un
+            código de un solo uso (guardado como hash) que caduca a los 30 minutos.
+          </li>
+          <li>
+            <strong>Verificación en dos pasos</strong>, si la activas: el secreto que sirve para
+            comprobar tus códigos, una huella de cada código de recuperación sin usar (nunca el
+            código en sí) y un contador de intentos fallidos, para bloquear los intentos repetidos.
+          </li>
+          <li>
+            <strong>Perfil:</strong> la foto que subes, si subes una (o la que dio tu proveedor de
+            inicio de sesión al crear la cuenta), y tus preferencias de visualización.
+          </li>
+          <li>
+            <strong>Juego:</strong> las partidas que juegas (jugadores, jugadas, relojes, resultado
+            y fechas), tu puntuación Elo y sus cambios tras cada partida clasificatoria, tus
+            victorias, tablas y derrotas, tus intentos de problemas (errores, pistas, soluciones
+            mostradas), y los puntos de experiencia, el nivel, la racha del problema diario y los
+            logros que te dan.
+          </li>
+          <li>
+            <strong>Social:</strong> tus amigos y solicitudes de amistad (con la fecha de
+            respuesta), los jugadores que has bloqueado, si solo tus amigos pueden escribirte,
+            cuándo leíste un mensaje privado, si estás en línea o en partida, y cuándo se te vio por
+            última vez. Mientras escribes un mensaje privado, se avisa al otro jugador de que estás
+            escribiendo; nada de lo que escribes se envía antes de que lo envíes.
+          </li>
+          <li>
+            <strong>Mensajes:</strong> los mensajes privados que envías y recibes (texto, fecha y
+            hora de lectura) y los mensajes que escribes en el chat de una partida.
+          </li>
+          <li>
+            <strong>Sesiones:</strong> un registro por cada navegador con sesión iniciada, con su
+            fecha de caducidad y si cerraste la sesión.
+          </li>
+        </ul>
+        <p>
+          No recogemos tu nombre real, tu dirección, tus datos de pago ni tu ubicación. No usamos
+          publicidad, rastreo ni analítica de terceros.
+        </p>
+
+        <h2>Para qué los usamos</h2>
+        <ul>
+          <li>
+            Para crear tu cuenta, iniciar tu sesión y mantenerla segura (verificación, dos pasos,
+            sesiones).
+          </li>
+          <li>
+            Para jugar partidas en tiempo real, puntuarlas con justicia y guardar tu historial.
+          </li>
+          <li>Para mostrar a tus amigos cuándo estás en línea y permitirles desafiarte.</li>
+          <li>
+            Para que el servicio funcione: medimos el número de peticiones, los tiempos de respuesta
+            y el número de partidas en curso. Estas medidas nunca contienen identificadores de
+            usuarios ni de partidas.
+          </li>
+        </ul>
+        <p>
+          La base legal es el acuerdo que aceptas al crear una cuenta (los
+          <a routerLink="/terms">Términos de servicio</a>) y nuestro interés en mantener el sitio
+          seguro.
+        </p>
+
+        <h2>Quién puede verlos</h2>
+        <ul>
+          <li>
+            <strong>Todo el mundo</strong>, incluidos los visitantes sin sesión: tu nombre de
+            usuario, tu avatar, tu puntuación Elo y su historial, tu posición, tus resultados contra
+            jugadores y contra el ordenador, tu nivel, tu racha de problemas y tus logros, si estás
+            en línea, tus partidas terminadas y sus jugadas, y las partidas que estás jugando ahora
+            (cualquiera puede ver una partida en curso).
+          </li>
+          <li>
+            <strong>Tus amigos:</strong> cuándo te conectas, te desconectas o empiezas una partida.
+          </li>
+          <li>
+            <strong>Los jugadores con sesión iniciada:</strong> los mensajes del chat de una
+            partida, durante y después de la partida, cuando abren esa partida.
+          </li>
+          <li>
+            <strong>Solo tú y el otro jugador:</strong> tus mensajes privados. El equipo no los lee,
+            salvo para atender una denuncia de abuso.
+          </li>
+          <li>
+            <strong>Solo tú:</strong> tu correo electrónico, tus preferencias, tus solicitudes de
+            amistad, tus intentos de problemas y tus sesiones.
+          </li>
+          <li>
+            <strong>Nadie:</strong> el sitio nunca devuelve tu contraseña ni tu secreto de
+            verificación en dos pasos, ni siquiera a ti.
+          </li>
+        </ul>
+        <p>Nunca vendemos ni alquilamos tus datos.</p>
+
+        <h2>Otros servicios implicados</h2>
+        <ul>
+          <li>
+            <strong>Google y GitHub</strong>, solo si eliges iniciar sesión con ellos. Nos comunican
+            el identificador de tu cuenta y tu correo electrónico; en sus páginas se aplican sus
+            propias políticas de privacidad.
+          </li>
+          <li>
+            <strong>Nuestro proveedor de correo</strong>, que entrega el correo de verificación a tu
+            dirección.
+          </li>
+        </ul>
+
+        <h2>Cookies y almacenamiento del navegador</h2>
+        <p>El sitio usa una sola cookie, y es estrictamente necesaria:</p>
+        <ul>
+          <li>
+            <code>refresh_token</code> mantiene tu sesión iniciada tras recargar la página. Los
+            scripts no pueden leerla (httpOnly), solo se envía al servicio de inicio de sesión de
+            este sitio (SameSite=Strict) y caduca a los siete días, o en cuanto cierras la sesión.
+          </li>
+        </ul>
+        <p>
+          Tu token de acceso de corta duración solo se queda en la memoria de la página. El
+          almacenamiento local de tu navegador guarda tus preferencias de visualización y de juego
+          (idioma, tema, sonido, confirmación de jugadas y premoves) y, si ocultas los mensajes de
+          los espectadores en el chat de una partida, esa elección. No hace falta ningún aviso de
+          consentimiento: no se guarda nada más y nada sirve para rastrearte.
+        </p>
+
+        <h2>Cuánto tiempo los conservamos</h2>
+        <ul>
+          <li>Cuenta, perfil, partidas, puntuaciones y mensajes: mientras exista tu cuenta.</li>
+          <li>Sesiones: dejan de funcionar a los siete días o al cerrar la sesión.</li>
+          <li>
+            Enlaces de verificación de correo y de restablecimiento de contraseña: 30 minutos. Pasos
+            de inicio de sesión en dos pasos: 5 minutos.
+          </li>
+        </ul>
+        <p>
+          Puedes eliminar tu cuenta en cualquier momento desde tus ajustes. Tu correo, tu
+          contraseña, tu foto, tus amigos, tus mensajes y tus métodos de inicio de sesión se borran
+          al instante. Las partidas terminadas siguen en el historial de tus rivales con el nombre
+          «Jugador eliminado», sin tu nombre de usuario ni tu puntuación.
+        </p>
+
+        <h2>Tus derechos</h2>
+        <p>
+          Según el Reglamento General de Protección de Datos (RGPD) puedes pedir ver los datos que
+          tenemos sobre ti, corregirlos, recibir una copia, que se borren u oponerte a su uso.
+          Cerrar la sesión termina al instante la sesión de ese navegador. Tus ajustes te permiten
+          cambiar tu perfil, descargar una copia de tus datos en un archivo y eliminar tu cuenta tú
+          mismo. Para cualquier otra cosa, contacta con los miembros del equipo a través de la
+          intranet de la escuela 42; respondemos en el plazo de un mes. También puedes reclamar ante
+          la CNIL, la autoridad francesa de protección de datos (<a
+            href="https://www.cnil.fr"
+            rel="noopener"
+            >www.cnil.fr</a
+          >).
+        </p>
+
+        <h2>Seguridad</h2>
+        <p>
+          El sitio solo se sirve por HTTPS. Las contraseñas se cifran con Argon2id, los códigos de
+          dos pasos erróneos repetidos se bloquean, y cada petición y conexión en tiempo real
+          comprueba que su sesión sigue siendo válida.
+        </p>
+
+        <h2>Menores</h2>
+        <p>
+          El sitio está pensado para personas de 15 años o más. Los jugadores más jóvenes necesitan
+          el permiso de un padre, una madre o un tutor para crear una cuenta.
+        </p>
+
+        <h2>Cambios</h2>
+        <p>
+          Si esta política cambia, la fecha en la parte superior de esta página cambia con ella. Un
+          cambio que afecte al uso de tus datos se anunciará en el sitio antes de aplicarse.
+        </p>
+      }
+      @default {
+        <p>
+          42 Chess is an online chess site built by a team of students at 42 school as part of the
+          ft_transcendence project. This page explains which personal data the site keeps, why, who
+          can see it and how long it is kept. It applies to every page of the site and to its
+          realtime connection.
+        </p>
+
+        <h2>Data we collect</h2>
+        <ul>
+          <li>
+            <strong>Account:</strong> your username, your email address and a password. The password
+            is never stored as typed: we keep only an Argon2id hash of it. If you sign in with
+            Google or GitHub, we keep the identifier that provider gives your account instead of a
+            password.
+          </li>
+          <li>
+            <strong>Email verification:</strong> the date your address was confirmed, and a one-time
+            code (stored as a hash) that expires after 30 minutes.
+          </li>
+          <li>
+            <strong>Two-factor authentication</strong>, if you turn it on: the secret used to check
+            your codes, a fingerprint of each unused recovery code (never the code itself) and a
+            count of failed attempts, to block repeated guessing.
+          </li>
+          <li>
+            <strong>Profile:</strong> the picture you upload, if you upload one (or the one your
+            sign-in provider gave when the account was created), and your display preferences.
+          </li>
+          <li>
+            <strong>Play:</strong> the games you play (players, moves, clocks, result and dates),
+            your Elo rating and its changes after each rated game, your win, draw and loss counts,
+            your puzzle attempts (wrong tries, hints, shown solutions), and the experience points,
+            level, daily puzzle streak and achievements they earn you.
+          </li>
+          <li>
+            <strong>Social:</strong> your friends and friend requests (with the date a request was
+            answered), the players you blocked, whether only friends may write to you, when you read
+            a private message, whether you are online or in a game, and when you were last seen.
+            While you type a private message, the other player is told that you are typing; nothing
+            you type is sent before you send it.
+          </li>
+          <li>
+            <strong>Messages:</strong> the private messages you send and receive (text, date and
+            when they were read) and the messages you write in a game chat.
+          </li>
+          <li>
+            <strong>Sessions:</strong> one record for each signed-in browser, with its expiry date
+            and whether you signed it out.
+          </li>
+        </ul>
+        <p>
+          We do not collect your real name, your address, payment details or your location. We do
+          not use advertising, tracking or third-party analytics.
+        </p>
+
+        <h2>Why we use it</h2>
+        <ul>
+          <li>
+            To create your account, sign you in and keep it secure (verification, two-factor,
+            sessions).
+          </li>
+          <li>To run games in real time, rate them fairly and keep your game history.</li>
+          <li>To show friends when you are online and let them challenge you.</li>
+          <li>
+            To keep the service working: we measure request counts, response times and the number of
+            games in progress. These measurements never contain user or game identifiers.
+          </li>
+        </ul>
+        <p>
+          The legal basis is the agreement you accept when creating an account (the
+          <a routerLink="/terms">Terms of Service</a>) and our interest in keeping the site secure.
+        </p>
+
+        <h2>Who can see it</h2>
+        <ul>
+          <li>
+            <strong>Everyone</strong>, including visitors who are not signed in: your username,
+            avatar, Elo rating, rating history, rank, results against players and the computer,
+            level, puzzle streak and achievements, whether you are online, your finished games and
+            their moves, and the games you are playing now (anyone can watch a game in progress).
+          </li>
+          <li><strong>Your friends:</strong> when you come online, go offline or start a game.</li>
+          <li>
+            <strong>Signed-in players:</strong> the messages of a game chat, during and after the
+            game, when they open that game.
+          </li>
+          <li>
+            <strong>You and the other player only:</strong> your private messages. The team does not
+            read them, except to answer a report of abuse.
+          </li>
+          <li>
+            <strong>Only you:</strong> your email address, preferences, friend requests, puzzle
+            attempts and sessions.
+          </li>
+          <li>
+            <strong>Nobody:</strong> your password and two-factor secret are never sent back by the
+            site, not even to you.
+          </li>
+        </ul>
+        <p>We never sell or rent your data.</p>
+
+        <h2>Other services involved</h2>
+        <ul>
+          <li>
+            <strong>Google and GitHub</strong>, only if you choose to sign in with them. They tell
+            us your account identifier and email address; their own privacy policies apply on their
+            pages.
+          </li>
+          <li>
+            <strong>Our email provider</strong>, which delivers the verification email to your
+            address.
+          </li>
+        </ul>
+
+        <h2>Cookies and browser storage</h2>
+        <p>The site sets a single cookie, and it is strictly necessary:</p>
+        <ul>
+          <li>
+            <code>refresh_token</code> keeps you signed in after a reload. It cannot be read by
+            scripts (httpOnly), is only sent to the sign-in service of this site (SameSite=Strict)
+            and expires after seven days, or as soon as you sign out.
+          </li>
+        </ul>
+        <p>
+          Your short-lived access token stays in the page's memory only. Your browser's local
+          storage keeps your display and play preferences (language, theme, sound, move confirmation
+          and premoves) and, if you hide spectator messages in a game chat, that choice. No consent
+          banner is needed: nothing else is stored, and nothing is used to track you.
+        </p>
+
+        <h2>How long we keep it</h2>
+        <ul>
+          <li>Account, profile, games, ratings and messages: as long as your account exists.</li>
+          <li>Sessions: they stop working after seven days or when you sign out.</li>
+          <li>
+            Email verification and password reset links: 30 minutes. Two-factor sign-in challenges:
+            5 minutes.
+          </li>
+        </ul>
+        <p>
+          You can delete your account at any time from your settings. Your email, password, picture,
+          friends, messages and sign-in methods are erased at once. Finished games stay in your
+          opponents' history under the name "Deleted player", without your username or rating.
+        </p>
+
+        <h2>Your rights</h2>
+        <p>
+          Under the General Data Protection Regulation (GDPR) you can ask to see the data we hold
+          about you, to correct it, to receive a copy of it, to have it deleted, or object to how it
+          is used. Signing out ends the session of that browser at once. Your settings let you
+          change your profile, download a copy of your data as a file, and delete your account
+          yourself. For anything else, contact the team members through the 42 school intranet; we
+          answer within one month. You may also complain to the CNIL, the French data protection
+          authority (<a href="https://www.cnil.fr" rel="noopener">www.cnil.fr</a>).
+        </p>
+
+        <h2>Security</h2>
+        <p>
+          The site is served over HTTPS only. Passwords are hashed with Argon2id, repeated wrong
+          two-factor codes are blocked, and every request and realtime connection checks that its
+          session is still valid.
+        </p>
+
+        <h2>Children</h2>
+        <p>
+          The site is meant for people aged 15 or older. Younger players need a parent's or
+          guardian's permission to create an account.
+        </p>
+
+        <h2>Changes</h2>
+        <p>
+          If this policy changes, the date at the top of this page changes with it. A change that
+          affects how your data is used will be announced on the site before it applies.
+        </p>
+      }
+    }
+  </article>
+</ng-container>

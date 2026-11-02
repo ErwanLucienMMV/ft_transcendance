@@ -3,10 +3,19 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { PlayerColor } from '../../core/realtime/game-realtime';
 import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
-import { parseFen, Position, PromotionType, sanOf } from '../../shared/chess/chess-rules';
+import {
+  FenError,
+  FenProblem,
+  parseFen,
+  Position,
+  PromotionType,
+  sanOf,
+} from '../../shared/chess/chess-rules';
 import { moveRows, MoveRow } from '../../shared/chess/game-text';
 import { MoveList } from '../../shared/chess/move-list';
 import { Icon } from '../../shared/ui/icon';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { tr } from '../../core/i18n/i18n';
 
 interface Played {
   from: string;
@@ -24,63 +33,64 @@ const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
  */
 @Component({
   selector: 'app-board-page',
-  imports: [ChessBoard, Icon, MoveList],
+  imports: [TranslocoDirective, ChessBoard, Icon, MoveList],
   template: `
-    <section class="board-page page board-layout" aria-labelledby="board-title">
-      <div class="board-column">
-        <app-chess-board
-          [fen]="fen()"
-          [orientation]="orientation()"
-          [lastMove]="lastMove()"
-          [interactive]="true"
-          [annotations]="true"
-          (moved)="play($event)"
-        />
-      </div>
-      <div class="board-panel side-panel">
-        <span class="eyebrow">Analysis</span>
-        <h1 id="board-title">Free board</h1>
-        <p class="muted">
-          Move both sides freely to study a position. Right-click a square for a circle, or
-          right-drag for an arrow. Nothing is sent to the server.
-        </p>
-        <div class="turn">
-          <i [class.black]="blackToMove()" aria-hidden="true"></i>
-          <p role="status">{{ turn() }}</p>
-        </div>
-        <div class="panel-actions">
-          <button type="button" class="secondary" (click)="flip()">
-            <app-icon name="flip" />Flip board
-          </button>
-          <button type="button" class="secondary" [disabled]="!played().length" (click)="undo()">
-            <app-icon name="chevron-left" />Take back
-          </button>
-          <button type="button" class="secondary" (click)="load(start)">Reset</button>
-        </div>
-        <section class="move-list panel-section" aria-labelledby="board-moves-title">
-          <h2 id="board-moves-title">Moves</h2>
-          <app-move-list [rows]="rows()" empty="Play a move to start the list." />
-        </section>
-        <form
-          class="form-field panel-section"
-          (submit)="$event.preventDefault(); load(fenInput.value)"
-        >
-          <label for="fen">Load a FEN position</label>
-          <input
-            #fenInput
-            id="fen"
-            name="fen"
-            [value]="fen()"
-            [attr.aria-invalid]="fenError() ? 'true' : null"
-            [attr.aria-describedby]="fenError() ? 'fen-error' : null"
+    <ng-container *transloco="let t">
+      <section class="board-page page board-layout" aria-labelledby="board-title">
+        <div class="board-column">
+          <app-chess-board
+            [fen]="fen()"
+            [orientation]="orientation()"
+            [lastMove]="lastMove()"
+            [interactive]="true"
+            [annotations]="true"
+            (moved)="play($event)"
           />
-          @if (fenError()) {
-            <p id="fen-error">{{ fenError() }}</p>
-          }
-          <button type="submit" class="secondary">Load position</button>
-        </form>
-      </div>
-    </section>
+        </div>
+        <div class="board-panel side-panel">
+          <span class="eyebrow">{{ t('board.eyebrow') }}</span>
+          <h1 id="board-title">{{ t('board.title') }}</h1>
+          <p class="muted">{{ t('board.intro') }}</p>
+          <div class="turn">
+            <i [class.black]="blackToMove()" aria-hidden="true"></i>
+            <p role="status">{{ turn() }}</p>
+          </div>
+          <div class="panel-actions">
+            <button type="button" class="secondary" (click)="flip()">
+              <app-icon name="flip" />{{ t('board.flip') }}
+            </button>
+            <button type="button" class="secondary" [disabled]="!played().length" (click)="undo()">
+              <app-icon name="chevron-left" />{{ t('board.takeBack') }}
+            </button>
+            <button type="button" class="secondary" (click)="load(start)">
+              {{ t('board.reset') }}
+            </button>
+          </div>
+          <section class="move-list panel-section" aria-labelledby="board-moves-title">
+            <h2 id="board-moves-title">{{ t('board.moves') }}</h2>
+            <app-move-list [rows]="rows()" [empty]="t('board.empty')" />
+          </section>
+          <form
+            class="form-field panel-section"
+            (submit)="$event.preventDefault(); load(fenInput.value)"
+          >
+            <label for="fen">{{ t('board.fenLabel') }}</label>
+            <input
+              #fenInput
+              id="fen"
+              name="fen"
+              [value]="fen()"
+              [attr.aria-invalid]="fenError() ? 'true' : null"
+              [attr.aria-describedby]="fenError() ? 'fen-error' : null"
+            />
+            @if (fenError()) {
+              <p id="fen-error">{{ fenText() }}</p>
+            }
+            <button type="submit" class="secondary">{{ t('board.load') }}</button>
+          </form>
+        </div>
+      </section>
+    </ng-container>
   `,
   styles: `
     .turn p {
@@ -115,14 +125,22 @@ export class BoardPage {
   readonly start = START;
   readonly fen = signal(START);
   readonly orientation = signal<PlayerColor>('WHITE');
-  readonly fenError = signal<string | null>(null);
+  readonly fenError = signal<{ problem: FenProblem | 'other'; value: string } | null>(null);
+  readonly fenText = computed(() => {
+    const error = this.fenError();
+    return error ? tr(`board.fen.${error.problem}`, { value: error.value }) : '';
+  });
   readonly played = signal<Played[]>([]);
   readonly lastMove = computed(() => {
     const last = this.played().at(-1);
     return last ? { from: last.from, to: last.to } : null;
   });
   private readonly position = computed<Position>(() => parseFen(this.fen()));
-  readonly turn = computed(() => `${this.position().turn === 'w' ? 'White' : 'Black'} to move.`);
+  readonly turn = computed(() =>
+    tr('board.toMove', {
+      side: tr(this.position().turn === 'w' ? 'game.sides.WHITE' : 'game.sides.BLACK'),
+    }),
+  );
   readonly blackToMove = computed(() => this.position().turn === 'b');
   /** Numbered like a game: a position with Black to move starts with "1…". */
   readonly rows = computed<MoveRow[]>(() => {
@@ -178,7 +196,11 @@ export class BoardPage {
     try {
       parseFen(fen);
     } catch (error) {
-      this.fenError.set(error instanceof Error ? error.message : 'Invalid FEN.');
+      this.fenError.set(
+        error instanceof FenError
+          ? { problem: error.problem, value: error.value }
+          : { problem: 'other', value: '' },
+      );
       return;
     }
     this.fenError.set(null);

@@ -10,10 +10,11 @@ import { ResendVerification } from './resend-verification';
 import { LoginForm } from './login-form';
 import { AuthFrame } from '../../shared/auth-frame';
 import { OAuthSignIn } from './oauth-sign-in';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 @Component({
   selector: 'app-login-page',
-  imports: [LoginForm, RouterLink, ResendVerification, AuthFrame, OAuthSignIn],
+  imports: [TranslocoDirective, LoginForm, RouterLink, ResendVerification, AuthFrame, OAuthSignIn],
   templateUrl: './login-page.html',
 })
 export class LoginPage {

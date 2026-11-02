@@ -31,6 +31,8 @@ import {
   toFen,
 } from './chess-rules';
 import { resultText } from './game-text';
+import { tr, TranslationKey } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 export interface BoardMove {
   from: string;
@@ -116,6 +118,7 @@ export function fenAfter(fen: string, move: BoardMove): string {
  */
 @Component({
   selector: 'app-chess-board',
+  imports: [TranslocoDirective],
   templateUrl: './chess-board.html',
   styleUrl: './chess-board.css',
   host: { '(keydown.escape)': 'cancel()' },
@@ -222,8 +225,8 @@ export class ChessBoard {
     if (!position) return null;
     const status = positionStatus(position);
     if (status === 'checkmate')
-      return `${position.turn === 'w' ? 'Black' : 'White'} wins by checkmate`;
-    return status === 'stalemate' ? 'Draw by stalemate' : null;
+      return resultText({ winner: position.turn === 'w' ? 'BLACK' : 'WHITE', reason: 'CHECKMATE' });
+    return status === 'stalemate' ? resultText({ winner: null, reason: 'STALEMATE' }) : null;
   });
   readonly canMove = computed(() => {
     const position = this.position();
@@ -358,14 +361,16 @@ export class ChessBoard {
   label(square: BoardSquare): string {
     const parts = [
       square.name,
-      square.piece ? `${square.piece.color} ${square.piece.name}` : 'empty',
+      square.piece
+        ? tr(`chess.${square.piece.color}.${square.piece.name}` as TranslationKey)
+        : tr('chess.board.empty'),
     ];
-    if (this.checkSquare() === square.name) parts.push('in check');
-    if (this.hint() === square.name) parts.push('hint');
+    if (this.checkSquare() === square.name) parts.push(tr('chess.board.inCheck'));
+    if (this.hint() === square.name) parts.push(tr('chess.board.hint'));
     const premove = this.premove();
-    if (premove?.from === square.name) parts.push('premove from here');
-    if (premove?.to === square.name) parts.push('premove to here');
-    if (this.targets().has(square.name)) parts.push('possible move');
+    if (premove?.from === square.name) parts.push(tr('chess.board.premoveFrom'));
+    if (premove?.to === square.name) parts.push(tr('chess.board.premoveTo'));
+    if (this.targets().has(square.name)) parts.push(tr('chess.board.target'));
     return parts.join(', ');
   }
 

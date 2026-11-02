@@ -1,57 +1,64 @@
-<div class="landing page">
-  <section class="hero" aria-labelledby="hero-title">
-    <div class="hero-copy">
-      <p class="eyebrow">Play chess</p>
-      <h1 id="hero-title">Every move<br />tells <span>a story.</span></h1>
-      <p class="hero-description">
-        Rated games against players of your level, a computer with three strengths, a new puzzle
-        every day and live games to watch.
-      </p>
-      <div class="hero-actions">
+<ng-container *transloco="let t">
+  <div class="landing page">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">{{ t('home.eyebrow') }}</p>
+        <h1 id="hero-title">
+          {{ t('home.titleStart') }}<br />{{ t('home.titleMiddle') }}
+          <span>{{ t('home.titleAccent') }}</span>
+        </h1>
+        <p class="hero-description">
+          {{ t('home.description') }}
+        </p>
+        <div class="hero-actions">
+          @if (session.user(); as user) {
+            <a class="button" routerLink="/play"
+              >{{ t('home.play') }} <span aria-hidden="true">→</span></a
+            >
+            <a class="button secondary" routerLink="/puzzle">{{ t('home.todayPuzzle') }}</a>
+          } @else {
+            <a class="button" routerLink="/register"
+              >{{ t('home.createAccount') }} <span aria-hidden="true">→</span></a
+            >
+            <a class="button secondary" routerLink="/login">{{ t('home.signIn') }}</a>
+          }
+        </div>
         @if (session.user(); as user) {
-          <a class="button" routerLink="/play">Play a game <span aria-hidden="true">→</span></a>
-          <a class="button secondary" routerLink="/puzzle">Today's puzzle</a>
+          <p class="hero-welcome">
+            {{ t('home.signedInAs') }}
+            <a [routerLink]="['/players', user.id]">{{ user.username }}</a> ·
+            <span class="stat-value">{{ user.elo }}</span> {{ t('home.elo') }}
+          </p>
         } @else {
-          <a class="button" routerLink="/register"
-            >Create an account <span aria-hidden="true">→</span></a
-          >
-          <a class="button secondary" routerLink="/login">Sign in</a>
+          <p class="hero-welcome">{{ t('home.guest') }}</p>
         }
       </div>
-      @if (session.user(); as user) {
-        <p class="hero-welcome">
-          Signed in as <a [routerLink]="['/players', user.id]">{{ user.username }}</a> ·
-          <span class="stat-value">{{ user.elo }}</span> Elo
-        </p>
-      } @else {
-        <p class="hero-welcome">Free, no ads. The analysis board works without an account.</p>
-      }
-    </div>
-    <figure class="arena">
-      <app-chess-artwork />
-      <figcaption>
-        <span>Opening position</span>
-        <span class="turn"><i aria-hidden="true"></i>White to move</span>
-      </figcaption>
-    </figure>
-  </section>
+      <figure class="arena">
+        <app-chess-artwork />
+        <figcaption>
+          <span>{{ t('home.openingPosition') }}</span>
+          <span class="turn"><i aria-hidden="true"></i>{{ t('home.whiteToMove') }}</span>
+        </figcaption>
+      </figure>
+    </section>
 
-  <section class="features" aria-labelledby="features-title">
-    <h2 id="features-title" class="sr-only">What you can do</h2>
-    <ul class="feature-grid">
-      @for (feature of features; track feature.link) {
-        <li>
-          <a class="feature" [routerLink]="feature.link">
-            <span class="feature-icon" aria-hidden="true"
-              ><svg viewBox="0 0 64 64">
-                <use [attr.href]="'/chess-pieces.svg#' + feature.piece" /></svg
-            ></span>
-            <strong>{{ feature.title }}</strong>
-            <span>{{ feature.text }}</span>
-            <span class="feature-go" aria-hidden="true">→</span>
-          </a>
-        </li>
-      }
-    </ul>
-  </section>
-</div>
+    <section class="features" aria-labelledby="features-title">
+      <h2 id="features-title" class="sr-only">{{ t('home.featuresTitle') }}</h2>
+      <ul class="feature-grid">
+        @for (feature of features; track feature.key) {
+          <li>
+            <a class="feature" [routerLink]="feature.link">
+              <span class="feature-icon" aria-hidden="true"
+                ><svg viewBox="0 0 64 64">
+                  <use [attr.href]="'/chess-pieces.svg#' + feature.piece" /></svg
+              ></span>
+              <strong>{{ t('home.features.' + feature.key + '.title') }}</strong>
+              <span>{{ t('home.features.' + feature.key + '.text') }}</span>
+              <span class="feature-go" aria-hidden="true">→</span>
+            </a>
+          </li>
+        }
+      </ul>
+    </section>
+  </div>
+</ng-container>

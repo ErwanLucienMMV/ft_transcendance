@@ -1,14 +1,12 @@
 import { Component } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 /** An illustrative opening position, independent of the live game controller. */
 @Component({
   selector: 'app-chess-artwork',
+  imports: [TranslocoPipe],
   template: `
-    <div
-      class="board"
-      role="img"
-      aria-label="Chessboard in the opening position, white pieces at the bottom"
-    >
+    <div class="board" role="img" [attr.aria-label]="'chess.board.artwork' | transloco">
       @for (rank of position; track $index; let row = $index) {
         @for (piece of rank; track $index; let column = $index) {
           <span class="square" [class.dark]="(row + column) % 2 === 1">

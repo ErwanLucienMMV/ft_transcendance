@@ -8,10 +8,12 @@ import { authFeedback } from './auth-feedback';
 import { RouterLink } from '@angular/router';
 import { RegisterForm } from './register-form';
 import { AuthFrame } from '../../shared/auth-frame';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { tr } from '../../core/i18n/i18n';
 
 @Component({
   selector: 'app-register-page',
-  imports: [RegisterForm, RouterLink, AuthFrame],
+  imports: [TranslocoDirective, RegisterForm, RouterLink, AuthFrame],
   templateUrl: './register-page.html',
 })
 export class RegisterPage {
@@ -35,7 +37,7 @@ export class RegisterPage {
         error: (error: unknown) =>
           this.error.set(
             error instanceof ApiError && error.code === 'EMAIL_SERVICE_UNAVAILABLE'
-              ? 'The verification email could not be sent, so the account was not created and the username is still free. Try again in a moment.'
+              ? tr('auth.register.emailFailed')
               : authFeedback(error),
           ),
       });

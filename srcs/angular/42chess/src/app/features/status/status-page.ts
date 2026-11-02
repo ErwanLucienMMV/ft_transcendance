@@ -1,8 +1,10 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { filter, interval, merge, startWith, Subject, switchMap } from 'rxjs';
 import { HealthReport, ServiceName, STATUS_REFRESH_MS, StatusApi } from './status-api';
+import { tr, trCount } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { LocalDatePipe } from '../../shared/ui/local-date';
 
 interface ServiceRow {
   name: string;
@@ -11,25 +13,29 @@ interface ServiceRow {
   latencyMs: number | null;
 }
 
-const SERVICES: Record<ServiceName, { name: string; role: string }> = {
-  database: { name: 'Database', role: 'Accounts, games, puzzles and messages' },
-  'chess-engine': { name: 'Rules engine', role: 'Checks every move of every game' },
-  bot: { name: 'Computer opponent', role: 'Games against the computer' },
-  mail: { name: 'Email', role: 'Verification and password emails' },
-};
+const SERVICES: readonly ServiceName[] = ['database', 'chess-engine', 'bot', 'mail'];
+
+/** The name and role of a service row, in the language shown (`status.list`). */
+function service(key: ServiceName | 'api'): { name: string; role: string } {
+  return { name: tr(`status.list.${key}.name`), role: tr(`status.list.${key}.role`) };
+}
 
 /** "3 minutes ago": how long ago, in the largest unit that fits. */
 export function ago(seconds: number): string {
-  const units: [number, string][] = [
+  const units: [number, 'day' | 'hour' | 'minute'][] = [
     [86_400, 'day'],
     [3_600, 'hour'],
     [60, 'minute'],
   ];
   for (const [size, unit] of units) {
     const count = Math.floor(seconds / size);
-    if (count >= 1) return `${count} ${unit}${count > 1 ? 's' : ''} ago`;
+    if (count >= 1) return trCount(`status.ago.${unit}`, count);
   }
-  return 'less than a minute ago';
+  return tr('status.ago.now');
+}
+
+function texts(state: 'unreachable' | 'outage' | 'degraded' | 'ok') {
+  return { title: tr(`status.${state}.title`), text: tr(`status.${state}.text`) };
 }
 
 /**
@@ -39,7 +45,7 @@ export function ago(seconds: number): string {
  */
 @Component({
   selector: 'app-status-page',
-  imports: [DatePipe],
+  imports: [LocalDatePipe, TranslocoDirective],
   templateUrl: './status-page.html',
   styleUrl: './status-page.css',
 })
@@ -55,42 +61,26 @@ export class StatusPage {
   readonly overall = computed(() => {
     const report = this.report();
     if (report === undefined) return null;
-    if (report === null)
-      return {
-        tone: 'down',
-        title: '42 Chess is unreachable',
-        text: 'The server does not answer: games, sign-in and puzzles are unavailable.',
-      };
-    if (report.status === 'down')
-      return {
-        tone: 'down',
-        title: 'Major outage',
-        text: 'The database is unreachable: nothing that needs an account works.',
-      };
-    if (report.status === 'degraded')
-      return {
-        tone: 'degraded',
-        title: 'Some services are down',
-        text: 'The site works, except what depends on the services marked below.',
-      };
-    return { tone: 'ok', title: 'All systems operational', text: 'Everything works normally.' };
+    if (report === null) return { tone: 'down', ...texts('unreachable') };
+    if (report.status === 'down') return { tone: 'down', ...texts('outage') };
+    if (report.status === 'degraded') return { tone: 'degraded', ...texts('degraded') };
+    return { tone: 'ok', ...texts('ok') };
   });
 
   readonly rows = computed<ServiceRow[]>(() => {
     const report = this.report();
     if (report === undefined) return [];
     const api: ServiceRow = {
-      name: 'Website and API',
-      role: 'Pages, sign-in and live games',
+      ...service('api'),
       up: report !== null,
       latencyMs: null,
     };
     return [
       api,
-      ...(Object.keys(SERVICES) as ServiceName[]).map((name) => {
-        const check = report?.services.find((service) => service.name === name);
+      ...SERVICES.map((name) => {
+        const check = report?.services.find((entry) => entry.name === name);
         return {
-          ...SERVICES[name],
+          ...service(name),
           up: check ? check.status === 'up' : null,
           latencyMs: check?.latencyMs ?? null,
         };
@@ -102,10 +92,12 @@ export class StatusPage {
     const backup = this.report()?.backup;
     if (!backup) return null;
     if (backup.status === 'missing' || backup.ageSeconds === null)
-      return { tone: 'degraded', text: 'No backup has been recorded yet.', at: null };
+      return { tone: 'degraded', text: tr('status.noBackup'), at: null };
     return {
       tone: backup.status === 'ok' ? 'ok' : 'degraded',
-      text: `${backup.status === 'ok' ? 'Last backup' : 'Late: the last backup was'} ${ago(backup.ageSeconds)}.`,
+      text: tr(backup.status === 'ok' ? 'status.lastBackup' : 'status.lateBackup', {
+        ago: ago(backup.ageSeconds),
+      }),
       at: backup.lastSuccess,
     };
   });

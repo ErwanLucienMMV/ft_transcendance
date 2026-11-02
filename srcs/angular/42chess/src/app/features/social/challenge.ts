@@ -5,6 +5,7 @@ import { map, Observable, tap, throwError } from 'rxjs';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { challengeMessage, MessagesApi } from '../chat/messages-api';
 import { GamesApi, TimeControl } from '../game/games-api';
+import { tr } from '../../core/i18n/i18n';
 
 /** Ten minutes each: the default choice of the play page. */
 export const CHALLENGE_TIME_CONTROL = { initialTime: 600_000, increment: 0 };
@@ -32,7 +33,7 @@ export class Challenges {
   ): Observable<void> {
     // Offline, the friend would never hear of a game left waiting for them.
     if (this.realtime.state() !== 'connected')
-      return throwError(() => new Error('Offline: the challenge cannot be sent.'));
+      return throwError(() => new Error(tr('social.friends.offline')));
     return this.games.create(timeControl, userId, rated).pipe(
       tap(({ gameId }) => {
         this.messages.send(userId, challengeMessage(this.origin, gameId));

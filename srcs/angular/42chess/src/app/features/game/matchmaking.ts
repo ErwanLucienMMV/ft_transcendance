@@ -8,6 +8,7 @@ import { ApiError } from '../../core/api/api-error';
 import { errorText } from '../../core/api/error-text';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { GamesApi, TimeControl } from './games-api';
+import { tr } from '../../core/i18n/i18n';
 
 /** GET /v1/matchmaking/status. A MATCHED entry keeps its game after that game ends. */
 export interface QueueStatus {
@@ -23,9 +24,9 @@ export type SearchState = 'idle' | 'joining' | 'waiting' | 'leaving';
  */
 export const MATCHMAKING_HEARTBEAT_MS = 5_000;
 
-const JOIN_ERRORS: Record<string, string> = {
-  ACTIVE_GAME_EXISTS: 'You already have a game in progress. Finish it before looking for another.',
-};
+const JOIN_ERRORS = (): Record<string, string> => ({
+  ACTIVE_GAME_EXISTS: tr('play.errors.activeGame'),
+});
 
 @Injectable({ providedIn: 'root' })
 export class MatchmakingApi {
@@ -115,7 +116,7 @@ export class MatchmakingSearch {
           this.resume();
           return;
         }
-        this.error.set(errorText(error, 'The search could not start. Try again.', JOIN_ERRORS));
+        this.error.set(errorText(error, tr('play.errors.join'), JOIN_ERRORS()));
       },
     });
   }
@@ -133,7 +134,7 @@ export class MatchmakingSearch {
       error: (error: unknown) => {
         this.state.set('waiting');
         this.startHeartbeat();
-        this.error.set(errorText(error, 'The search could not be cancelled. Try again.'));
+        this.error.set(errorText(error, tr('play.errors.leave')));
       },
     });
   }
@@ -157,7 +158,7 @@ export class MatchmakingSearch {
             // The lease ran out (a long sleep, a lost connection): the server cancelled it.
             clearInterval(this.heartbeat);
             this.stop();
-            this.error.set('The search expired. Start a new one.');
+            this.error.set(tr('play.errors.expired'));
           }
         },
         error: () => {},

@@ -5,10 +5,11 @@ import { Router } from '@angular/router';
 import { AuthSession } from '../../core/auth/auth-session';
 import { AuthFrame } from '../../shared/auth-frame';
 import { RouterLink } from '@angular/router';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 @Component({
   selector: 'app-session-page',
-  imports: [AuthFrame, RouterLink],
+  imports: [TranslocoDirective, AuthFrame, RouterLink],
   templateUrl: './session-page.html',
 })
 export class SessionPage {

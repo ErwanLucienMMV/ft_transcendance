@@ -1,10 +1,11 @@
 import { Component, inject, input, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AUTH_FIELD_LIMITS, backendLengthValidator, LoginCredentials } from './auth-form.models';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 @Component({
   selector: 'app-login-form',
-  imports: [ReactiveFormsModule],
+  imports: [TranslocoDirective, ReactiveFormsModule],
   templateUrl: './login-form.html',
 })
 export class LoginForm {

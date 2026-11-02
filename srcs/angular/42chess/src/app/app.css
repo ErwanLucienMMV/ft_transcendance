@@ -178,10 +178,13 @@ main {
 .footer-links a:focus-visible {
   color: var(--text);
 }
-.footer-theme {
+.footer-prefs {
   flex-basis: 100%;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
 }
 .nav-count {
   margin-left: 6px;

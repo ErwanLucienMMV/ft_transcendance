@@ -1,31 +1,33 @@
 import { ApiError } from '../../core/api/api-error';
 import { errorText } from '../../core/api/error-text';
+import { tr } from '../../core/i18n/i18n';
 
-const messages: Record<string, string> = {
-  INVALID_CREDENTIALS: 'Incorrect username, email or password.',
-  EMAIL_NOT_VERIFIED: 'Verify your email before signing in. You can request another link below.',
-  USERNAME_ALREADY_EXISTS: 'This username is already taken.',
-  EMAIL_ALREADY_EXISTS: 'This email address is already registered.',
-  INVALID_VERIFICATION_TOKEN:
-    'This verification link is invalid or has expired. Request another link.',
-  INVALID_2FA_CODE:
-    'This code is invalid. Try the current code from your authenticator, or an unused recovery code.',
-  INVALID_2FA_CHALLENGE: 'This sign-in attempt expired. Sign in again.',
-  OAUTH_LAST_LOGIN_METHOD:
-    'Keep at least one sign-in method. Link another provider before removing this one.',
-  OAUTH_ALREADY_LINKED: 'This provider identity is already linked to another account.',
-  OAUTH_DISABLED: 'This sign-in provider is currently unavailable.',
-  TOO_MANY_2FA_ATTEMPTS: 'Too many wrong codes. Sign in again to get a new attempt.',
-  INVALID_REFRESH_TOKEN: 'Your session has expired. Sign in again.',
-  OAUTH_PROVIDER_FAILED: 'The sign-in provider did not answer correctly. Please try again.',
-  OAUTH_INVALID_FLOW: 'This external sign-in expired or was already used. Start again.',
-  EMAIL_SERVICE_UNAVAILABLE:
-    'The verification email could not be sent right now. Please try again later.',
-};
+const CODES = [
+  'INVALID_CREDENTIALS',
+  'EMAIL_NOT_VERIFIED',
+  'USERNAME_ALREADY_EXISTS',
+  'EMAIL_ALREADY_EXISTS',
+  'INVALID_VERIFICATION_TOKEN',
+  'INVALID_2FA_CODE',
+  'INVALID_2FA_CHALLENGE',
+  'OAUTH_LAST_LOGIN_METHOD',
+  'OAUTH_ALREADY_LINKED',
+  'OAUTH_DISABLED',
+  'TOO_MANY_2FA_ATTEMPTS',
+  'INVALID_REFRESH_TOKEN',
+  'OAUTH_PROVIDER_FAILED',
+  'OAUTH_INVALID_FLOW',
+  'EMAIL_SERVICE_UNAVAILABLE',
+] as const;
+
+/** Codes the sign-in pages explain in their own words. */
+function messages(): Record<string, string> {
+  return Object.fromEntries(CODES.map((code) => [code, tr(`auth.errors.${code}`)]));
+}
 
 export function authFeedback(error: unknown): string {
   if (error instanceof ApiError) {
-    return errorText(error, 'The request could not be completed. Please try again.', messages);
+    return errorText(error, tr('auth.errors.request'), messages());
   }
-  return 'The authentication response could not be used. Please sign in again.';
+  return tr('auth.errors.response');
 }

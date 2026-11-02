@@ -1,10 +1,16 @@
-<app-auth-frame>
-  <h1>Verify your email</h1>
-  <p class="auth-intro">One last step before your first move.</p>
-  <p role="status">{{ message() }}</p>
-  @if (verified()) {
-    <a class="button" routerLink="/login">Sign in <span aria-hidden="true">→</span></a>
-  }
-  <app-resend-verification />
-  <p class="auth-switch"><a routerLink="/login">Back to sign in</a></p>
-</app-auth-frame>
+<ng-container *transloco="let t">
+  <app-auth-frame>
+    <h1>{{ t('auth.verify.title') }}</h1>
+    <p class="auth-intro">{{ t('auth.verify.intro') }}</p>
+    <p role="status">{{ message() }}</p>
+    @if (verified()) {
+      <a class="button" routerLink="/login"
+        >{{ t('auth.verify.signIn') }} <span aria-hidden="true">→</span></a
+      >
+    }
+    <app-resend-verification />
+    <p class="auth-switch">
+      <a routerLink="/login">{{ t('auth.verify.back') }}</a>
+    </p>
+  </app-auth-frame>
+</ng-container>

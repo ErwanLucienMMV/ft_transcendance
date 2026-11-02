@@ -3,7 +3,7 @@ import type { UserPreferences } from '../user-preferences.js';
 
 export class UpdatePreferencesDto implements Partial<UserPreferences> {
   @ValidateIf((_object, value) => value !== undefined)
-  @IsIn(['en', 'fr'])
+  @IsIn(['en', 'fr', 'es'])
   language?: UserPreferences['language'];
 
   @ValidateIf((_object, value) => value !== undefined)

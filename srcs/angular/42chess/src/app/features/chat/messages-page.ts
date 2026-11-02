@@ -1,4 +1,4 @@
-import { DatePipe, DOCUMENT } from '@angular/common';
+import { DOCUMENT } from '@angular/common';
 import {
   afterNextRender,
   Component,
@@ -16,7 +16,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
-import { errorText } from '../../core/api/error-text';
+import { codeText, errorText } from '../../core/api/error-text';
 import { AuthSession } from '../../core/auth/auth-session';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { PresenceBadge } from '../../shared/presence-badge';
@@ -39,6 +39,9 @@ import {
 } from './messages-api';
 import { Spinner } from '../../shared/ui/spinner';
 import { UnreadMessages } from '../../core/notifications/unread-messages';
+import { currentLanguage, tr } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { LocalDatePipe } from '../../shared/ui/local-date';
 
 /** Closer to the end of the log than this counts as following the conversation. */
 const FOLLOW_MARGIN_PX = 48;
@@ -73,7 +76,7 @@ function merge(list: PrivateMessage[], more: PrivateMessage[]): PrivateMessage[]
  */
 @Component({
   selector: 'app-messages-page',
-  imports: [Spinner, DatePipe, PresenceBadge, RouterLink, UserAvatar],
+  imports: [LocalDatePipe, TranslocoDirective, Spinner, PresenceBadge, RouterLink, UserAvatar],
   templateUrl: './messages-page.html',
   styleUrl: './messages-page.css',
 })
@@ -227,9 +230,7 @@ export class MessagesPage {
     this.challenges.send(id).subscribe({
       error: (error: unknown) => {
         this.challenging.set(false);
-        this.peerActionError.set(
-          errorText(error, 'The challenge could not be sent. Check your connection and try again.'),
-        );
+        this.peerActionError.set(errorText(error, tr('chat.errors.challenge')));
       },
       complete: () => this.challenging.set(false),
     });
@@ -249,7 +250,7 @@ export class MessagesPage {
       },
       error: (error: unknown) => {
         this.peerBusy.set(false);
-        this.peerActionError.set(errorText(error, 'This player could not be blocked. Try again.'));
+        this.peerActionError.set(errorText(error, tr('chat.errors.block')));
       },
     });
   }
@@ -266,9 +267,7 @@ export class MessagesPage {
       },
       error: (error: unknown) => {
         this.peerBusy.set(false);
-        this.peerActionError.set(
-          errorText(error, 'This player could not be unblocked. Try again.'),
-        );
+        this.peerActionError.set(errorText(error, tr('chat.errors.unblock')));
       },
     });
   }
@@ -276,6 +275,13 @@ export class MessagesPage {
   /** The game to join when this message is a challenge. */
   challenge(message: PrivateMessage): string | null {
     return challengedGame(message.content, this.origin);
+  }
+
+  /** A challenge reads in the viewer's language; other messages as they were written. */
+  text(message: Pick<PrivateMessage, 'content'>): string {
+    return challengedGame(message.content, this.origin)
+      ? tr('chat.challengeText')
+      : message.content;
   }
 
   mine(message: PrivateMessage): boolean {
@@ -353,7 +359,7 @@ export class MessagesPage {
     if (!id || !this.peer() || this.pending() !== null || this.blank() || this.tooLong()) return;
     this.sendError.set(null);
     if (!this.messages.send(id, content)) {
-      this.sendError.set('You are offline. Your message was not sent; try again in a moment.');
+      this.sendError.set(tr('chat.errors.offline'));
       return;
     }
     this.pending.set(content);
@@ -361,7 +367,7 @@ export class MessagesPage {
     this.confirmTimer = setTimeout(() => {
       if (this.pending() === null) return;
       this.pending.set(null);
-      this.sendError.set('Your message could not be confirmed. Check the conversation below.');
+      this.sendError.set(tr('chat.errors.unconfirmed'));
       this.loadNewest(id);
     }, SEND_CONFIRM_MS);
   }
@@ -392,7 +398,7 @@ export class MessagesPage {
     this.early = [];
     if (!id) return;
     if (id === this.me()) {
-      this.peerError.set('You cannot send messages to yourself.');
+      this.peerError.set(tr('chat.errors.self'));
       return;
     }
     this.users.blocked().subscribe({
@@ -419,8 +425,8 @@ export class MessagesPage {
         if (id !== this.peerId()) return;
         this.peerError.set(
           error instanceof ApiError && error.statusCode === 404
-            ? 'This player does not exist.'
-            : 'This conversation could not be opened.',
+            ? tr('chat.errors.missing')
+            : tr('chat.errors.open'),
         );
       },
     });
@@ -520,12 +526,15 @@ export class MessagesPage {
     this.pending.set(null);
     this.sendError.set(
       code === 'USER_NOT_FOUND'
-        ? 'This player no longer exists. Your message was not sent.'
+        ? tr('chat.errors.gone')
         : code === 'VALIDATION_ERROR'
-          ? 'This message cannot be sent. Check its length and content.'
+          ? tr('chat.errors.invalid')
           : (code === 'USER_BLOCKED' || code === 'FRIENDS_ONLY') && message
-            ? `${message} Your message was not sent.`
-            : 'Your message was not sent. Try again.',
+            ? tr('chat.errors.refused', {
+                // The server explains in English; other languages use the code's text.
+                reason: currentLanguage() === 'en' ? message : (codeText(code) ?? message),
+              })
+            : tr('chat.errors.notSent'),
     );
   }
 
