@@ -49,6 +49,7 @@ export const design: Translation['design'] = {
     link: 'Un lien en bouton',
   },
   switch: 'Un interrupteur : un réglage activé ou non',
+  checkbox: 'Une case à cocher : un accord dans un formulaire',
   alerts: 'Alertes',
   tones: {
     error: {

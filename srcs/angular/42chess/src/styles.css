@@ -344,6 +344,26 @@ textarea:focus-visible {
   opacity: 0.5;
 }
 
+/* A plain checkbox with its text beside it, for an agreement in a form. */
+.checkbox {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.checkbox input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 1px 0 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
 /* Three pulsing dots: someone is typing. */
 .dots {
   display: inline-flex;

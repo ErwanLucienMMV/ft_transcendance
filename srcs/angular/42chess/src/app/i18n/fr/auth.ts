@@ -46,6 +46,9 @@ export const auth: Translation['auth'] = {
     unavailable: 'La création de compte est momentanément indisponible.',
     submit: 'Créer un compte',
     submitting: 'Création du compte…',
+    acceptStart: "J'accepte les",
+    acceptAnd: 'et la',
+    acceptError: 'Acceptez les conditions pour créer votre compte.',
   },
   verify: {
     title: 'Vérifiez votre email',
@@ -84,6 +87,7 @@ export const auth: Translation['auth'] = {
   oauth: {
     others: 'Autres moyens de connexion',
     continueWith: 'Continuer avec {{provider}}',
+    acceptStart: 'En créant un compte avec un fournisseur, vous acceptez les',
     unavailable: 'Ce moyen de connexion est indisponible pour le moment.',
     openFailed: "La page de connexion n'a pas pu s'ouvrir. Réessayez.",
     title: 'Finalisation de la connexion',

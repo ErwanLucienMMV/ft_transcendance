@@ -1,62 +1,34 @@
-# 42chess
+# 42chess front end
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.1.8.
+The Angular 22 application of 42 Chess: standalone components, signals, Transloco for the three
+languages and a hand-written design system (see `docs/design-system.md` and `docs/i18n.md` at
+the repository root).
 
-## Development server
+## Commands
 
-To start a local development server, run:
+| Command | Effect |
+| --- | --- |
+| `npm ci` | Installs the exact locked dependencies. |
+| `npm start` | Development server on `http://localhost:4200`, proxying `/api` and `/ws` to the API on port 3000 (`proxy.conf.mjs`). Set `NG_ALLOWED_HOSTS=localhost,127.0.0.1`. |
+| `npm run build` | Production build in `dist/42chess/browser`: static files, with the public pages (home, sign-in, legal pages, rules, design system) prerendered as HTML. nginx serves this folder. |
+| `npm test` | Unit tests (Vitest, jsdom). `src/test-providers.ts` gives every test the English texts. |
+| `npm run test:e2e` | Playwright browser tests in `e2e/` against a local development server; the full-stack run is described below. |
+| `npx prettier --check "src/**/*.{ts,html,css}" "e2e/**/*.ts"` | Formatting, as checked in CI. |
 
-```bash
-NG_ALLOWED_HOSTS=localhost,127.0.0.1 ng serve
-```
+The application is static: there is no server-side rendering server. Routes that need a signed-in
+player or live data are rendered in the browser (`src/app/app.routes.server.ts`).
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Layout
 
-## Code scaffolding
+- `src/app/core`: API client, authentication and sessions, real-time connection, preferences,
+  languages, page titles, notifications.
+- `src/app/shared`: the chessboard and chess helpers, and the design system components
+  (`shared/ui`).
+- `src/app/features`: one folder per page or area (game, play, puzzle, social, chat, settings…).
+- `src/app/i18n`: the dictionaries, one folder per language.
+- `public/theme.js`: applies the saved theme and language before the first paint.
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+The sections below record what earlier lots added.
 
 ## Lot 1 implementation
 
@@ -129,9 +101,8 @@ tests exercise actual page navigation and form validation; registration/login
 against the real API are added in lot 3. Screenshots, traces and reports are
 ignored by Git. Locally, after installing Playwright's Chromium, `npm run
 test:e2e` starts its own Angular server and runs the same browser tests.
-The browser runner authorizes only `localhost` and `127.0.0.1` for Angular's
-Node SSR handler. Development build configuration has the same explicit host
-allowlist; production host restrictions are unchanged.
+The browser runner authorizes only `localhost` and `127.0.0.1` for the Angular
+development server, as does the development build configuration.
 
 ## Lot 3 local authentication
 

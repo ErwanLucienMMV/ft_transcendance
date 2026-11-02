@@ -485,6 +485,31 @@ Ajoutées par la migration `AddProgression1793800000000` (règles :
   `achievements` en `CASCADE`.
 - `daily_puzzles` reçoit l'index `IDX_daily_puzzles_puzzleId` (archive, puzzle publié).
 
+### Comptes, sessions et social (migrations postérieures au dictionnaire)
+
+Les tables ci-dessus ont été générées avant ces migrations ; elles ajoutent :
+
+- `users` : `preferences` (`jsonb`, langue `en`/`fr`/`es`, thème, sons, « seuls mes amis
+  peuvent m'écrire », `CHK_users_preferences`), `twoFactorPendingSecret`,
+  `twoFactorRecoveryCodes` (`text[]`, empreintes des codes de secours), `passwordResetTokenHash`
+  (unique) et `passwordResetExpiresAt`, `deletedAt` (`CHK_users_deleted` : un compte supprimé n'a
+  plus ni email ni mot de passe). Migrations `AddUserPreferences`, `AddAccountManagement`,
+  `AddSocialControls`, `AddSpanishLanguage`.
+- `games` : `rated` (`boolean`, défaut `true`), `whiteDrawOfferPly` et `blackDrawOfferPly`
+  (dernière proposition de nulle de chaque camp) ; fins `ABORTED`, `ABANDONED`,
+  `FIVEFOLD_REPETITION` et `SEVENTY_FIVE_MOVE_RULE` (`AddGameRulesAndRatedGames`).
+- `friend_requests` : `resolvedAt` (date de la réponse, pour le délai après un refus).
+- `auth_sessions` (`CreateAuthSessions`, `AddSessionRefresh`) : une ligne par navigateur
+  connecté. `id` (PK, `uuid`), `userId` (FK `users` `ON DELETE CASCADE`, indexée), `expiresAt`,
+  `revokedAt`, `refreshTokenHash` et `previousRefreshTokenHash` (`varchar(64)`, rotation du
+  jeton de rafraîchissement), `refreshRotatedAt`.
+- `oauth_flows` (`CreateOauthFlows`) : état temporaire d'une connexion Google, GitHub ou 42.
+  `id` (PK, `varchar(64)`), `browserHash`, `purpose` (`authorize` ou `handoff`), `provider`,
+  `verifier` (PKCE), `userId` et `sessionId` (sans clé étrangère : la ligne vit quelques
+  minutes), `expiresAt`, `created` (compte créé par ce flux).
+- `user_blocks` (`AddSocialControls`) : `id`, `createdAt`, `blockerId` et `blockedId` (FK
+  `users` `CASCADE`), `UQ_user_blocks_pair`, `CHK_user_blocks_self`, index sur `blockedId`.
+
 ## Exemples de lecture
 
 ```sql

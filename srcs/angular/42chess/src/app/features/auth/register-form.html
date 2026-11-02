@@ -75,6 +75,28 @@
         <p id="confirm-password-error">{{ t('auth.register.mismatch') }}</p>
       }
     </div>
+    <div class="form-field">
+      <label class="checkbox" for="register-terms">
+        <input
+          id="register-terms"
+          type="checkbox"
+          formControlName="acceptTerms"
+          required
+          [attr.aria-invalid]="invalid('acceptTerms')"
+          [attr.aria-describedby]="invalid('acceptTerms') ? 'terms-error' : null"
+        />
+        <!-- New tabs, so reading the terms keeps what was typed here. -->
+        <span>
+          {{ t('auth.register.acceptStart') }}
+          <a routerLink="/terms" target="_blank">{{ t('app.terms') }}</a>
+          {{ t('auth.register.acceptAnd') }}
+          <a routerLink="/privacy" target="_blank">{{ t('app.privacy') }}</a>
+        </span>
+      </label>
+      @if (invalid('acceptTerms')) {
+        <p id="terms-error">{{ t('auth.register.acceptError') }}</p>
+      }
+    </div>
     @if (!submissionEnabled()) {
       <p role="status">{{ t('auth.register.unavailable') }}</p>
     }

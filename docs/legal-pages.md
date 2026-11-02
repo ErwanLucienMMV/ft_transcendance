@@ -10,6 +10,14 @@ project; the project is rejected without them.
   language (see [Languages](i18n.md)). A change must be made in all three, with the same
   sections in the same order.
 
+## Acceptance
+
+- The registration form has a required checkbox, "I accept the Terms of Service and the Privacy
+  Policy", with both links opening in a new tab so the form keeps what was typed. The form is
+  not sent until it is ticked.
+- Under the Google, GitHub and 42 buttons of the sign-in page, a line says that creating an
+  account with a provider means accepting both pages, with the same links.
+
 ## Keeping the Privacy Policy true
 
 The policy lists what the backend really stores and who can read it. Update it, and
@@ -31,5 +39,6 @@ methods, and keeps finished games under "Deleted player". If this changes, updat
 
 - `app.routes.spec.ts`: both routes, titles, the cross links and the update date.
 - `app.spec.ts`: the footer links.
+- `features/auth/auth-forms.spec.ts` and `e2e/auth.e2e.ts`: registration needs the checkbox.
 - `e2e/navigation.e2e.ts`: opens both pages from the footer, then directly, with an empty console.
 - `core/i18n/i18n.spec.ts` and `e2e/i18n.e2e.ts`: the French and Spanish versions.

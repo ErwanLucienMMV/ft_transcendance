@@ -98,3 +98,6 @@ h3 {
 .chess app-chess-board {
   max-width: 420px;
 }
+.checkbox {
+  margin-top: 16px;
+}
