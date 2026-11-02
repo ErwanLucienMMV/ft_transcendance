@@ -48,7 +48,7 @@ test('finds a player, opens their profile with live presence and the own profile
   await expect(page.locator('.stats dt')).toHaveText(['Elo', 'Games', 'Won', 'Drawn', 'Lost']);
   await expect(page.getByRole('link', { name: 'Account settings' })).toHaveAttribute(
     'href',
-    '/session',
+    '/settings',
   );
   // Anyone can read a profile, even without an account.
   const anonymous = await (await browser.newContext()).newPage();

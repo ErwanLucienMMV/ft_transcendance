@@ -152,7 +152,7 @@ describe('Player profile page', () => {
     expect(element.querySelector('.eyebrow')?.textContent).toBe('Your profile');
     const stats = [...element.querySelectorAll('.stats dt')].map((term) => term.textContent);
     expect(stats).toEqual(['Elo', 'Games', 'Won', 'Drawn', 'Lost']);
-    expect(element.querySelector('a[href="/session"]')?.textContent).toBe('Account settings');
+    expect(element.querySelector('a[href="/settings"]')?.textContent).toBe('Account settings');
     expect(element.querySelector('a[href="/history"]')).not.toBeNull();
   });
 

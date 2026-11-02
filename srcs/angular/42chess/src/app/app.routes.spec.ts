@@ -36,7 +36,7 @@ describe('Application navigation', () => {
     const privacy = harness.routeNativeElement as HTMLElement;
     expect(privacy.querySelector('h2')?.textContent).toBe('Privacy Policy');
     expect(TestBed.inject(Title).getTitle()).toBe('Privacy Policy | 42 Chess');
-    expect(privacy.querySelector('time')?.getAttribute('datetime')).toBe('2026-10-29');
+    expect(privacy.querySelector('time')?.getAttribute('datetime')).toBe('2026-11-02');
     expect(privacy.querySelectorAll('h3').length).toBeGreaterThanOrEqual(8);
     expect(privacy.textContent).toContain('refresh_token');
     expect(privacy.querySelector('a[href="/terms"]')).not.toBeNull();

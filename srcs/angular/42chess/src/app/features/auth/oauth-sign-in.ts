@@ -1,6 +1,6 @@
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { OAuthProvider, OAuthService } from '../../core/auth/oauth.service';
+import { OAUTH_LABELS, OAuthProvider, OAuthService } from '../../core/auth/oauth.service';
 
 @Component({
   selector: 'app-oauth-sign-in',
@@ -9,7 +9,7 @@ import { OAuthProvider, OAuthService } from '../../core/auth/oauth.service';
       <div class="oauth-options" aria-label="Other sign-in methods">
         @for (provider of oauth.providers(); track provider) {
           <button class="button secondary" type="button" (click)="start(provider)">
-            Continue with {{ provider === 'google' ? 'Google' : 'GitHub' }}
+            Continue with {{ labels[provider] }}
           </button>
         }
       </div>
@@ -23,6 +23,7 @@ import { OAuthProvider, OAuthService } from '../../core/auth/oauth.service';
 export class OAuthSignIn implements OnInit {
   readonly oauth = inject(OAuthService);
   readonly error = signal('');
+  readonly labels = OAUTH_LABELS;
   private readonly destroyRef = inject(DestroyRef);
   ngOnInit() {
     this.oauth.loadProviders().pipe(takeUntilDestroyed(this.destroyRef)).subscribe();

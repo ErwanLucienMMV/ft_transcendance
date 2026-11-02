@@ -9,6 +9,7 @@ import { AuthSession } from '../../core/auth/auth-session';
 import { CurrentUser, SessionLifecycle } from '../../core/auth/session-lifecycle';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { PresenceBadge } from '../../shared/presence-badge';
+import { UserAvatar } from '../../shared/user-avatar';
 import { outcomeText, playerLabel } from '../../shared/chess/game-text';
 import { Challenges } from './challenge';
 import { GameHistoryItem, GamesApi } from '../game/games-api';
@@ -29,7 +30,7 @@ export const PROFILE_RECENT_GAMES = 5;
 /** Public profile (spec §4); the owner also sees their results and links to their account. */
 @Component({
   selector: 'app-profile-page',
-  imports: [DatePipe, PresenceBadge, RouterLink],
+  imports: [DatePipe, PresenceBadge, RouterLink, UserAvatar],
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.css',
 })
@@ -64,8 +65,6 @@ export class ProfilePage {
   readonly status = computed<PresenceStatus>(
     () => this.pushed() ?? (this.profile()?.online ? 'ONLINE' : 'OFFLINE'),
   );
-  readonly initial = computed(() => this.profile()?.username.charAt(0).toUpperCase() ?? '');
-  readonly avatarFailed = signal(false);
   readonly friendship = signal<Friendship>('unknown');
   readonly requestError = signal('The request could not be sent. Try again.');
   readonly sending = signal(false);
@@ -146,7 +145,6 @@ export class ProfilePage {
     this.profile.set(null);
     this.error.set(null);
     this.pushed.set(null);
-    this.avatarFailed.set(false);
     this.ratings.set(null);
     this.recent.set(null);
     this.sideFailed.set({ ratings: false, recent: false });

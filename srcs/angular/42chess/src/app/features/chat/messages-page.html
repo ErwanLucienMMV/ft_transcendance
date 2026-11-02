@@ -30,9 +30,11 @@
                   [routerLink]="['/messages', conversation.user.id]"
                   [attr.aria-current]="conversation.user.id === peerId() ? 'page' : null"
                 >
-                  <span class="conv-initial" aria-hidden="true">{{
-                    conversation.user.username.charAt(0).toUpperCase()
-                  }}</span>
+                  <app-avatar
+                    class="conv-initial"
+                    [username]="conversation.user.username"
+                    [url]="conversation.user.avatarUrl"
+                  />
                   <strong>{{ conversation.user.username }}</strong>
                   <span class="preview"
                     >{{ mine(conversation.lastMessage) ? 'You: ' : ''
@@ -66,9 +68,7 @@
           <a class="back" routerLink="/messages"
             ><span aria-hidden="true">←</span> All conversations</a
           >
-          <span class="peer-initial" aria-hidden="true">{{
-            player.username.charAt(0).toUpperCase()
-          }}</span>
+          <app-avatar class="peer-initial" [username]="player.username" [url]="player.avatarUrl" />
           <h3 id="conversation-title">
             <a [routerLink]="['/players', player.id]">{{ player.username }}</a>
           </h3>

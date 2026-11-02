@@ -19,6 +19,7 @@ import { ApiError } from '../../core/api/api-error';
 import { AuthSession } from '../../core/auth/auth-session';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { PresenceBadge } from '../../shared/presence-badge';
+import { UserAvatar } from '../../shared/user-avatar';
 import { PresenceStatus, presenceChanges, UsersApi } from '../social/users-api';
 import {
   challengedGame,
@@ -39,6 +40,7 @@ export const SEND_CONFIRM_MS = 10_000;
 export interface Peer {
   id: string;
   username: string;
+  avatarUrl?: string | null;
   online: boolean;
 }
 
@@ -62,7 +64,7 @@ function merge(list: PrivateMessage[], more: PrivateMessage[]): PrivateMessage[]
  */
 @Component({
   selector: 'app-messages-page',
-  imports: [DatePipe, PresenceBadge, RouterLink],
+  imports: [DatePipe, PresenceBadge, RouterLink, UserAvatar],
   templateUrl: './messages-page.html',
   styleUrl: './messages-page.css',
 })
@@ -277,7 +279,12 @@ export class MessagesPage {
     this.users.profile(id).subscribe({
       next: (profile) => {
         if (id !== this.peerId()) return;
-        this.peer.set({ id: profile.id, username: profile.username, online: profile.online });
+        this.peer.set({
+          id: profile.id,
+          username: profile.username,
+          avatarUrl: profile.avatarUrl,
+          online: profile.online,
+        });
         this.loadNewest(id);
       },
       error: (error: unknown) => {

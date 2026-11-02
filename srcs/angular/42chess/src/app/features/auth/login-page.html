@@ -5,6 +5,7 @@
     <p role="status">{{ auth.session.notice() }}</p>
   }
   <app-login-form [submissionEnabled]="true" [pending]="pending()" (submitted)="submit($event)" />
+  <p class="auth-forgot"><a routerLink="/forgot-password">Forgot your password?</a></p>
   @if (error()) {
     <p role="alert">{{ error() }}</p>
   }

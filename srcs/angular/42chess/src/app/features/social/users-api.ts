@@ -19,6 +19,7 @@ export interface PublicProfile {
 export interface PlayerSearchResult {
   id: string;
   username: string;
+  avatarUrl?: string | null;
   elo: number;
   online: boolean;
 }
@@ -32,6 +33,7 @@ export interface RatingChange {
 export interface Friend {
   id: string;
   username: string;
+  avatarUrl?: string | null;
   elo: number;
   status: PresenceStatus;
 }

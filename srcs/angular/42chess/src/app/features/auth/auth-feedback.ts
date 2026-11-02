@@ -8,7 +8,8 @@ const messages: Record<string, string> = {
   EMAIL_ALREADY_EXISTS: 'This email address is already registered.',
   INVALID_VERIFICATION_TOKEN:
     'This verification link is invalid or has expired. Request another link.',
-  INVALID_2FA_CODE: 'This code is invalid. Try the current code from your authenticator.',
+  INVALID_2FA_CODE:
+    'This code is invalid. Try the current code from your authenticator, or an unused recovery code.',
   INVALID_2FA_CHALLENGE: 'This sign-in attempt expired. Sign in again.',
   OAUTH_LAST_LOGIN_METHOD:
     'Keep at least one sign-in method. Link another provider before removing this one.',

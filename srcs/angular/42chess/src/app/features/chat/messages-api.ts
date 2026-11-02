@@ -12,7 +12,7 @@ export interface PrivateMessage {
   createdAt: string;
 }
 export interface Conversation {
-  user: { id: string; username: string };
+  user: { id: string; username: string; avatarUrl?: string | null };
   lastMessage: PrivateMessage;
   /** Incoming messages without a read time. Nothing marks them read yet. */
   unreadCount: number;

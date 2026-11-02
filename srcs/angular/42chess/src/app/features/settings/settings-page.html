@@ -1,0 +1,28 @@
+<section class="settings-page page narrow" aria-labelledby="settings-title">
+  <header class="page-head">
+    <div>
+      <span class="eyebrow">Account</span>
+      <h2 id="settings-title">Settings</h2>
+      <p>Your name and picture, how you sign in, and what happens to your data.</p>
+    </div>
+    @if (session.user(); as user) {
+      <a class="button secondary" [routerLink]="['/players', user.id]">View your profile</a>
+    }
+  </header>
+
+  @if (welcome()) {
+    <p class="welcome" role="status">
+      Welcome to 42 Chess! Your account was created from your sign-in provider. Pick another
+      username or picture below if you like.
+    </p>
+  }
+
+  <app-profile-settings />
+  <app-security-settings
+    [status]="security()"
+    [failed]="securityFailed()"
+    (changed)="loadSecurity()"
+  />
+  <app-oauth-accounts />
+  <app-data-settings [status]="security()" (deleted)="leave()" />
+</section>

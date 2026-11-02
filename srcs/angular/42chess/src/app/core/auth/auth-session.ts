@@ -4,6 +4,8 @@ export interface AuthUser {
   id: string;
   username: string;
   elo: number;
+  /** `avatars/<file>` for an upload, an https picture from a sign-in provider, or null. */
+  avatarUrl?: string | null;
 }
 export interface AuthTokenResponse {
   accessToken: string;
@@ -60,7 +62,15 @@ export class AuthSession {
     const current = this.current();
     if (!current || current.accessToken !== expectedToken || user.id !== current.user.id)
       return false;
-    this.current.set({ ...current, user: { id: user.id, username: user.username, elo: user.elo } });
+    this.current.set({
+      ...current,
+      user: {
+        id: user.id,
+        username: user.username,
+        elo: user.elo,
+        avatarUrl: user.avatarUrl ?? null,
+      },
+    });
     return true;
   }
 

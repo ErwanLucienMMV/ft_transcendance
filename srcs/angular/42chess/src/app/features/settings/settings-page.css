@@ -1,0 +1,171 @@
+.settings-page {
+  gap: 20px;
+}
+.welcome {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius);
+  background: var(--success-bg);
+}
+:host ::ng-deep .settings-section {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+:host ::ng-deep .settings-section .section-title {
+  margin: 0;
+  font-size: 18px;
+}
+:host ::ng-deep .settings-section p {
+  margin: 0;
+}
+:host ::ng-deep .subsection {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+:host ::ng-deep .subsection:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+:host ::ng-deep .subsection h4 {
+  margin: 0;
+  font-size: 15px;
+}
+:host ::ng-deep .settings-section form {
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+}
+:host ::ng-deep .settings-section .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+:host ::ng-deep .field-error {
+  color: var(--error);
+  font-size: 14px;
+}
+:host ::ng-deep .saved {
+  color: var(--accent);
+  font-size: 14px;
+}
+:host ::ng-deep .badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+:host ::ng-deep .badge.on {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Profile */
+:host ::ng-deep .avatar-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+}
+:host ::ng-deep .avatar-large {
+  flex: none;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent-line);
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 700;
+}
+:host ::ng-deep .avatar-actions {
+  flex: 1;
+  min-width: 220px;
+  display: grid;
+  gap: 10px;
+}
+:host ::ng-deep .file-button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+:host ::ng-deep progress {
+  width: 100%;
+  max-width: 320px;
+  accent-color: var(--accent);
+}
+
+/* Security */
+:host ::ng-deep .setup-steps {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding-left: 20px;
+}
+:host ::ng-deep .setup-steps li {
+  display: grid;
+  gap: 10px;
+}
+:host ::ng-deep .qr {
+  width: 184px;
+  height: 184px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+:host ::ng-deep .secret,
+:host ::ng-deep .codes code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+:host ::ng-deep .recovery {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+:host ::ng-deep .codes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Sign-in methods */
+:host ::ng-deep .methods {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+:host ::ng-deep .methods li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+:host ::ng-deep .methods strong {
+  margin-right: 8px;
+}
+
+/* Data */
+:host ::ng-deep .danger-zone h4 {
+  color: var(--error);
+}

@@ -7,6 +7,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { safeReturnUrl } from '../../core/auth/auth.interceptor';
 import { authFeedback } from './auth-feedback';
 import { AuthFrame } from '../../shared/auth-frame';
+import { SECOND_FACTOR_CODE } from './second-factor-code';
 
 @Component({
   selector: 'app-two-factor-page',
@@ -19,7 +20,7 @@ export class TwoFactorPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   readonly form = inject(FormBuilder).nonNullable.group({
-    code: ['', [Validators.required, Validators.pattern(/^\d{6}$/)]],
+    code: ['', [Validators.required, Validators.pattern(SECOND_FACTOR_CODE)]],
   });
   readonly pending = signal(false);
   readonly error = signal('');
@@ -32,7 +33,7 @@ export class TwoFactorPage implements OnInit {
     this.pending.set(true);
     this.error.set('');
     this.auth
-      .verifyTwoFactor(this.form.getRawValue().code)
+      .verifyTwoFactor(this.form.getRawValue().code.trim())
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.pending.set(false)),

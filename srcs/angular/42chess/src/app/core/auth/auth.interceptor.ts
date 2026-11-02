@@ -6,6 +6,15 @@ import { API_BASE_URL, isApiUrl } from '../api/api-base-url';
 import { AuthSession } from './auth-session';
 import { SessionRefresh } from './session-refresh';
 
+/** 401s about what the user typed, not about the session: a new token would not change them. */
+const CREDENTIAL_ERRORS = new Set(['INVALID_PASSWORD', 'INVALID_2FA_CODE']);
+
+function credentialError(error: HttpErrorResponse): boolean {
+  const body: unknown = error.error;
+  const code = typeof body === 'object' && body !== null ? (body as { code?: unknown }).code : null;
+  return typeof code === 'string' && CREDENTIAL_ERRORS.has(code);
+}
+
 export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const base = inject(API_BASE_URL).replace(/\/+$/, '');
   const session = inject(AuthSession);
@@ -23,6 +32,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       if (
         !(error instanceof HttpErrorResponse) ||
         error.status !== 401 ||
+        credentialError(error) ||
         session.token() !== token
       )
         return throwError(() => error);

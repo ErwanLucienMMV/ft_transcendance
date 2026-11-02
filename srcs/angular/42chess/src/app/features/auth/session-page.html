@@ -8,6 +8,6 @@
   @if (session.user(); as user) {
     <a class="button secondary" [routerLink]="['/players', user.id]">View your profile</a>
   }
+  <a class="button secondary" routerLink="/settings">Account settings</a>
   <a class="button secondary" routerLink="/">Return home <span aria-hidden="true">→</span></a>
-  <app-oauth-accounts />
 </app-auth-frame>

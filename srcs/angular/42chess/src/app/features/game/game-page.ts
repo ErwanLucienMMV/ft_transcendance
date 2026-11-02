@@ -17,12 +17,14 @@ import { GameMove, GamePlayer, GameRealtime, PlayerColor } from '../../core/real
 import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
 import {
   botName,
+  displayName,
   moveRows,
   repetitions,
   resultText,
   seatOf,
   START_FEN,
 } from '../../shared/chess/game-text';
+import { UserAvatar } from '../../shared/user-avatar';
 import { GameChat } from './game-chat';
 import { GameClock } from './game-clock';
 import { GamesApi, timeControlLabel } from './games-api';
@@ -46,7 +48,7 @@ interface Seat {
  */
 @Component({
   selector: 'app-game-page',
-  imports: [ChessBoard, GameChat, GameClock, RouterLink],
+  imports: [ChessBoard, GameChat, GameClock, RouterLink, UserAvatar],
   templateUrl: './game-page.html',
   styleUrl: './game-page.css',
 })
@@ -291,10 +293,15 @@ export class GamePage {
     }
   }
 
+  /** A human player shown with their picture; a bot or an empty seat has none. */
+  person(player: GamePlayer | null): GamePlayer | null {
+    return player && !player.botDifficulty ? player : null;
+  }
+
   name(player: GamePlayer | null): string {
     if (!player) return 'Waiting for a player';
     if (player.botDifficulty) return botName(player.botDifficulty);
-    return player.id === this.me() ? `${player.username} (you)` : player.username;
+    return player.id === this.me() ? `${player.username} (you)` : displayName(player.username);
   }
 
   /** Leaves the spectator room for the list of live games. */

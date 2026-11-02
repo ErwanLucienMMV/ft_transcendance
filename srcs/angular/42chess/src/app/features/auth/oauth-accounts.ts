@@ -1,52 +1,70 @@
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
-import { OAuthProvider, OAuthService } from '../../core/auth/oauth.service';
+import {
+  OAUTH_LABELS,
+  OAUTH_PROVIDERS,
+  OAuthProvider,
+  OAuthService,
+} from '../../core/auth/oauth.service';
 import { authFeedback } from './auth-feedback';
 
 @Component({
   selector: 'app-oauth-accounts',
   template: `
-    @if (oauth.providers().length || linked().length) {
-      <section aria-label="Linked sign-in methods">
-        <h3>Sign-in methods</h3>
-        @for (provider of allProviders; track provider) {
-          @if (linked().includes(provider)) {
-            <p>
-              {{ provider === 'google' ? 'Google' : 'GitHub' }} is linked.
-              <button
-                type="button"
-                class="button secondary"
-                [disabled]="pending()"
-                (click)="unlink(provider)"
-              >
-                Unlink {{ provider === 'google' ? 'Google' : 'GitHub' }}
-              </button>
-            </p>
-          } @else if (oauth.providers().includes(provider)) {
-            <p>
-              <button
-                type="button"
-                class="button secondary"
-                [disabled]="pending()"
-                (click)="link(provider)"
-              >
-                Link {{ provider === 'google' ? 'Google' : 'GitHub' }}
-              </button>
-            </p>
+    <section class="card settings-section" aria-labelledby="sign-in-methods-title">
+      <h3 id="sign-in-methods-title" class="section-title">Sign-in methods</h3>
+      <p class="muted">Link an account to sign in with one click.</p>
+      @if (oauth.providers().length || linked().length) {
+        <ul class="methods">
+          @for (provider of allProviders; track provider) {
+            @if (linked().includes(provider)) {
+              <li>
+                <span
+                  ><strong>{{ labels[provider] }}</strong>
+                  <span class="badge on">Linked</span></span
+                >
+                <button
+                  type="button"
+                  class="secondary small"
+                  [disabled]="pending()"
+                  (click)="unlink(provider)"
+                >
+                  Unlink {{ labels[provider] }}
+                </button>
+              </li>
+            } @else if (oauth.providers().includes(provider)) {
+              <li>
+                <span
+                  ><strong>{{ labels[provider] }}</strong>
+                  <span class="badge">Not linked</span></span
+                >
+                <button
+                  type="button"
+                  class="secondary small"
+                  [disabled]="pending()"
+                  (click)="link(provider)"
+                >
+                  Link {{ labels[provider] }}
+                </button>
+              </li>
+            }
           }
-        }
-      </section>
-    }
-    @if (error()) {
-      <p role="alert">{{ error() }}</p>
-    }
+        </ul>
+      } @else {
+        <p class="muted">No external sign-in is available on this server.</p>
+      }
+      @if (error()) {
+        <p class="field-error" role="alert">{{ error() }}</p>
+      }
+    </section>
   `,
 })
 export class OAuthAccounts implements OnInit {
   readonly oauth = inject(OAuthService);
   readonly linked = signal<OAuthProvider[]>([]);
-  readonly allProviders: OAuthProvider[] = ['google', 'github'];
+  readonly allProviders = OAUTH_PROVIDERS;
+  readonly labels = OAUTH_LABELS;
   readonly pending = signal(false);
   readonly error = signal('');
   private readonly destroyRef = inject(DestroyRef);

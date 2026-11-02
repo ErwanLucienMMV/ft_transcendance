@@ -86,6 +86,10 @@ these changes. Existing users, games, providers and backups are preserved.
 
 ## Optional Google and GitHub
 
+Sign-in with 42 works the same way; its setup, and the account settings (picture,
+passwords, two-factor management, data export and deletion), are described in
+[accounts.md](accounts.md).
+
 `GET /v1/auth/oauth/providers` lists only configured providers. Leaving credentials
 empty keeps the local application operational and hides the corresponding
 buttons. The browser learns capabilities from the server at runtime; credentials

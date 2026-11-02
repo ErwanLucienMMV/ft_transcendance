@@ -1,4 +1,4 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -115,5 +115,21 @@ describe('Session kept by the refresh cookie', () => {
     vi.advanceTimersByTime(30_000);
     http.expectOne('/api/v1/auth/refresh').flush(response(3600, 'later'));
     expect(session.token()).not.toBe(current.accessToken);
+  });
+
+  it('does not renew the session for a wrong password, which a new token would not fix', () => {
+    setup();
+    const current = response(3600, 'kept');
+    session.establish(current);
+    let failed = false;
+    TestBed.inject(HttpClient)
+      .delete('/api/v1/users/me', { body: { confirmation: 'Ta2b', password: 'wrong' } })
+      .subscribe({ error: () => (failed = true) });
+    http
+      .expectOne('/api/v1/users/me')
+      .flush({ code: 'INVALID_PASSWORD' }, { status: 401, statusText: 'Unauthorized' });
+    http.expectNone('/api/v1/auth/refresh');
+    expect(failed).toBe(true);
+    expect(session.token()).toBe(current.accessToken);
   });
 });

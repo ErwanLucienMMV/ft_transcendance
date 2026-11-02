@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { OAUTH_NAVIGATE, OAuthService } from './oauth.service';
+import { OAUTH_LABELS, OAUTH_NAVIGATE, OAuthService } from './oauth.service';
 import { AuthService } from './auth.service';
 
 describe('Optional OAuth client contract', () => {
@@ -92,5 +92,23 @@ describe('Optional OAuth client contract', () => {
       .flush({ authorizationUrl: 'https://evil.example' });
     expect(error).toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
+  });
+  it('offers sign-in with 42 and only follows its authorization host', () => {
+    oauth.loadProviders().subscribe();
+    http.expectOne('/api/v1/auth/oauth/providers').flush({ providers: ['github', 'fortytwo'] });
+    expect(oauth.providers()).toEqual(['fortytwo', 'github']);
+    expect(OAUTH_LABELS.fortytwo).toBe('42');
+    auth.session.establish({ accessToken, user });
+    oauth.link('fortytwo').subscribe();
+    http
+      .expectOne('/api/v1/auth/oauth/fortytwo/link')
+      .flush({ authorizationUrl: 'https://api.intra.42.fr/oauth/authorize?state=opaque' });
+    expect(navigate).toHaveBeenCalledWith('https://api.intra.42.fr/oauth/authorize?state=opaque');
+    const error = vi.fn();
+    oauth.link('fortytwo').subscribe({ error });
+    http
+      .expectOne('/api/v1/auth/oauth/fortytwo/link')
+      .flush({ authorizationUrl: 'https://github.com/login/oauth/authorize' });
+    expect(error).toHaveBeenCalled();
   });
 });

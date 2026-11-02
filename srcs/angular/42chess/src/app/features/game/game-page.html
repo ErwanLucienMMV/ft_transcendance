@@ -22,11 +22,20 @@
       }
       @if (game(); as current) {
         <div class="seat top" data-seat="top">
-          <span class="player">
-            {{ name(top().player) }}
-            @if (botThinking()) {
-              <span class="thinking" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="who">
+            @if (person(top().player); as player) {
+              <app-avatar
+                class="seat-avatar"
+                [username]="player.username"
+                [url]="player.avatarUrl"
+              />
             }
+            <span class="player">
+              {{ name(top().player) }}
+              @if (botThinking()) {
+                <span class="thinking" aria-hidden="true"><i></i><i></i><i></i></span>
+              }
+            </span>
           </span>
           <app-game-clock
             [remaining]="top().remaining"
@@ -44,7 +53,16 @@
           (moved)="play($event)"
         />
         <div class="seat bottom" data-seat="bottom">
-          <span class="player">{{ name(bottom().player) }}</span>
+          <span class="who">
+            @if (person(bottom().player); as player) {
+              <app-avatar
+                class="seat-avatar"
+                [username]="player.username"
+                [url]="player.avatarUrl"
+              />
+            }
+            <span class="player">{{ name(bottom().player) }}</span>
+          </span>
           <app-game-clock
             [remaining]="bottom().remaining"
             [running]="bottom().running"
