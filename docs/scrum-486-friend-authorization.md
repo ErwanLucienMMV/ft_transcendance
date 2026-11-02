@@ -38,6 +38,16 @@ npm run build
 No Jira status or production data was changed. The evidence verifies the
 existing implementation without introducing redundant authorization layers.
 
+## Later change
+
+Declining moved from `POST /v1/friends/requests/:id/reject` to
+`DELETE /v1/friends/requests/:id`, which also lets the sender withdraw a
+request they sent (see [social](social.md)). Only the recipient and the sender
+can delete it: for an outsider the request does not exist
+(`404 FRIEND_REQUEST_NOT_FOUND`) and it stays pending. Accepting is still
+recipient-only (`403 FRIEND_REQUEST_FORBIDDEN`).
+`src/friends/friends-workflow.e2e-spec.ts` covers these cases.
+
 Sources: [controller](../srcs/nestJS/42chess/src/friends/friends.controller.ts),
 [send tests](../srcs/nestJS/42chess/src/friends/friends-send.e2e-spec.ts),
 [accept tests](../srcs/nestJS/42chess/src/friends/friends-accept.e2e-spec.ts),

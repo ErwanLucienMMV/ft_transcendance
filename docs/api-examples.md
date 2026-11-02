@@ -17,7 +17,8 @@ use normal certificate validation on a public deployment.
 
 ```sh
 curl --fail-with-body "$API_BASE/v1/health"
-# Expected: {"status":"ok"}
+# Expected: {"status":"ok","checkedAt":"...","services":[...],"backup":{...}}
+# "degraded" when the engine, bot or mail is down; HTTP 503 without the database.
 
 curl --fail-with-body "$API_BASE/v1/auth/register" \
   -H 'Content-Type: application/json' \
@@ -80,12 +81,15 @@ curl --fail-with-body -X POST \
   -H "Authorization: Bearer $RECIPIENT_TOKEN"
 ```
 
+The recipient declines, or the sender withdraws, with
+`DELETE "$API_BASE/v1/friends/requests/$REQUEST_ID"` (204).
+
 ## Game and matchmaking
 
 ```sh
 curl --fail-with-body "$API_BASE/v1/games" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  --data '{"opponentId":null,"timeControl":{"initialTime":300000,"increment":2000}}'
+  --data '{"opponentId":null,"timeControl":{"initialTime":300000,"increment":0}}'
 # 201: {"gameId":"<uuid>","status":"WAITING"}
 
 GAME_ID='<gameId-from-create>'
@@ -94,13 +98,15 @@ curl --fail-with-body "$API_BASE/v1/games/$GAME_ID/moves"
 
 curl --fail-with-body "$API_BASE/v1/matchmaking/join" \
   -H "Authorization: Bearer $ACCESS_TOKEN" -H 'Content-Type: application/json' \
-  --data '{"timeControl":{"initialTime":300000,"increment":2000}}'
+  --data '{"timeControl":{"initialTime":300000,"increment":0}}'
 curl --fail-with-body -X POST "$API_BASE/v1/matchmaking/leave" \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
-Times are milliseconds. Inviting a specific friend uses their UUID as
-opponentId. Human chess actions use the authenticated WebSocket, not a generic
+Times are milliseconds, and only the time controls the front offers are
+accepted: 3+2, 5+0, 10+0, 15+10 and 30+0 (`src/games/time-controls.ts`).
+Inviting a specific friend uses their UUID as opponentId; add `"rated":true`
+for a rated game. Human chess actions use the authenticated WebSocket, not a generic
 REST move endpoint.
 
 ## Private history and puzzle play
@@ -150,8 +156,10 @@ do not replay a previous mutation automatically.
 
 A PATCH profile body `{ "elo": 9999 }` is rejected with HTTP 400 and
 `VALIDATION_ERROR`; ratings are server-owned. A protected request without a
-valid bearer is rejected; malformed UUIDs return 400. Handle the actual public
-`code` in `{ statusCode, code, message }` rather than matching message prose.
+valid bearer is rejected; malformed UUIDs return 400. Repeating sign-in
+attempts too fast returns 429 `TOO_MANY_REQUESTS` with `Retry-After`. Handle the
+actual public `code` in `{ statusCode, code, message }` rather than matching
+message prose.
 
 ```sh
 curl --fail-with-body -X POST "$API_BASE/v1/auth/logout" \
