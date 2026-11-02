@@ -2,6 +2,9 @@
 Throughout commits and merge conflicts, we alone are the ones who forgot to pull and fetch.
 
 
+## Local development
+
+- [Local installation](docs/local-installation.md)
 ## OAuth documentation
 
 - [Google and GitHub configuration and flow](docs/oauth.md)
