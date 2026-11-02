@@ -28,9 +28,11 @@ loud: env
 dev: env
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) up
 
-# Creates srcs/.env with random secrets, or fills the ones it lacks.
+# Creates srcs/.env with random secrets, or fills the ones it lacks, then
+# warns about settings that would break sign-in, emails or links.
 env:
 	@sh $(COMPOSE_DIR)/init-env.sh
+	@sh $(COMPOSE_DIR)/check-env.sh
 
 down:
 	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) down

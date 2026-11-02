@@ -35,11 +35,18 @@ export class MailClient {
         signal: AbortSignal.timeout(MAIL_TIMEOUT_MS),
       });
     } catch (error: unknown) {
-      this.logger.error(`forgemail unreachable: ${String(error)}`);
+      this.logger.error(
+        `forgemail unreachable at ${this.baseUrl} (${String(error)}). ` +
+          'Is the forgemail container running? Registration fails until it is.',
+      );
       throw new MailUnavailableError();
     }
     if (!response.ok) {
-      this.logger.error(`forgemail answered ${response.status}`);
+      this.logger.error(
+        `forgemail could not send the email (HTTP ${response.status}). ` +
+          'Check SMTP_* and MAIL_FROM in srcs/.env and `docker logs forgemail`; ' +
+          'leave SMTP_USER/SMTP_PASSWORD empty to only log emails.',
+      );
       throw new MailUnavailableError();
     }
   }

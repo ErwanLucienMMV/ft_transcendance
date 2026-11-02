@@ -14,6 +14,7 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, forkJoin, map, Observable, of, switchMap } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
+import { errorText } from '../../core/api/error-text';
 import { AuthSession } from '../../core/auth/auth-session';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { PresenceBadge } from '../../shared/presence-badge';
@@ -40,6 +41,13 @@ export interface IncomingRequest extends FriendRequest {
  * Player search (kept in `?q=`), incoming friend requests, and the signed-in user's friends
  * with live presence.
  */
+
+const FRIEND_ERRORS: Record<string, string> = {
+  FRIEND_REQUEST_SELF: 'You cannot add yourself as a friend.',
+  FRIEND_REQUEST_FORBIDDEN: 'You cannot answer this friend request.',
+  ALREADY_FRIENDS: 'You are already friends with this player.',
+  FRIEND_REQUEST_PENDING: 'A friend request is already pending with this player.',
+};
 @Component({
   selector: 'app-friends-page',
   imports: [PresenceBadge, ReactiveFormsModule, RouterLink],
@@ -205,7 +213,7 @@ export class FriendsPage {
           this.actionError.set('You are no longer friends with this player.');
           this.loadFriends();
         } else {
-          this.actionError.set('That did not work. Try again.');
+          this.actionError.set(errorText(error, 'That did not work. Try again.', FRIEND_ERRORS));
         }
       },
     });

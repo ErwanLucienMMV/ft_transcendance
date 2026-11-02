@@ -4,6 +4,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
+import { errorText } from '../../core/api/error-text';
 import { AuthSession } from '../../core/auth/auth-session';
 import { CurrentUser, SessionLifecycle } from '../../core/auth/session-lifecycle';
 import { RealtimeService } from '../../core/realtime/realtime.service';
@@ -66,6 +67,7 @@ export class ProfilePage {
   readonly initial = computed(() => this.profile()?.username.charAt(0).toUpperCase() ?? '');
   readonly avatarFailed = signal(false);
   readonly friendship = signal<Friendship>('unknown');
+  readonly requestError = signal('The request could not be sent. Try again.');
   readonly sending = signal(false);
   readonly opponent = playerLabel;
   readonly outcome = outcomeText;
@@ -112,6 +114,7 @@ export class ProfilePage {
       error: (error: unknown) => {
         this.sending.set(false);
         const code = error instanceof ApiError ? error.code : '';
+        this.requestError.set(errorText(error, 'The request could not be sent. Try again.'));
         this.friendship.set(
           code === 'ALREADY_FRIENDS'
             ? 'friends'

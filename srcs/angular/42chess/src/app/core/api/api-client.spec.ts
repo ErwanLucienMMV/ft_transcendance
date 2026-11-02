@@ -143,7 +143,9 @@ describe('API client and error boundary', () => {
     api.get('health').subscribe({ error: failure });
     http.expectOne('/api/v1/health').error(new ProgressEvent('error'));
     expect(failure.mock.calls[0][0]).toMatchObject({ statusCode: 0, code: 'NETWORK_ERROR' });
-    expect(errors.message()).toBe('Unable to reach the server. Please try again.');
+    expect(errors.message()).toBe(
+      'Unable to reach the server. Check your connection, then try again.',
+    );
     errors.dismiss();
     expect(errors.message()).toBeNull();
   });
@@ -155,7 +157,9 @@ describe('API client and error boundary', () => {
       .expectOne('/api/v1/games')
       .flush('<html>private upstream details</html>', { status: 502, statusText: 'Bad Gateway' });
     expect(failure.mock.calls[0][0]).toMatchObject({ statusCode: 502, code: 'HTTP_ERROR' });
-    expect(errors.message()).toBe('The server could not complete this request. Please try again.');
+    expect(errors.message()).toBe(
+      'The API is not responding (502). It may be restarting; try again in a moment.',
+    );
     expect(errors.message()).not.toContain('private');
     http.expectNone('/api/v1/games');
   });
@@ -163,16 +167,14 @@ describe('API client and error boundary', () => {
   it('lets the calling feature explain the server error codes it handles', () => {
     const failure = vi.fn();
     api.get('puzzles/daily', handledErrors('PUZZLE_CATALOG_EMPTY')).subscribe({ error: failure });
-    http
-      .expectOne('/api/v1/puzzles/daily')
-      .flush(
-        {
-          statusCode: 503,
-          code: 'PUZZLE_CATALOG_EMPTY',
-          message: 'No validated puzzles are available.',
-        },
-        { status: 503, statusText: 'Service Unavailable' },
-      );
+    http.expectOne('/api/v1/puzzles/daily').flush(
+      {
+        statusCode: 503,
+        code: 'PUZZLE_CATALOG_EMPTY',
+        message: 'No validated puzzles are available.',
+      },
+      { status: 503, statusText: 'Service Unavailable' },
+    );
     expect(failure.mock.calls[0][0]).toMatchObject({
       statusCode: 503,
       code: 'PUZZLE_CATALOG_EMPTY',
@@ -189,7 +191,9 @@ describe('API client and error boundary', () => {
         { statusCode: 500, code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' },
         { status: 500, statusText: 'Internal Server Error' },
       );
-    expect(errors.message()).toBe('The server could not complete this request. Please try again.');
+    expect(errors.message()).toBe(
+      'Unexpected server error (500). Try again; if it persists, check the API logs.',
+    );
   });
 
   it('leaves non-API failures unchanged, including similarly prefixed URLs', () => {

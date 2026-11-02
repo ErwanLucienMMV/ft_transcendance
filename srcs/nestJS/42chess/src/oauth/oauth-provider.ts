@@ -1,6 +1,9 @@
 import {
+  HttpException,
   Inject,
   Injectable,
+  Logger,
+  OnApplicationBootstrap,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -52,11 +55,39 @@ function providerFailure(): UnauthorizedException {
 
 /** Fixed vendor endpoints; credentials and provider access tokens never reach the browser. */
 @Injectable()
-export class OAuthProviders {
+export class OAuthProviders implements OnApplicationBootstrap {
+  private readonly logger = new Logger(OAuthProviders.name);
   constructor(
     private readonly config: ConfigService,
     @Inject(OAUTH_FETCH) private readonly http: typeof fetch,
   ) {}
+
+  /** Says at startup which sign-in buttons the site shows, and why one is hidden. */
+  onApplicationBootstrap(): void {
+    for (const line of this.diagnose()) this.logger.log(line);
+  }
+
+  diagnose(): string[] {
+    return (['google', 'github'] as const).map((name) => {
+      const label = name === 'google' ? 'Google' : 'GitHub';
+      try {
+        this.settings(name);
+        return `${label} sign-in enabled (callback ${this.publicOrigin()}/api/v1/auth/oauth/${name}/callback)`;
+      } catch (error: unknown) {
+        const reason =
+          error instanceof HttpException
+            ? (error.getResponse() as { message?: string }).message
+            : String(error);
+        const upper = name.toUpperCase();
+        return (
+          `${label} sign-in disabled, its button is hidden: ${reason} ` +
+          `Check ${upper}_CLIENT_ID, ${upper}_CLIENT_SECRET, ${upper}_CALLBACK_URL ` +
+          '(empty, or exactly <APPURL>/api/v1/auth/oauth/' +
+          `${name}/callback) and APPURL (https) in srcs/.env.`
+        );
+      }
+    });
+  }
   publicOrigin(): string {
     const value =
       this.config.get<string>('OAUTH_PUBLIC_URL') ||
