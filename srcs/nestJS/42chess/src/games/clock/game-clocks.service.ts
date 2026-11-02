@@ -4,7 +4,7 @@ import { GameClock } from './game-clock.js';
 import type { ClockSnapshot, PlayerColor } from './game-clock.js';
 import type { Game } from '../game.entity.js';
 import { GameError } from '../game-error.js';
-import { finishGame } from '../game-actions.js';
+import { canCheckmate, finishGame } from '../game-actions.js';
 
 export interface PersistentClock extends ClockSnapshot {
   readonly updatedAt: number;
@@ -37,13 +37,27 @@ export class GameClocksService {
     const state = clock.getSnapshot(now);
     this.checkpoint(game, clock, now);
     if (state.status !== 'EXPIRED') return false;
+    const winner = state.expiredColor === 'WHITE' ? 'BLACK' : 'WHITE';
     finishGame(
       game,
-      state.expiredColor === 'WHITE' ? 'BLACK_WIN' : 'WHITE_WIN',
+      canCheckmate(game.currentFen, winner) ? `${winner}_WIN` : 'DRAW',
       'TIMEOUT',
     );
     game.finishedAt = new Date(Math.max(expiryAt, game.startedAt!.getTime()));
     return true;
+  }
+
+  /**
+   * Brings the clock of a game read without a lock up to `now`, in memory only.
+   * Returns true when a flag has fallen: the caller must then settle the game.
+   */
+  observe(game: Game, now: number): boolean {
+    if (game.status !== 'ACTIVE' || !game.clock) return false;
+    const clock = this.restore(game);
+    const at = Math.max(now, game.clock.updatedAt);
+    if (clock.getSnapshot(at).status === 'EXPIRED') return true;
+    this.checkpoint(game, clock, at);
+    return false;
   }
 
   async move(

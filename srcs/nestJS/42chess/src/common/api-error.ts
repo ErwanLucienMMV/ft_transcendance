@@ -29,6 +29,11 @@ const gameStatus: Record<GameErrorCode, number> = {
   INVALID_BOT_RESPONSE: 502,
   BOT_GAME_LIMIT: 409,
   BOT_DRAW_UNSUPPORTED: 409,
+  DRAW_OFFER_TOO_SOON: 409,
+  WAITING_GAME_LIMIT: 409,
+  ABORT_TOO_LATE: 409,
+  CLAIM_NOT_ALLOWED: 409,
+  OPPONENT_STILL_HERE: 409,
 };
 const httpCodes: Record<number, string> = {
   400: 'BAD_REQUEST',

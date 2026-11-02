@@ -31,11 +31,12 @@ describe('Game rules engine boundary failures', () => {
     },
   );
 
+  // Legality comes from the analysis of the current position (two engine requests per move).
   it.each([null, undefined, { legal: 'true', fen: INITIAL_FEN }])(
-    'rejects malformed move validation: %j',
+    'rejects a malformed analysis of the current position: %j',
     async (response) => {
       const before = await f.active();
-      vi.spyOn(f.engine, 'validate').mockResolvedValueOnce(response as never);
+      vi.spyOn(f.engine, 'analyze').mockResolvedValueOnce(response as never);
       await expect(
         f.service.play(f.white, before.game.id, 'e2e4'),
       ).rejects.toMatchObject({ code: 'INVALID_ENGINE_RESPONSE' });

@@ -198,7 +198,19 @@ describe('Persistent game clocks and timeouts', () => {
 
   it('does not hold up other expired games when one parent is already locked', async () => {
     const first = await f.active();
-    const second = await f.active();
+    // A player has one active game at a time: the second needs two other players.
+    const [third, fourth]: { id: string }[] = await f.source.query(
+      `INSERT INTO users (username) VALUES ('third_player'), ('fourth_player') RETURNING id`,
+    );
+    const second = await f.service.join(
+      fourth.id,
+      (
+        await f.service.create(third.id, {
+          initialTime: 300000,
+          increment: 2000,
+        })
+      ).game.id,
+    );
     await overdue(first.game.id);
     await overdue(second.game.id);
     const runner = f.source.createQueryRunner();

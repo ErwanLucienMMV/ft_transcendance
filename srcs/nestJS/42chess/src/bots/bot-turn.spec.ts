@@ -115,6 +115,10 @@ function fixture() {
       if (state.moves.length === 1) expect(busy).toBe(false);
       return positions[state.moves.length + 1];
     }),
+    play: vi.fn(async (state) => {
+      if (state.moves.length === 1) expect(busy).toBe(false);
+      return positions[state.moves.length + 1];
+    }),
   };
   const clocks = {
     settle: vi.fn(async () => false),

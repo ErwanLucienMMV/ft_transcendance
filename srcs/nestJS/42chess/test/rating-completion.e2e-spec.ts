@@ -32,6 +32,7 @@ describe('SCRUM-481 completed games expose durable ELO updates', () => {
       initialTime: 300000,
       increment: 0,
       color: 'WHITE',
+      rated: true,
     });
     gameId = state.game.id;
     await games.join(black.id, gameId);

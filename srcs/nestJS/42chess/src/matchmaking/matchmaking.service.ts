@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { DataSource, type EntityManager } from 'typeorm';
 import { isUUID } from 'class-validator';
+import { randomInt } from 'node:crypto';
 import { User } from '../users/user.entity.js';
 import type { TimeControl } from '../games/clock/game-clock.js';
 import { MatchmakingEntry } from './matchmaking-queue.entity.js';
@@ -19,6 +20,9 @@ import { MATCHMAKING_LEASE_MS } from './matchmaking-lease.js';
 
 @Injectable()
 export class MatchmakingService {
+  /** True when the player who waited longest takes White. A coin flip. */
+  firstTakesWhite: () => boolean = () => randomInt(2) === 0;
+
   constructor(
     private readonly source: DataSource,
     @Optional() private readonly games?: GamesService,
@@ -147,10 +151,14 @@ export class MatchmakingService {
           await this.expire(manager);
           continue;
         }
+        const [white, black] = this.firstTakesWhite()
+          ? [seeker, opponent]
+          : [opponent, seeker];
+        const [whiteId, blackId] = [white.userId, black.userId];
         const state = await this.games!.createMatched(
           manager,
-          seeker.userId,
-          opponent.userId,
+          whiteId,
+          blackId,
           seeker.timeControl,
         );
         await manager.update(MatchmakingEntry, [seeker.id, opponent.id], {
@@ -166,18 +174,14 @@ export class MatchmakingService {
           [
             state.game.id,
             state.game.startedAt,
-            seeker.createdAt,
-            opponent.createdAt,
+            white.createdAt,
+            black.createdAt,
           ],
         );
         // PostgreSQL emits NOTIFY only after COMMIT, to listeners on every replica.
         await manager.query('SELECT pg_notify($1, $2)', [
           MATCH_CHANNEL,
-          JSON.stringify({
-            gameId: state.game.id,
-            whiteId: seeker.userId,
-            blackId: opponent.userId,
-          }),
+          JSON.stringify({ gameId: state.game.id, whiteId, blackId }),
         ]);
         return state.game.id;
       }

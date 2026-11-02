@@ -17,6 +17,7 @@ import {
 import { Type } from 'class-transformer';
 import type { Request } from 'express';
 import { TimeControlDto } from '../games/dto/create-game.dto.js';
+import { IsAllowedTimeControl } from '../games/time-controls.js';
 import { GameActorGuard, gameActor } from '../games/game-actor.guard.js';
 import { GamesService } from '../games/games.service.js';
 import { GamePresenterService } from '../games/game-presenter.service.js';
@@ -34,6 +35,7 @@ export class CreateBotGameDto {
   @IsObject()
   @ValidateNested()
   @Type(() => TimeControlDto)
+  @IsAllowedTimeControl()
   timeControl: TimeControlDto;
 }
 export class BotGameMoveDto {

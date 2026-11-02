@@ -27,6 +27,7 @@ export function creationInput(
           'color',
           'initialFen',
           'opponentId',
+          'rated',
         ].includes(key),
     )
   ) {
@@ -41,6 +42,7 @@ export function creationInput(
     color = 'WHITE',
     initialFen = INITIAL_FEN,
     opponentId = null,
+    rated = false,
   } = input;
   if (
     !Number.isInteger(initialTime) ||
@@ -50,6 +52,7 @@ export function creationInput(
     increment < 0 ||
     increment > 2147483647 ||
     !['WHITE', 'BLACK'].includes(color) ||
+    typeof rated !== 'boolean' ||
     !isFen(initialFen)
   ) {
     throw new GameError(
@@ -63,6 +66,7 @@ export function creationInput(
     color,
     initialFen,
     opponentId: opponentId === null ? null : identifier(opponentId),
+    rated,
   };
 }
 

@@ -23,6 +23,8 @@ export interface GameResponse {
   status: GameStatus;
   whitePlayer: PlayerRef | null;
   blackPlayer: PlayerRef | null;
+  /** Only rated games change Elo. */
+  rated: boolean;
   timeControl: TimeControl;
   board: {
     fen: string;
@@ -34,6 +36,8 @@ export interface GameResponse {
   clocks: { white: number; black: number } | null;
   result: { winner: PlayerColor | null; reason: GameEndReason | null } | null;
   drawOffer: { playerId: UUID } | null;
+  /** Number of plies from which each side may offer a draw again. */
+  drawOfferAllowedFrom: { white: number; black: number };
   startedAt: ISODateString | null;
   endedAt: ISODateString | null;
   createdAt: ISODateString;
@@ -58,6 +62,7 @@ export interface GameHistoryItem {
   opponent: PlayerRef;
   outcome: GameOutcome;
   reason: GameEndReason | null;
+  rated: boolean;
   timeControl: TimeControl;
   moveCount: number;
   startedAt: ISODateString;

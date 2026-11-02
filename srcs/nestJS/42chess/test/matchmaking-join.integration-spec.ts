@@ -25,7 +25,7 @@ describe('MATCH-01 queue join on PostgreSQL and Nest HTTP', () => {
     secret,
     signOptions: { algorithm: 'HS256', expiresIn: 300 },
   });
-  const control = { initialTime: 300000, increment: 2000 };
+  const control = { initialTime: 180000, increment: 2000 };
   let source: DataSource;
   let service: MatchmakingService;
   let app: INestApplication<App>;
@@ -142,7 +142,7 @@ describe('MATCH-01 queue join on PostgreSQL and Nest HTTP', () => {
     await service.join(actor, control);
     const original = await queue();
     await post(
-      { timeControl: { initialTime: 60000, increment: 0 } },
+      { timeControl: { initialTime: 600000, increment: 0 } },
       await token(),
     )
       .expect(409)
@@ -257,6 +257,9 @@ describe('MATCH-01 queue join on PostgreSQL and Nest HTTP', () => {
     { timeControl: { initialTime: 2147483648, increment: 0 } },
     { timeControl: { initialTime: 300000, increment: 2147483648 } },
     { timeControl: { initialTime: 300000 } },
+    // Valid numbers, but not a time control the front offers.
+    { timeControl: { initialTime: 60000, increment: 0 } },
+    { timeControl: { initialTime: 300000, increment: 2000 } },
     { timeControl: { ...control, rating: 9999 } },
     { timeControl: control, elo: 9999 },
     { timeControl: control, userId: randomUUID() },

@@ -162,6 +162,9 @@ SCRUM-182..193. After authentication:
 | `OFFER_DRAW` | `{ gameId }` | `DRAW_OFFERED`, `GAME_STATE` |
 | `ACCEPT_DRAW` | `{ gameId }` | `GAME_STATE`, `GAME_ENDED` |
 | `DECLINE_DRAW` | `{ gameId }` | `DRAW_DECLINED`, `GAME_STATE` |
+| `CLAIM_DRAW` | `{ gameId }` | `GAME_STATE`, `GAME_ENDED` (threefold repetition or fifty-move rule, checked by the engine) |
+| `ABORT_GAME` | `{ gameId }` | `GAME_STATE`, `GAME_ENDED` with reason `ABORTED` (before both sides moved) |
+| `CLAIM_VICTORY` | `{ gameId }` | `GAME_STATE`, `GAME_ENDED` with reason `ABANDONED` (opponent away for 60 s) |
 
 `gameId` is a UUID, squares use lowercase algebraic coordinates, and promotion
 is null/omitted or `QUEEN`, `ROOK`, `BISHOP`, `KNIGHT`. Extra fields, including
@@ -185,11 +188,36 @@ Each ply not yet announced to a room gets its own `MOVE_PLAYED`, in order, with
 the board after that ply: plies committed together (a bot reply) or through REST
 (at the next refresh) are not skipped. `clocks` is the current server clock,
 since per-ply clocks are not stored. Joining sends the snapshot, not past moves.
-`DRAW_OFFERED`/`DRAW_DECLINED` have `{ gameId, playerId }`.
+`DRAW_OFFERED`/`DRAW_DECLINED` have `{ gameId, playerId }`. After an offer, the
+same side waits four plies before offering again (`DRAW_OFFER_TOO_SOON`);
+`drawOfferAllowedFrom` in the snapshot says from which ply.
+
+When the last connection of a seated player leaves an active game, the room gets
+`OPPONENT_DISCONNECTED { gameId, playerId, since, claimableAt }`, and
+`OPPONENT_RECONNECTED { gameId, playerId }` when they join again. The snapshot
+lists the absent players in `away`. One minute after the departure, the other
+player may send `CLAIM_VICTORY`; before both sides have moved, the claim aborts
+the game instead. Presence is tracked by this process, like the rooms.
+
+Game end rules handled by the server:
+
+- automatic draws: fivefold repetition and the seventy-five-move rule;
+- a flag fall is a draw when the opponent has no mating material left;
+- between two people, a side that does not play its first move within 30 s
+  aborts the game (`ABORTED`: no result, no rating, not in the history);
+- only `rated` games change Elo: matchmaking games are rated, games against a
+  friend are casual unless created with `rated: true`, bot games never are;
+- a player has at most five open invitations (`GET /v1/games/waiting`,
+  `DELETE /v1/games/:id` to cancel one); nobody accepts one within 24 hours, it
+  is removed; joining while already in an active game is refused
+  (`ACTIVE_GAME_EXISTS`);
+- the HTTP API accepts only the time controls the front offers
+  (`src/games/time-controls.ts`).
 
 For subscribed active games, `CLOCK_UPDATE` is emitted once per second with
 `{ gameId, clocks: { white, black }, turn, serverTime }`; balances are milliseconds
-and serverTime is ISO UTC. The durable clock is settled before publication.
+and serverTime is ISO UTC. The refresh reads the game without its lock and brings
+the clock up to date in memory; it writes the row only when a flag has fallen.
 Clock/REST changes trigger a fresh snapshot; terminal results emit
 `GAME_ENDED { gameId, result: { winner, reason } }` once per live room and stop
 clock refreshes. A reconnecting finished-game client reads the snapshot result.

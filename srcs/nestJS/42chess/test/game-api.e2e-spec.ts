@@ -16,7 +16,7 @@ describe('Game REST contract (real PostgreSQL and C++ engine)', () => {
   let white: User, black: User, outsider: User;
   const owned: string[] = [];
   const tokens = new Map<string, string>();
-  const control = { initialTime: 300000, increment: 2000 };
+  const control = { initialTime: 180000, increment: 2000 };
 
   beforeAll(async () => {
     process.env.CHESS_ENGINE_URL =
@@ -54,6 +54,13 @@ describe('Game REST contract (real PostgreSQL and C++ engine)', () => {
     tokens.set('Bearer fixture-white', white.id);
     tokens.set('Bearer fixture-black', black.id);
   });
+  // A player has one active game and a few open invitations at a time.
+  afterEach(async () => {
+    await source.query(
+      `DELETE FROM games WHERE id = ANY($1::uuid[]) AND status <> 'FINISHED'`,
+      [owned],
+    );
+  });
   afterAll(async () => {
     if (source?.isInitialized) {
       for (const id of owned) {
@@ -83,7 +90,7 @@ describe('Game REST contract (real PostgreSQL and C++ engine)', () => {
     const state = await games.get(id);
     expect(state.game).toMatchObject({
       status: 'WAITING',
-      initialTime: 300000,
+      initialTime: 180000,
       increment: 2000,
     });
     expect(state.players).toMatchObject([{ userId: white.id, color: 'WHITE' }]);
@@ -137,6 +144,64 @@ describe('Game REST contract (real PostgreSQL and C++ engine)', () => {
     expect((await games.get(id)).game.status).toBe('ACTIVE');
   });
 
+  it('lists and cancels the open invitations of their creator only', async () => {
+    const id = await create();
+    const list = await request(app.getHttpServer())
+      .get('/v1/games/waiting')
+      .set('Authorization', 'Bearer fixture-white')
+      .expect(200);
+    expect(list.body.games).toEqual([
+      {
+        id,
+        timeControl: control,
+        rated: false,
+        invitedOpponentId: null,
+        createdAt: expect.stringMatching(/Z$/),
+      },
+    ]);
+    await request(app.getHttpServer())
+      .get('/v1/games/waiting')
+      .set('Authorization', 'Bearer fixture-black')
+      .expect(200)
+      .expect(({ body }) => expect(body.games).toEqual([]));
+    await request(app.getHttpServer())
+      .delete(`/v1/games/${id}`)
+      .set('Authorization', 'Bearer fixture-black')
+      .expect(403);
+    await request(app.getHttpServer())
+      .delete(`/v1/games/${id}`)
+      .set('Authorization', 'Bearer fixture-white')
+      .expect(204);
+    await request(app.getHttpServer()).get(`/v1/games/${id}`).expect(404);
+  });
+
+  it('creates a rated game on request and only offered time controls', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/v1/games')
+      .set('Authorization', 'Bearer fixture-white')
+      .send({ opponentId: null, timeControl: control, rated: true })
+      .expect(201);
+    owned.push(response.body.gameId);
+    await request(app.getHttpServer())
+      .get(`/v1/games/${response.body.gameId}`)
+      .expect(200)
+      .expect(({ body }) => expect(body.rated).toBe(true));
+    for (const timeControl of [
+      { initialTime: 60000, increment: 0 },
+      { initialTime: 300000, increment: 2000 },
+    ])
+      await request(app.getHttpServer())
+        .post('/v1/games')
+        .set('Authorization', 'Bearer fixture-white')
+        .send({ opponentId: null, timeControl })
+        .expect(400);
+    await request(app.getHttpServer())
+      .post('/v1/games')
+      .set('Authorization', 'Bearer fixture-white')
+      .send({ opponentId: null, timeControl: control, rated: 'yes' })
+      .expect(400);
+  });
+
   it('rejects self invitations and missing opponents atomically', async () => {
     for (const [opponentId, status, code] of [
       [white.id, 400, 'INVALID_GAME_INPUT'],
@@ -175,12 +240,12 @@ describe('Game REST contract (real PostgreSQL and C++ engine)', () => {
       },
       blackPlayer: { id: black.id, username: black.username, color: 'BLACK' },
       board: { turn: 'WHITE', halfmoveClock: 0, fullmoveNumber: 1 },
-      clocks: { black: 300000 },
+      clocks: { black: 180000 },
       result: null,
       timeControl: control,
     });
     expect(response.body.clocks.white).toBeGreaterThan(0);
-    expect(response.body.clocks.white).toBeLessThanOrEqual(300000);
+    expect(response.body.clocks.white).toBeLessThanOrEqual(180000);
     expect(response.body.startedAt).toMatch(/Z$/);
     expect(response.body.createdAt).toMatch(/Z$/);
     expect(response.body.endedAt).toBeNull();

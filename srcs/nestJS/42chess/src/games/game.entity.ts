@@ -25,7 +25,26 @@ export type GameEndReason =
   | 'STALEMATE'
   | 'INSUFFICIENT_MATERIAL'
   | 'THREEFOLD_REPETITION'
-  | 'FIFTY_MOVE_RULE';
+  | 'FIFTY_MOVE_RULE'
+  | 'FIVEFOLD_REPETITION'
+  | 'SEVENTY_FIVE_MOVE_RULE'
+  | 'ABANDONED'
+  | 'ABORTED';
+/** Every end reason, in the order of the CHK_games_end_reason constraint. */
+export const GAME_END_REASONS: readonly GameEndReason[] = [
+  'CHECKMATE',
+  'RESIGNATION',
+  'TIMEOUT',
+  'DRAW_AGREEMENT',
+  'STALEMATE',
+  'INSUFFICIENT_MATERIAL',
+  'THREEFOLD_REPETITION',
+  'FIFTY_MOVE_RULE',
+  'FIVEFOLD_REPETITION',
+  'SEVENTY_FIVE_MOVE_RULE',
+  'ABANDONED',
+  'ABORTED',
+];
 export const INITIAL_FEN =
   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -48,7 +67,12 @@ export const INITIAL_FEN =
   'CHK_games_lifecycle',
   `("status" = 'WAITING' AND "startedAt" IS NULL AND "finishedAt" IS NULL AND "result" IS NULL)
    OR ("status" = 'ACTIVE' AND "startedAt" IS NOT NULL AND "finishedAt" IS NULL AND "result" IS NULL)
-   OR ("status" = 'FINISHED' AND "startedAt" IS NOT NULL AND "finishedAt" IS NOT NULL AND "result" IS NOT NULL)`,
+   OR ("status" = 'FINISHED' AND "startedAt" IS NOT NULL AND "finishedAt" IS NOT NULL AND ("result" IS NOT NULL OR "endReason" IS NOT DISTINCT FROM 'ABORTED'))`,
+)
+// An aborted game has no winner and no draw: it simply did not take place.
+@Check(
+  'CHK_games_aborted',
+  `"endReason" IS DISTINCT FROM 'ABORTED' OR "result" IS NULL`,
 )
 @Check('CHK_games_finish_time', `"finishedAt" >= "startedAt"`)
 @Check('CHK_games_clock', `clock IS NULL OR jsonb_typeof(clock) = 'object'`)
@@ -62,7 +86,11 @@ export const INITIAL_FEN =
 )
 @Check(
   'CHK_games_end_reason',
-  `"endReason" IS NULL OR ("status" = 'FINISHED' AND "endReason" IN ('CHECKMATE', 'RESIGNATION', 'TIMEOUT', 'DRAW_AGREEMENT', 'STALEMATE', 'INSUFFICIENT_MATERIAL', 'THREEFOLD_REPETITION', 'FIFTY_MOVE_RULE'))`,
+  `"endReason" IS NULL OR ("status" = 'FINISHED' AND "endReason" IN ('CHECKMATE', 'RESIGNATION', 'TIMEOUT', 'DRAW_AGREEMENT', 'STALEMATE', 'INSUFFICIENT_MATERIAL', 'THREEFOLD_REPETITION', 'FIFTY_MOVE_RULE', 'FIVEFOLD_REPETITION', 'SEVENTY_FIVE_MOVE_RULE', 'ABANDONED', 'ABORTED'))`,
+)
+@Check(
+  'CHK_games_draw_offer_plies',
+  `("whiteDrawOfferPly" IS NULL OR "whiteDrawOfferPly" >= 0) AND ("blackDrawOfferPly" IS NULL OR "blackDrawOfferPly" >= 0)`,
 )
 @Check(
   'CHK_games_bot_lease',
@@ -107,6 +135,19 @@ export class Game {
 
   @Column({ type: 'varchar', length: 5, nullable: true })
   drawOffer: PlayerColor | null;
+
+  // Number of plies played when each side last offered a draw: a refused offer
+  // cannot be repeated straight away.
+  @Column({ type: 'integer', nullable: true })
+  whiteDrawOfferPly: number | null;
+
+  @Column({ type: 'integer', nullable: true })
+  blackDrawOfferPly: number | null;
+
+  // Only rated games change Elo. Matchmaking games are rated; games against a
+  // friend are casual unless created as rated; bot games never are.
+  @Column({ type: 'boolean', default: true })
+  rated: boolean;
 
   // Existing finished games have no recorded reason; never invent one on migration.
   @Column({ type: 'varchar', length: 24, nullable: true })

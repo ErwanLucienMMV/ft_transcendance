@@ -104,6 +104,7 @@ describe('Player game history (HISTORY-03/04/05/06/07/08)', () => {
       },
       outcome: 'WIN',
       reason: 'RESIGNATION',
+      rated: false,
       timeControl: control,
       moveCount: 1,
       startedAt: expect.any(String),

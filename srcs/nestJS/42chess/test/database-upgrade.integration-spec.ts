@@ -81,9 +81,12 @@ describe('Upgrade from the previous private-message schema', () => {
         const historyAfter = await upgraded.query(
           'SELECT * FROM typeorm_migrations ORDER BY id',
         );
-        expect(historyAfter.slice(0, -1)).toEqual(historyBefore);
-        expect(historyAfter.at(-1).name).toBe(upgradeName);
-        expect(historyAfter).toHaveLength(historyBefore.length + 1);
+        // The upgrade applies this migration first, then any later one.
+        expect(historyAfter.slice(0, historyBefore.length)).toEqual(
+          historyBefore,
+        );
+        expect(historyAfter[historyBefore.length].name).toBe(upgradeName);
+        expect(historyAfter).toHaveLength(upgraded.migrations.length);
         expect(await upgraded.showMigrations()).toBe(false);
         expect(await upgraded.runMigrations()).toEqual([]);
         const [{ convalidated }] = await upgraded.query(
