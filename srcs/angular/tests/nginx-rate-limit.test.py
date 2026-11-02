@@ -118,7 +118,8 @@ class RateLimitTest(unittest.TestCase):
 
     def test_auth_budget_is_shared_across_endpoints_and_cannot_be_spoofed(self):
         paths = ["login", "register", "2fa/verify", "verify-email", "resend-verification",
-                 "oauth/google", "oauth/github/callback", "oauth/google/link", "oauth/exchange"]
+                 "forgot-password", "reset-password", "oauth/google", "oauth/github/callback",
+                 "oauth/fortytwo", "oauth/fortytwo/callback", "oauth/google/link", "oauth/exchange"]
         results = [self.call(f"/api/v1/auth/{paths[i % len(paths)]}", "127.0.0.2") for i in range(12)]
         self.assertEqual([result[0] for result in results[:11]], [200] * 11)
         self.assertEqual(results[11][0], 429)
@@ -149,6 +150,16 @@ class RateLimitTest(unittest.TestCase):
         self.assertEqual(results[-1], 429)
         time.sleep(6.1)
         self.assertEqual(self.call("/api/v1/auth/login", "127.0.0.6")[0], 200)
+
+    def test_pictures_have_their_own_budget(self):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
+            results = list(pool.map(
+                lambda i: self.call(f"/api/v1/avatars/{i}.webp", "127.0.0.9"), range(80),
+            ))
+        self.assertEqual([result[0] for result in results], [200] * 80)
+        self.assertEqual(results[0][2]["path"], "/v1/avatars/0.webp")
+        # The pictures did not spend the budget of the API calls.
+        self.assertEqual(self.call("/api/v1/users/me", "127.0.0.9")[0], 200)
 
     def test_metrics_stay_inside_the_network(self):
         for path in [
