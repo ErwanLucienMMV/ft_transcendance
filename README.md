@@ -2,6 +2,9 @@
 Throughout commits and merge conflicts, we alone are the ones who forgot to pull and fetch.
 
 
+## API documentation
+
+- [REST and realtime API reference](docs/api.md)
 ## Architecture
 
 - [Application architecture](docs/architecture.md)
