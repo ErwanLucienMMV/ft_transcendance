@@ -2,6 +2,10 @@
 Throughout commits and merge conflicts, we alone are the ones who forgot to pull and fetch.
 
 
+## Local development
+
+- [Local installation](docs/local-installation.md)
+
 ## Database documentation
 
 - [Database model](srcs/nestJS/42chess/DATABASE-MODEL.md)
