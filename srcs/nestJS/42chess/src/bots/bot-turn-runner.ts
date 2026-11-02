@@ -10,6 +10,7 @@ import { GameClocksService } from '../games/clock/game-clocks.service.js';
 import { GameError } from '../games/game-error.js';
 import { moveInput } from '../games/game-input.js';
 import { BotEngine } from './bot-engine.js';
+import { BotPacer, thinkTime } from './bot-think-time.js';
 
 interface ValidatedMove {
   before: ChessSnapshot;
@@ -34,6 +35,7 @@ export class BotTurnRunner {
     private readonly rules: GameRulesService,
     private readonly clocks: GameClocksService,
     private readonly bot?: BotEngine,
+    private readonly pacer?: BotPacer,
   ) {}
 
   async run(
@@ -126,6 +128,19 @@ export class BotTurnRunner {
         'INVALID_BOT_RESPONSE',
         'Bot and rules engine disagree on the resulting position.',
       );
+    // Still outside any transaction: the lease keeps the turn while the bot "thinks".
+    const clock = expected.game.clock;
+    const remainingMs = clock
+      ? (seat.color === 'WHITE' ? clock.white : clock.black) - result.elapsedMs
+      : null;
+    await this.pacer?.wait(
+      thinkTime({
+        difficulty: seat.botDifficulty!,
+        legalMoves: before.legalMoves.length,
+        book: result.book === true,
+        remainingMs,
+      }) - result.elapsedMs,
+    );
     return { before, after, uci };
   }
 

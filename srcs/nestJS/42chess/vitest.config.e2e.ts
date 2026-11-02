@@ -11,6 +11,7 @@ export default defineConfig({
     hookTimeout: 15000,
     fileParallelism: false,
     globalSetup: ['./test/e2e.global-setup.ts'],
-    hookTimeout: 15000,
+    // The bot answers at once instead of pausing like a player.
+    env: { BOT_THINK_TIME: 'off' },
   },
 });

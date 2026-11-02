@@ -5,6 +5,7 @@ import type { ChessSnapshot } from '../chess/chess-engine.service.js';
 import type { EntityManager } from 'typeorm';
 import { BotEngine, BOT_DIFFICULTIES } from '../bots/bot-engine.js';
 import type { BotDifficulty } from '../bots/bot-engine.js';
+import { BotPacer } from '../bots/bot-think-time.js';
 import { User } from '../users/user.entity.js';
 import { Game } from './game.entity.js';
 import { GamePlayer } from './game-player.entity.js';
@@ -49,6 +50,7 @@ export class GamesService {
     private readonly clocks: GameClocksService,
     @Optional() private readonly bot?: BotEngine,
     @Optional() private readonly presence?: PresenceService,
+    @Optional() private readonly pacer?: BotPacer,
   ) {}
 
   /** Matching supplies its transaction; queue changes and both seats commit together. */
@@ -454,6 +456,7 @@ export class GamesService {
       this.rules,
       this.clocks,
       this.bot,
+      this.pacer,
     );
     return runner.run(
       identifier(actor),

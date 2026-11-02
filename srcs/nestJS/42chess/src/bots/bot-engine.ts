@@ -11,6 +11,8 @@ export interface BotMove {
   depth: number;
   nodes: number;
   elapsedMs: number;
+  /** The move comes from the opening book, without a search. */
+  book?: boolean;
 }
 /** Search is replaceable; the game rules service remains the legality authority. */
 export abstract class BotEngine {

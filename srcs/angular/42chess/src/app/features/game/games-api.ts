@@ -36,10 +36,18 @@ export interface BotChoice {
   label: string;
   description: string;
 }
-/** Search limits come from srcs/bot/README.md; the backend owns the real settings. */
+/** Search limits and styles come from docs/bot.md; the backend owns the real settings. */
 export const BOT_LEVELS: readonly BotChoice[] = [
-  { difficulty: 'EASY', label: 'Easy', description: 'Looks one move ahead. Good to learn.' },
-  { difficulty: 'MEDIUM', label: 'Medium', description: 'Looks three moves ahead.' },
+  {
+    difficulty: 'EASY',
+    label: 'Easy',
+    description: 'Looks one move ahead and sometimes slips. Good to learn.',
+  },
+  {
+    difficulty: 'MEDIUM',
+    label: 'Medium',
+    description: 'Looks three moves ahead and varies its play.',
+  },
   {
     difficulty: 'HARD',
     label: 'Hard',
