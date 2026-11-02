@@ -12,7 +12,7 @@ WARNINGS	:= -Wall -Wextra -Wpedantic -Werror
 INCLUDES	:= -Iinclude -I$(RULES_DIR)/include
 LDLIBS		+= -pthread
 
-CORE_SOURCES	:= src/engine.cpp src/search.cpp src/evaluation.cpp src/protocol.cpp
+CORE_SOURCES	:= src/book.cpp src/engine.cpp src/search.cpp src/evaluation.cpp src/protocol.cpp
 SERVER_SOURCES	:= src/main.cpp src/listener.cpp src/session.cpp
 TEST_SOURCES	:= tests/bot_tests.cpp
 CORE_OBJECTS	:= $(CORE_SOURCES:%.cpp=$(BUILD_DIR)/%.o) $(BUILD_DIR)/rules/chess.o
