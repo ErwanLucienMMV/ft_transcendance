@@ -2,6 +2,9 @@
 Throughout commits and merge conflicts, we alone are the ones who forgot to pull and fetch.
 
 
+## Architecture diagram
+
+- [Deployment architecture](docs/architecture-diagram.md)
 ## Local development
 
 - [Local installation](docs/local-installation.md)
