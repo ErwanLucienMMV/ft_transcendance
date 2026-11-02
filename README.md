@@ -2,6 +2,9 @@
 Throughout commits and merge conflicts, we alone are the ones who forgot to pull and fetch.
 
 
+## Configuration
+
+- [Environment reference](docs/environment.md)
 ## Operations documentation
 
 - [Docker operation](docs/docker.md)
