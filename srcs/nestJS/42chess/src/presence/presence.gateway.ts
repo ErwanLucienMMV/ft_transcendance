@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { PresenceService } from './presence.service.js';
-import type { UserPresence } from './presence.service.js';
+import type { LiveGameChange, UserPresence } from './presence.service.js';
 
 interface PresenceConnection {
   userId: string;
@@ -20,6 +20,7 @@ interface PresenceConnection {
 export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PresenceGateway.name);
   private unsubscribe?: () => void;
+  private unsubscribeGames?: () => void;
   private notifications: Promise<void> = Promise.resolve();
   private readonly clients = new Map<string, PresenceConnection>();
   constructor(
@@ -41,6 +42,20 @@ export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
           this.logger.error('Presence event delivery failed', error);
         });
     });
+    // The live games page refreshes on these instead of polling.
+    this.unsubscribeGames = this.presence.subscribeGames((change) => {
+      this.notifications = this.notifications
+        .then(() => this.broadcast('LIVE_GAMES_CHANGED', change))
+        .catch((error: unknown) => {
+          this.logger.error('Live game event delivery failed', error);
+        });
+    });
+  }
+
+  /** Public news (a game id and whether it is live): no session check needed per socket. */
+  private broadcast(event: string, change: LiveGameChange): void {
+    for (const client of this.clients.values())
+      if (client.connected()) client.send(event, change);
   }
 
   connect(connectionId: string, client: PresenceConnection): void {
@@ -86,6 +101,7 @@ export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     this.unsubscribe?.();
+    this.unsubscribeGames?.();
     for (const id of this.clients.keys()) this.disconnect(id);
     await this.presence.flushSeen();
     await this.flushNotifications();

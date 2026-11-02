@@ -53,4 +53,36 @@ describe('Private presence delivery on shared authenticated connections', () => 
     expect(valid.validate).toHaveBeenCalled();
     await gateway.onModuleDestroy();
   });
+
+  it('tells every open page when a game starts or ends', async () => {
+    const presence = new PresenceService();
+    const gateway = new PresenceGateway(presence, {
+      query: vi.fn(async () => []),
+    } as unknown as DataSource);
+    gateway.onModuleInit();
+    const open = {
+      userId: randomUUID(),
+      connected: () => true,
+      validate: vi.fn(async () => {}),
+      send: vi.fn(),
+    };
+    const closed = { ...open, connected: () => false, send: vi.fn() };
+    gateway.connect('open', open);
+    gateway.connect('closed', closed);
+    await gateway.flushNotifications();
+    open.send.mockClear();
+    const gameId = randomUUID();
+    const player = randomUUID();
+    presence.setGameStatus(gameId, [player], true);
+    presence.setGameStatus(gameId, [player], false);
+    await gateway.flushNotifications();
+    expect(
+      open.send.mock.calls.filter(([event]) => event === 'LIVE_GAMES_CHANGED'),
+    ).toEqual([
+      ['LIVE_GAMES_CHANGED', { gameId, active: true }],
+      ['LIVE_GAMES_CHANGED', { gameId, active: false }],
+    ]);
+    expect(closed.send).not.toHaveBeenCalled();
+    await gateway.onModuleDestroy();
+  });
 });

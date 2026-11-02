@@ -40,7 +40,9 @@ used by the history), `realtime/game-realtime.service.ts`.
 ## Pages
 
 - `/live` (public, linked in the menu): the games in progress with both players, the time
-  control and the spectators; refreshed every 15 seconds and on demand. **Watch** opens
+  control and the spectators. The page reloads when the server announces that a game started
+or ended (`LIVE_GAMES_CHANGED`, below), with a slow 60-second refresh for the spectator
+counts, and every 15 seconds while the socket is down. **Watch** opens
   `/game/:id?watch=1`; a player of a listed game gets **Back to your game** instead.
 - `/game/:id` as a spectator: "Spectating", whose turn it is, clocks, moves and the end of
   the game in real time, no move, resign or draw control, and **Stop watching**. Someone
@@ -54,3 +56,10 @@ used by the history), `realtime/game-realtime.service.ts`.
 - Backend e2e: `test/game-realtime.e2e-spec.ts` (two spectators, every refused command,
   `GET /games/live`, disconnect).
 - Browser: `e2e/spectator.e2e.ts` (three browsers).
+
+## Live list updates
+
+`LIVE_GAMES_CHANGED` `{ gameId, active }` goes to every open socket when a game becomes
+active or ends (`PresenceService.setGameStatus`, sent by `PresenceGateway`). It names no
+player and the list is public, so no session check is needed per socket. The page waits
+300 ms for more news before it reloads, so a burst of games costs one request.
