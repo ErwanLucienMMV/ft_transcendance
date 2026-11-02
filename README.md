@@ -2,6 +2,9 @@
 Throughout commits and merge conflicts, we alone are the ones who forgot to pull and fetch.
 
 
+## OAuth documentation
+
+- [Google and GitHub configuration and flow](docs/oauth.md)
 ## Configuration
 
 - [Environment reference](docs/environment.md)
