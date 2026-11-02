@@ -3,6 +3,7 @@
 # missing or empty (also in an older .env, e.g. one without JWT_SECRET).
 # A value already set is never changed. Run through `make env`.
 set -eu
+umask 077
 
 dir=$(dirname "$0")
 env_file="$dir/.env"
