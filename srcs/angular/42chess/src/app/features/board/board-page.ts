@@ -10,7 +10,7 @@ const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   selector: 'app-board-page',
   imports: [ChessBoard],
   template: `
-    <section class="board-page" aria-labelledby="board-title">
+    <section class="board-page page board-layout" aria-labelledby="board-title">
       <div class="board-column">
         <app-chess-board
           [fen]="fen()"
@@ -20,16 +20,24 @@ const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
           (moved)="play($event)"
         />
       </div>
-      <div class="board-panel">
+      <div class="board-panel side-panel">
         <span class="eyebrow">Analysis</span>
         <h2 id="board-title">Free board</h2>
-        <p>Both sides move here. Nothing is sent to the server.</p>
-        <p role="status">{{ turn() }}</p>
-        <div class="board-actions">
-          <button type="button" class="button secondary" (click)="flip()">Flip board</button>
-          <button type="button" class="button secondary" (click)="load(start)">Reset</button>
+        <p class="muted">
+          Move both sides freely to study a position. Nothing is sent to the server.
+        </p>
+        <div class="turn">
+          <i [class.black]="blackToMove()" aria-hidden="true"></i>
+          <p role="status">{{ turn() }}</p>
         </div>
-        <form class="form-field" (submit)="$event.preventDefault(); load(fenInput.value)">
+        <div class="panel-actions">
+          <button type="button" class="secondary" (click)="flip()">Flip board</button>
+          <button type="button" class="secondary" (click)="load(start)">Reset</button>
+        </div>
+        <form
+          class="form-field panel-section"
+          (submit)="$event.preventDefault(); load(fenInput.value)"
+        >
           <label for="fen">Load a FEN position</label>
           <input
             #fenInput
@@ -42,38 +50,37 @@ const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
           @if (fenError()) {
             <p id="fen-error">{{ fenError() }}</p>
           }
-          <button type="submit">Load position</button>
+          <button type="submit" class="secondary">Load position</button>
         </form>
       </div>
     </section>
   `,
   styles: `
-    .board-page {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 32px 16px;
-      display: grid;
-      grid-template-columns: minmax(0, 600px) minmax(0, 1fr);
-      gap: 32px;
-      align-items: start;
+    .turn p {
+      margin: 0;
     }
-    .board-panel {
-      display: grid;
-      gap: 12px;
+    .turn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
     }
-    .board-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+    .turn i {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      background: #f4f1dc;
+      border: 1px solid var(--border-strong);
+    }
+    .turn i.black {
+      background: #1c2922;
     }
     form {
-      display: grid;
-      gap: 8px;
+      margin: 0;
     }
-    @media (max-width: 760px) {
-      .board-page {
-        grid-template-columns: minmax(0, 1fr);
-      }
+    input {
+      font-family: var(--font-mono);
+      font-size: 13px;
     }
   `,
 })
@@ -85,6 +92,7 @@ export class BoardPage {
   readonly fenError = signal<string | null>(null);
   private readonly position = computed<Position>(() => parseFen(this.fen()));
   readonly turn = computed(() => `${this.position().turn === 'w' ? 'White' : 'Black'} to move.`);
+  readonly blackToMove = computed(() => this.position().turn === 'b');
 
   play(move: BoardMove): void {
     this.fen.set(fenAfter(this.fen(), move));

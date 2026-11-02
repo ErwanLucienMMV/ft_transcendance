@@ -26,6 +26,8 @@
               }
             ],
             "styles": [
+              "@fontsource-variable/inter/index.css",
+              "@fontsource-variable/space-grotesk/index.css",
               "src/styles.css"
             ],
             "server": "src/main.server.ts",

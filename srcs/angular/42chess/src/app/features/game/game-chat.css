@@ -1,21 +1,17 @@
 .game-chat {
-  display: grid;
-  gap: 8px;
   min-width: 0;
 }
-.game-chat h3,
 .game-chat p {
   margin: 0;
 }
 .log {
   display: grid;
   gap: 8px;
-  max-height: 260px;
+  max-height: 240px;
   overflow-y: auto;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--background);
 }
 ol {
   margin: 0;
@@ -27,10 +23,12 @@ ol {
 li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px 8px;
+  gap: 1px 8px;
+  font-size: 14px;
 }
 li strong {
   font-size: 13px;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 li.mine strong {
@@ -42,22 +40,17 @@ li p {
   overflow-wrap: anywhere;
 }
 time {
-  color: var(--muted);
+  color: var(--faint);
   font-size: 12px;
 }
 form {
   display: grid;
   gap: 8px;
 }
-label {
-  font-size: 14px;
-  color: var(--muted);
-}
 textarea {
   width: 100%;
-  min-height: 54px;
-  resize: vertical;
-  font: inherit;
+  min-height: 44px;
+  resize: none;
 }
 .row {
   display: flex;
@@ -66,14 +59,15 @@ textarea {
   gap: 12px;
 }
 .count {
-  color: var(--muted);
-  font-size: 13px;
+  color: var(--faint);
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 .count.over,
 .error {
-  color: var(--error, #ff8f8f);
+  color: var(--error);
 }
 .muted {
   color: var(--muted);
+  font-size: 14px;
 }

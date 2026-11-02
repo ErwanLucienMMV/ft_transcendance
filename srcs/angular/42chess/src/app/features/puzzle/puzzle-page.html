@@ -1,4 +1,4 @@
-<section class="puzzle-page" aria-labelledby="puzzle-title">
+<section class="puzzle-page page board-layout" aria-labelledby="puzzle-title">
   <div class="board-column">
     @if (daily()) {
       <app-chess-board
@@ -10,16 +10,16 @@
         (moved)="play($event)"
       />
     } @else if (loading()) {
-      <p class="muted" role="status">Loading today's puzzle…</p>
+      <p class="empty board-placeholder" role="status">Loading today's puzzle…</p>
     }
   </div>
 
-  <div class="puzzle-panel">
+  <div class="puzzle-panel side-panel">
     <span class="eyebrow">Daily puzzle</span>
     <h2 id="puzzle-title">{{ daily() ? prompt() : "Today's puzzle" }}</h2>
 
     @if (error(); as message) {
-      <p class="puzzle-error" role="alert">{{ message }}</p>
+      <p class="alert" role="alert">{{ message }}</p>
     }
 
     @if (daily(); as puzzle) {
@@ -42,15 +42,17 @@
             <dd data-result="mistakes">{{ mistakes() }}</dd>
           </div>
         </dl>
-        <button type="button" class="button secondary" (click)="restart()">Solve it again</button>
+        <button type="button" class="secondary" (click)="restart()">Solve it again</button>
       }
 
       @if (!session.authenticated()) {
-        <p>Sign in to solve the puzzle. Your progress and time are saved.</p>
-        <a class="button" routerLink="/login" [queryParams]="{ returnUrl: '/puzzle' }">Sign in</a>
+        <div class="signin">
+          <p>Sign in to play the moves. Your time and wrong tries are saved.</p>
+          <a class="button" routerLink="/login" [queryParams]="{ returnUrl: '/puzzle' }">Sign in</a>
+        </div>
       }
 
-      <dl class="details">
+      <dl class="details panel-section">
         <div>
           <dt>Rating</dt>
           <dd>{{ puzzle.rating }}</dd>

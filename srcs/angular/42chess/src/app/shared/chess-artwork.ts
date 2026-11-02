@@ -46,7 +46,7 @@ import { Component } from '@angular/core';
       background: #f4f1dc;
     }
     .dark {
-      background: #35443a;
+      background: #5f7a66;
     }
     svg {
       display: block;

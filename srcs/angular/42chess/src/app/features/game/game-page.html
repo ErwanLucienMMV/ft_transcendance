@@ -1,16 +1,20 @@
 @if (invalid()) {
-  <section class="game-missing" role="alert">
-    <h2>This game link is not valid.</h2>
-    <a class="button" routerLink="/play">Start a new game</a>
+  <section class="game-missing page narrow" role="alert">
+    <div class="empty">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><use href="/chess-pieces.svg#king" /></svg>
+      <h2>This game link is not valid.</h2>
+      <p>Check the link you received, or start a new game.</p>
+      <a class="button" routerLink="/play">Start a new game</a>
+    </div>
   </section>
 } @else {
-  <section class="game-page" aria-labelledby="game-title">
+  <section class="game-page page board-layout" aria-labelledby="game-title">
     <div class="board-column">
       @if (connection(); as text) {
         <div class="connection" role="status">
           <span>{{ text }}</span>
           @if (realtime.transport.state() === 'unavailable') {
-            <button type="button" class="button secondary" (click)="realtime.reconnect()">
+            <button type="button" class="secondary small" (click)="realtime.reconnect()">
               Reconnect
             </button>
           }
@@ -48,11 +52,11 @@
           />
         </div>
       } @else if (!realtime.error()) {
-        <p class="loading" role="status">Loading the game…</p>
+        <p class="empty" role="status">Loading the game…</p>
       }
     </div>
 
-    <div class="game-panel">
+    <div class="game-panel side-panel">
       <span class="eyebrow">{{ spectating() ? 'Spectating' : 'Live game' }}</span>
       <h2 id="game-title" aria-live="polite">{{ headline() || 'Game' }}</h2>
       @if (game() && spectators() > 0) {
@@ -69,7 +73,7 @@
       }
 
       @if (realtime.error(); as error) {
-        <p class="game-error" role="alert">{{ error.message }}</p>
+        <p class="game-error alert" role="alert">{{ error.message }}</p>
       }
 
       @if (game(); as current) {
@@ -141,7 +145,7 @@
           </div>
         }
 
-        <section class="move-list" aria-labelledby="moves-title">
+        <section class="move-list panel-section" aria-labelledby="moves-title">
           <h3 id="moves-title">Moves</h3>
           @if (rows().length) {
             <ol>

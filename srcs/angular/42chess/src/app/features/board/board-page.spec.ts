@@ -38,7 +38,7 @@ describe('Analysis board page', () => {
     click('form button[type="submit"]');
     expect(fixture.componentInstance.fen()).toBe('4k3/8/8/8/8/8/8/4K3 w - - 0 1');
     expect(element.querySelector('#fen-error')).toBeNull();
-    click('.board-actions button');
+    click('.panel-actions button');
     expect(element.querySelector('.square')?.getAttribute('data-square')).toBe('h1');
   });
 });

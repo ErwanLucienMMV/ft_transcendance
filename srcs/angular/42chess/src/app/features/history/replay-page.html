@@ -1,4 +1,4 @@
-<section class="replay-page" aria-labelledby="replay-title">
+<section class="replay-page page board-layout" aria-labelledby="replay-title">
   <div class="board-column">
     @if (game(); as current) {
       <div class="seat">
@@ -16,7 +16,7 @@
       <div class="controls" role="group" aria-label="Replay controls">
         <button
           type="button"
-          class="button secondary"
+          class="secondary small"
           aria-label="First position"
           [disabled]="ply() === 0"
           (click)="goTo(0)"
@@ -25,7 +25,7 @@
         </button>
         <button
           type="button"
-          class="button secondary"
+          class="secondary small"
           aria-label="Previous move"
           [disabled]="ply() === 0"
           (click)="step(-1)"
@@ -35,7 +35,7 @@
         <span class="position" aria-live="polite">Move {{ ply() }} / {{ moves().length }}</span>
         <button
           type="button"
-          class="button secondary"
+          class="secondary small"
           aria-label="Next move"
           [disabled]="atEnd()"
           (click)="step(1)"
@@ -44,28 +44,28 @@
         </button>
         <button
           type="button"
-          class="button secondary"
+          class="secondary small"
           aria-label="Last position"
           [disabled]="atEnd()"
           (click)="goTo(moves().length)"
         >
           »
         </button>
-        <button type="button" class="button secondary" (click)="flipped.set(!flipped())">
+        <button type="button" class="ghost small flip" (click)="flipped.set(!flipped())">
           Flip board
         </button>
       </div>
     } @else if (loading()) {
-      <p class="muted" role="status">Loading the game…</p>
+      <p class="empty" role="status">Loading the game…</p>
     }
   </div>
 
-  <div class="replay-panel">
+  <div class="replay-panel side-panel">
     <span class="eyebrow">Replay</span>
     <h2 id="replay-title">{{ headline() }}</h2>
 
     @if (error(); as message) {
-      <p class="replay-error" role="alert">{{ message }}</p>
+      <p class="alert" role="alert">{{ message }}</p>
       <a class="button secondary" routerLink="/history">Back to my games</a>
     }
 
@@ -74,7 +74,7 @@
         <p role="status">This game is still in progress.</p>
         <a class="button" [routerLink]="['/game', current.id]">Open the live game</a>
       }
-      <section class="move-list" aria-labelledby="replay-moves-title">
+      <section class="move-list panel-section" aria-labelledby="replay-moves-title">
         <h3 id="replay-moves-title">Moves</h3>
         @if (rows().length) {
           <ol>
@@ -101,7 +101,7 @@
           <p class="muted">No moves were played.</p>
         }
       </section>
-      <div class="actions">
+      <div class="actions panel-actions">
         <a class="button secondary" routerLink="/history">Back to my games</a>
         <a class="button secondary" routerLink="/board">Analysis board</a>
       </div>

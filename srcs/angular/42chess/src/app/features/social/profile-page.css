@@ -1,127 +1,131 @@
-.profile-page {
-  max-width: 760px;
-  margin: 0 auto;
-  padding: 32px 16px;
-  display: grid;
-  gap: 20px;
-}
-.profile-page h2,
-.profile-page h3,
-.profile-page p {
-  margin: 0;
-}
-.profile-page h3 {
-  margin-bottom: 10px;
-  font-size: 16px;
-}
-.muted {
-  color: var(--muted);
-}
-.profile-error {
-  padding: 10px 14px;
-  border: 1px solid var(--error-border);
-  border-radius: 8px;
-  color: var(--error);
-  background: var(--error-bg);
-}
 .identity {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-}
-.identity > div {
   display: grid;
-  gap: 4px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px 24px;
+  background:
+    radial-gradient(90% 140% at 0% 0%, rgba(196, 235, 92, 0.07), transparent 55%), var(--surface);
+}
+.who {
+  display: grid;
+  gap: 6px;
   justify-items: start;
   min-width: 0;
 }
-.identity h2 {
+.who h2 {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 34px);
+  letter-spacing: -0.025em;
   overflow-wrap: anywhere;
 }
 .avatar {
   flex: none;
-  width: 72px;
-  height: 72px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   object-fit: cover;
   background: var(--field);
+  border: 2px solid var(--accent-line);
 }
 .initial {
   display: grid;
   place-items: center;
-  font-size: 30px;
+  font-family: var(--font-display);
+  font-size: 36px;
   font-weight: 700;
   color: var(--accent);
 }
-.stats {
-  margin: 0;
+.identity-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  justify-items: end;
   gap: 8px;
 }
-.stats div {
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-}
-.stats dt {
-  color: var(--muted);
-  font-size: 12px;
-}
-.stats dd {
-  margin: 2px 0 0;
-  font-size: 22px;
-  font-weight: 700;
+.identity-actions p {
+  margin: 0;
 }
 .actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 .note {
   color: var(--muted);
+  font-size: 14px;
 }
 .actions .note {
+  flex-basis: 100%;
+  text-align: right;
   color: var(--error);
 }
-.rows {
+.stats {
   margin: 0;
-  padding: 0;
-  list-style: none;
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
 }
-.rows a {
+.stats div {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.stats dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.stats dd {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.stats div:first-child dd {
+  color: var(--accent);
+}
+.columns {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.columns section {
+  min-width: 0;
+}
+.columns .empty {
+  padding: 28px 16px;
+}
+.list a {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+  padding: 12px 16px;
   color: inherit;
   text-decoration: none;
 }
-.rows a:hover,
-.rows a:focus-visible {
-  border-color: var(--accent);
+.list a:hover,
+.list a:focus-visible {
+  color: inherit;
+  background: var(--surface-raised);
 }
-.rows span:nth-child(2) {
+.list span:nth-child(2) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rows time {
+.list time {
   color: var(--muted);
   font-size: 13px;
 }
 .change,
 .outcome {
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .change[data-sign='up'],
 .outcome[data-outcome='WIN'] {
@@ -134,4 +138,29 @@
 .change[data-sign='even'],
 .outcome[data-outcome='DRAW'] {
   color: var(--muted);
+}
+@media (max-width: 760px) {
+  .identity {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .identity-actions {
+    grid-column: 1 / -1;
+    justify-items: start;
+  }
+  .actions {
+    justify-content: flex-start;
+  }
+  .actions .note {
+    text-align: left;
+  }
+  .avatar {
+    width: 64px;
+    height: 64px;
+  }
+  .initial {
+    font-size: 28px;
+  }
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

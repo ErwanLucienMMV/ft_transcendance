@@ -25,12 +25,13 @@ export function formatClock(ms: number, tenths = true): string {
   styles: `
     .clock {
       min-width: 6.5ch;
-      padding: 6px 12px;
-      border-radius: 6px;
+      padding: 5px 12px;
+      border-radius: 8px;
       border: 1px solid var(--border);
-      font:
-        600 1.4rem/1.2 ui-monospace,
-        monospace;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+      line-height: 1.2;
       font-variant-numeric: tabular-nums;
       text-align: right;
       background: var(--field);
