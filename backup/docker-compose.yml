@@ -4,14 +4,13 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: transcendence-backup
+    # Compose interpolates ${...} from backup/.env, which does not exist, so
+    # credentials are read from srcs/.env at runtime by tools/entrypoint.sh.
     env_file:
       - ../srcs/.env
     environment:
       PGHOST: postgres
       PGPORT: 5432
-      PGUSER: ${POSTGRES_BACKUP_USER}
-      PGPASSWORD: ${POSTGRES_BACKUP_PASSWORD}
-      PGDATABASE: ${POSTGRES_DB}
     volumes:
       - backup_data:/backups
     networks:

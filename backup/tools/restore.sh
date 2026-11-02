@@ -2,6 +2,11 @@
 
 set -e
 
+# Same connection settings as the backups (written by entrypoint.sh).
+if [ -f /etc/transcendence-backup.env ]; then
+    . /etc/transcendence-backup.env
+fi
+
 if [ -z "$1" ]; then
     echo "Usage: rollback.sh <backup_file>"
     exit 1
