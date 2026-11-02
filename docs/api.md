@@ -65,7 +65,7 @@ PKCE verifier, provider tokens and application secrets remain server-side.
 | POST `/v1/friends/requests/:requestId/reject` | Bearer | Recipient rejects |
 | DELETE `/v1/friends/:friendId` | Bearer | Remove caller's friendship |
 
-Preferences include supported theme, language, sound and board settings; see
+Preferences include theme, language and sound settings; see
 [UpdatePreferencesDto](../srcs/nestJS/42chess/src/users/dto/update-preferences.dto.ts)
 for the exact allowlist. Profile updates reject server-owned rating/security
 properties, including nested injection. `avatarUrl: null` clears the avatar.
