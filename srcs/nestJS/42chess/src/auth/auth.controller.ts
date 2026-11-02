@@ -1,4 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { AUTH_RATE_LIMIT, EMAIL_RATE_LIMIT } from '../common/rate-limit.js';
 import { AuthService } from './auth.service.js';
 import type {
   AuthTokenResponse,
@@ -17,6 +19,7 @@ export class AuthController {
 
   /** Creates an unverified account and emails its verification link. */
   @Post('register')
+  @Throttle(EMAIL_RATE_LIMIT)
   register(@Body() dto: RegisterDto): Promise<AuthUserResponse> {
     return this.auth.register(dto);
   }
@@ -26,6 +29,7 @@ export class AuthController {
    * with `{ requires2fa, challengeToken }` for an account with 2FA.
    */
   @Post('login')
+  @Throttle(AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   login(
     @Body() dto: LoginDto,
@@ -35,6 +39,7 @@ export class AuthController {
 
   /** Second step of a 2FA login: challenge token + TOTP code. */
   @Post('2fa/verify')
+  @Throttle(AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   verifyTwoFactor(@Body() dto: VerifyTwoFactorDto): Promise<AuthTokenResponse> {
     return this.auth.verifyTwoFactor(dto);
@@ -42,6 +47,7 @@ export class AuthController {
 
   /** Called by the front page the emailed link opens. */
   @Post('verify-email')
+  @Throttle(AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   verifyEmail(@Body() dto: VerifyEmailDto): Promise<AuthUserResponse> {
     return this.auth.verifyEmail(dto.token);
@@ -49,6 +55,7 @@ export class AuthController {
 
   /** Always 202, whether or not the email has a pending account. */
   @Post('resend-verification')
+  @Throttle(EMAIL_RATE_LIMIT)
   @HttpCode(HttpStatus.ACCEPTED)
   resendVerification(@Body() dto: ResendVerificationDto): Promise<void> {
     return this.auth.resendVerification(dto.email);

@@ -229,6 +229,30 @@ describe('AuthService', () => {
       expect(expiresAt.getTime()).toBeGreaterThan(Date.now() + 29 * MINUTE);
     });
 
+    it('does not send a second email within a minute of the previous one', async () => {
+      users.findUnverifiedByEmail.mockResolvedValue({
+        ...ALICE,
+        // Issued ten seconds ago: expiry = issue time + 30 minutes.
+        emailVerificationExpiresAt: new Date(Date.now() + 30 * MINUTE - 10_000),
+      });
+
+      await auth.resendVerification('alice@example.com');
+
+      expect(users.setVerificationToken).not.toHaveBeenCalled();
+      expect(mail.sendEmailVerification).not.toHaveBeenCalled();
+    });
+
+    it('sends again once the cooldown is over', async () => {
+      users.findUnverifiedByEmail.mockResolvedValue({
+        ...ALICE,
+        emailVerificationExpiresAt: new Date(Date.now() + 28 * MINUTE),
+      });
+
+      await auth.resendVerification('alice@example.com');
+
+      expect(mail.sendEmailVerification).toHaveBeenCalledOnce();
+    });
+
     it('does nothing, silently, for an unknown or verified email', async () => {
       users.findUnverifiedByEmail.mockResolvedValue(null);
 
