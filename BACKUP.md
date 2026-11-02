@@ -2,121 +2,92 @@
 
 ## Overview
 
-The project includes an independent PostgreSQL backup service.
+The project includes an independent PostgreSQL backup service
+(`backup/docker-compose.yml`). It runs alongside the main application and
+creates a database backup **every hour**. Backups are kept for **24 hours**;
+older ones are deleted automatically.
 
-The backup service runs continuously alongside the main application and automatically creates a database backup **every hour**.
+The backup system protects against the loss of the database, but it is **not a
+zero-data-loss system**: up to one hour of changes can be lost (see
+[Recovery Time and Data Loss](#recovery-time-and-data-loss)).
 
-Backups are retained for **24 hours**. Once a backup is older than 24 hours, it is automatically deleted.
-
-This means the backup system provides protection against database loss, but it is **not a zero-data-loss system**.
+| Command | What it does |
+| --- | --- |
+| `make full` | Starts the application, then the backup service |
+| `make backup` / `make backup-down` | Starts or stops the backup service alone |
+| `make backup-now` | Takes a backup immediately |
+| `make backups` | Lists the backups, newest first |
+| `make restore BACKUP=<file>` | Restores one backup (asks for confirmation) |
+| `make backup-logs` | Follows the backup service logs |
 
 ---
 
 ## Backup Schedule
 
-Backups are created **once every hour**.
-
-Each backup is stored using the following naming format:
+Backups are created **once every hour** by cron, under this name:
 
 ```text
 transcendence_YYYY-MM-DD_HH-MM-SS.sql.gz
 ```
 
-For example:
+Each backup is a plain SQL dump produced with `pg_dump`
+(`--no-owner --no-privileges`) and compressed with `gzip`. It is written to a
+temporary file, checked with `gzip -t`, and only then renamed: an interrupted
+backup never leaves a truncated file behind.
 
-```text
-transcendence_2026-10-08_15-00-00.sql.gz
-transcendence_2026-10-08_16-00-00.sql.gz
-transcendence_2026-10-08_17-00-00.sql.gz
-```
+After each successful backup, the service writes the time of the backup to
+`backups/last-success`. The status page and the monitoring alerts use it to
+warn when backups stop.
 
-The backup is a compressed SQL dump produced with `pg_dump` and compressed using `gzip`.
-
-### Retention
-
-Backups older than **24 hours** are automatically removed.
-
-The backup service therefore maintains approximately the last 24 hours of hourly backups.
-
-For example, if the current time is:
-
-```text
-2026-10-08 17:30
-```
-
-a backup from:
-
-```text
-2026-10-07 16:00
-```
-
-is older than 24 hours and will be removed.
+Backups older than **24 hours** are removed, so the service keeps about the
+last 24 hourly backups.
 
 ---
 
 ## Backup Storage
 
-The backups are stored in a dedicated persistent volume:
+The backups are stored in the **`backups/` folder at the root of the
+repository**, on the host, mounted inside the backup container at `/backups`:
 
 ```yaml
 volumes:
-  backup_data:
-    name: transcendence_backup_data
+  - ${BACKUP_DIR:-../backups}:/backups
 ```
 
-The volume is mounted inside the backup container at:
+This folder is outside every Docker volume:
+
+- `make clean`, `make re` and even `make fclean` (which deletes the database
+  volume) never delete it;
+- it can be copied to another machine with ordinary tools (`rsync`, `scp`).
+  Doing so regularly is what protects against the loss of the whole machine.
+
+Set `BACKUP_DIR` in the environment to store the backups somewhere else (for
+example a mounted disk). The folder is ignored by git.
 
 ```text
-/backups
+PostgreSQL ── postgres_data (Docker volume) ── /var/lib/postgresql/data
+
+Backup service ── backups/ (host folder) ── /backups
 ```
 
-through:
-
-```yaml
-volumes:
-  - backup_data:/backups
-```
-
-The PostgreSQL database itself uses a **different volume** (would be a shame that a disk corruption on one machine would imply not having data):
-
-```yaml
-volumes:
-  - postgres_data:/var/lib/postgresql/data
-```
-
-This separation is important.
-
-```text
-PostgreSQL
-    │
-    └── postgres_data
-            │
-            └── /var/lib/postgresql/data
-
-
-Backup service
-    │
-    └── transcendence_backup_data
-            │
-            └── /backups
-```
-
-Destroying the PostgreSQL data volume does not automatically destroy the backup volume.
-
-Likewise, destroying the backup volume would not destroy the live PostgreSQL database.
+---
 
 ## Database Access
 
-The backup container reads its settings from `srcs/.env` when it starts:
-`POSTGRES_BACKUP_USER`, `POSTGRES_BACKUP_PASSWORD` and `DATABASE_NAME`. It
-stops immediately with a clear message when one of them is missing. Because
-cron gives its jobs an empty environment, `tools/entrypoint.sh` writes them to
-`/etc/transcendence-backup.env` (readable by root only), and `backup.sh` and
-`restore.sh` load that file.
+The backup container reads its settings from `srcs/.env` when it starts. It
+stops immediately with a clear message when one of these is missing:
 
-`pg_dump` needs to read every table. A new PostgreSQL volume grants the
-`pg_read_all_data` role to the backup user during initialization. A volume
-created before this change needs the grant once, from the repository root:
+- `POSTGRES_BACKUP_USER`, `POSTGRES_BACKUP_PASSWORD`: the **read-only role**
+  used by the hourly backups (granted `pg_read_all_data` when the database is
+  created);
+- `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD`: the **owner of the
+  database**, used only by a restore, which has to rewrite every table.
+
+Because cron gives its jobs an empty environment, `tools/entrypoint.sh` writes
+these settings to two root-only files that `backup.sh` and `restore.sh` load.
+
+A database volume created before the read-only role existed needs the grant
+once, from the repository root:
 
 ```bash
 set -a; . srcs/.env; set +a
@@ -127,7 +98,7 @@ docker exec postgres su - postgres -c \
 Check a backup by hand after the grant:
 
 ```bash
-docker exec transcendence-backup /usr/local/bin/backup.sh
+make backup-now
 ```
 
 ---
@@ -136,229 +107,73 @@ docker exec transcendence-backup /usr/local/bin/backup.sh
 
 ## Important warning
 
-**Restoring a backup means going back to the state of the database contained in that backup.**
+**Restoring a backup means going back to the state of the database contained
+in that backup.** Any data created or modified after that backup is lost.
 
-Any data created or modified after the selected backup was made may be lost.
+## How a restore works
 
-The backup system runs once per hour, so the maximum normal amount of database data that can be lost because of a crash is approximately **one hour**.
+`restore.sh` runs **in a single transaction**:
 
-For example:
+1. it empties the `public` schema;
+2. it replays the backup;
+3. it commits only if every statement succeeded.
 
-```text
-15:00  ──────── Backup created
-15:01
-15:30  ──────── User creates data
-15:45  ──────── More data created
-15:59  ──────── More data created
-16:00  ──────── Next backup would normally occur
-16:01  ──────── Database crashes
-```
+The first error (a damaged file, a missing permission) rolls everything back
+and the script stops with an error: the database is then exactly as it was
+before the restore. It never reports a success after a partial restore.
 
-If the database crashes at `16:01` before the `16:00` backup has successfully completed, the most recent available backup could be the one from `15:00`.
-
-Restoring it would recover the database as it existed around `15:00`.
-
-Therefore, potentially:
-
-```text
-15:00 backup
-     ↓
-15:01 → 16:01
-       ↑
-       up to ~59 minutes of changes
-       may be lost
-```
-
-This is the fundamental trade-off of an hourly backup system.
-
-**The backup system protects against catastrophic database loss, but it does not guarantee zero data loss.**
-
----
-
-# Easy Mode — Makefile
-
-The recommended recovery procedure for normal users is to use the Makefile.
-
-## 1. Stop the application
-
-PostgreSQL must remain running while the backup is restored, but the application should not be writing to the database.
-
-Run:
+## Easy mode: the Makefile
 
 ```bash
-make stop-app
+make backups                                         # pick a file
+make restore BACKUP=transcendence_2026-11-02_16-00-00.sql.gz
 ```
 
-This stops:
+`make restore` stops the application (PostgreSQL keeps running, so nothing
+writes during the restore), asks for confirmation, restores the backup, then
+starts the application again, whatever the result.
 
-* `chess-engine`
-* `nginx`
-* `prometheus`
-* `nestjs`
-* `grafana`
+## Manual mode
 
-PostgreSQL remains running.
-
----
-
-## 2. Find the backup you want to restore
-
-List the available backups inside the backup container:
+The same steps without the Makefile, for troubleshooting:
 
 ```bash
-docker exec transcendence-backup ls -lh /backups
-```
-
-Example:
-
-```text
-transcendence_2026-10-08_13-00-00.sql.gz
-transcendence_2026-10-08_14-00-00.sql.gz
-transcendence_2026-10-08_15-00-00.sql.gz
-transcendence_2026-10-08_16-00-00.sql.gz
-```
-
-Choose the backup you want to restore.
-
-Normally, you should choose the **most recent valid backup** unless you specifically need to recover an earlier state.
-
----
-
-## 3. Restore the backup
-
-Run the restore script inside the backup container:
-
-```bash
-docker exec -it transcendence-backup \
-    /usr/local/bin/restore.sh transcendence_<date>.sql.gz
-```
-
-The restore script will ask for confirmation before restoring the database.
-
-Confirm the operation when prompted.
-
----
-
-## 4. Start the application again
-
-Once the restore has completed successfully:
-
-```bash
-make start-app
-```
-
-The application services will start again while PostgreSQL remains available.
-
----
-
-## Complete Easy Mode Procedure
-
-In practice:
-
-```bash
-make stop-app
-```
-
-```bash
-docker exec transcendence-backup ls -lh /backups
-```
-
-Choose the desired backup and restore it:
-
-```bash
-docker exec -it transcendence-backup \
-    /usr/local/bin/restore.sh <backup-file>
-```
-
-Then:
-
-```bash
-make start-app
-```
-
-The database is now restored to the state contained in the selected backup.
-
----
-
-# Developers / Power Users
-
-The backup container can also be controlled directly through the Docker CLI.
-
-This is useful for debugging, inspecting backups, or performing a recovery without using the Makefile when this one failed, and hence needs trouble shooting.
-
-## List available backups
-
-```bash
-docker exec transcendence-backup \
-    ls -lh /backups
-```
-
-If no backup are available it means the backup container wasn't online long enough of that it got wiped
----
-
-## Inspect the backup container
-
-```bash
-docker exec -it transcendence-backup bash
-```
-
-From inside the container:
-
-```bash
-ls -lh /backups
-```
-
-Exit with:
-
-```bash
-exit
-```
-
----
-
-## Stop application containers manually
-
-The equivalent of `make stop-app` is:
-
-```bash
+# 1. Stop everything that writes to the database (PostgreSQL stays up)
 docker compose -f srcs/docker-compose.yml \
     stop chess-engine bot nginx prometheus nestjs forgemail grafana
-```
 
-PostgreSQL is deliberately **not** included, the objective here is to prevent data corruption by removing any chance an exterior component tries to access the DB while we are editing it.
+# 2. List the backups
+ls -lt backups/
 
----
-
-## Restore a backup manually
-
-After stopping the application:
-
-```bash
+# 3. Restore one (add --yes to skip the question)
 docker exec -it transcendence-backup \
-    /usr/local/bin/restore.sh <backup-file>
-```
+    /usr/local/bin/restore.sh transcendence_2026-11-02_16-00-00.sql.gz
 
-For example:
-
-```bash
-docker exec -it transcendence-backup \
-    /usr/local/bin/restore.sh transcendence_2026-10-08_16-00-00.sql.gz
-```
-
----
-
-## Start the application manually
-
-```bash
+# 4. Start the application again
 docker compose -f srcs/docker-compose.yml \
     start chess-engine bot forgemail nestjs nginx prometheus grafana
 ```
 
+## Full disaster: the database volume is gone
+
+When the PostgreSQL volume itself is lost (disk failure, `make fclean`):
+
+```bash
+make            # recreates an empty database and runs the migrations
+make backup     # starts the backup service (the backups/ folder is intact)
+make restore BACKUP=<latest file from make backups>
+```
+
+The restore replaces the empty tables created by the migrations with the
+content of the backup.
+
+The procedure is tested by restoring into a database that already contains
+newer data, and with a corrupted file (which must leave the database
+unchanged).
+
 ---
 
 # Recovery Architecture
-
-The backup service is intentionally independent from the main application stack.
 
 ```text
                          transcendence network
@@ -366,104 +181,37 @@ The backup service is intentionally independent from the main application stack.
           ┌─────────────────────┼─────────────────────┐
           │                     │                     │
       PostgreSQL             NestJS             Backup container
-          │                     │                     │
-          │                     │                     ├── cron
-          │                     │                     │    └── backup.sh
-          │                     │                     │
-          │                     │                     ├── restore.sh
-          │                     │					  |
+          │                     │                     ├── cron ── backup.sh (hourly)
+          │                     │                     └── restore.sh (manual)
           ▼                     │                     ▼
-    postgres_data               │        transcendence_backup_data
-                                │                     │
-                                │                     └── /backups
-                                │
-                                └── application
+    postgres_data               │               backups/ (host folder)
+    (Docker volume)             └── application
 ```
 
-The backup container remains running continuously.
-
-Cron executes `backup.sh` every hour.
-
-`restore.sh` is **not** executed automatically. It is only executed manually when a database recovery is required.
+`restore.sh` is **never** executed automatically.
 
 ---
 
 # Important Operational Rules
 
-### Do not stop the backup container during normal operation
-
-The backup container must remain running for its hourly cron job to execute.
-
-### Do not delete `transcendence_backup_data` unless you intentionally want to delete the backup history
-
-The backup volume contains the recovery points for the database.
-
-### Be careful with `make clean`
-
-The PostgreSQL data and backup data are separate volumes.
-
-Deleting:
-
-```text
-postgres_data
-```
-
-destroys the current PostgreSQL data.
-
-Deleting:
-
-```text
-transcendence_backup_data
-```
-
-destroys the stored backup history.
-
-Both are important, but they serve completely different purposes.
-
-### A backup is not a replacement for redundancy
-
-The backup system protects against database corruption or loss of the live PostgreSQL data, but it does not protect against every possible failure.
-
-For example, if both:
-
-```text
-postgres_data
-```
-
-and:
-
-```text
-transcendence_backup_data
-```
-
-are destroyed, there is no local backup left to restore.
-
-For a real production system, backups should eventually be copied to storage independent from the machine running the application.
+- **Keep the backup container running**: its cron job only runs while it is up.
+- **`make clean` and `make re` keep every piece of data.** `make fclean`
+  deletes the database volume (after a confirmation) but keeps `backups/`.
+- **Copy `backups/` off the machine regularly.** If the machine and its disk
+  are lost together, only an off-site copy can bring the data back.
 
 ---
 
 # Recovery Time and Data Loss
 
-This system uses an **hourly backup interval**.
+| Situation | Expected result |
+| --- | --- |
+| Database crashes immediately after a backup | Almost nothing is lost |
+| Database crashes shortly before the next backup | Up to ~1 hour of changes is lost |
+| Database volume is destroyed | Restore the latest backup |
+| `backups/` is also destroyed | Only an off-site copy can help |
+| Backup is more than 24 hours old | It is removed automatically |
 
-Therefore:
-
-| Situation                                       | Expected result                                      |
-| ----------------------------------------------- | ---------------------------------------------------- |
-| Database crashes immediately after a backup     | Up to ~1 hour of recent changes may be lost          |
-| Database crashes shortly before the next backup | Recent changes since the previous backup may be lost |
-| Database data is completely destroyed           | Restore the latest available backup                  |
-| Backup volume is also destroyed                 | Local recovery is impossible                         |
-| Backup is more than 24 hours old                | It is automatically removed                          |
-
-The important concept is **RPO (Recovery Point Objective)**.
-
-The current backup strategy has an approximate:
-
-```text
-RPO ≈ 1 hour
-```
-
-This means the system is designed to tolerate the potential loss of roughly one hour of database changes in the event of a failure.
-
-The backup frequency can be increased in the future if a lower RPO is required.
+The current strategy has an approximate **RPO (Recovery Point Objective) of
+one hour**: the system tolerates the loss of about one hour of changes. The
+backup frequency (`backup/tools/crontab`) can be increased for a lower RPO.

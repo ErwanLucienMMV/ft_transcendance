@@ -47,3 +47,6 @@ metrics.log
 .npm/
 .eslintcache
 .stylelintcache
+
+# Database backups (host folder mounted by the backup service)
+/backups/

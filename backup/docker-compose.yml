@@ -11,15 +11,13 @@ services:
     environment:
       PGHOST: postgres
       PGPORT: 5432
+    # A folder of the host, outside every Docker volume: `make clean` and
+    # `make fclean` never delete it, and it can be copied off the machine.
     volumes:
-      - backup_data:/backups
+      - ${BACKUP_DIR:-../backups}:/backups
     networks:
       - transcendence
     restart: unless-stopped
-
-volumes:
-  backup_data:
-    name: transcendence_backup_data
 
 networks:
   transcendence:
