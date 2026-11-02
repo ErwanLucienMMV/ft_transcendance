@@ -1,0 +1,54 @@
+<section class="history-page" aria-labelledby="history-title">
+  <span class="eyebrow">Your games</span>
+  <h2 id="history-title">Game history</h2>
+
+  @if (failed()) {
+    <div class="history-error" role="alert">
+      <p>Your games could not be loaded.</p>
+      <button type="button" class="button secondary" (click)="retry()">Try again</button>
+    </div>
+  } @else if (result(); as list) {
+    @if (list.total === 0) {
+      <p class="muted">No finished games yet. Your games appear here once they end.</p>
+      <a class="button" routerLink="/play">Play a game</a>
+    } @else {
+      <ol class="games" [attr.aria-busy]="loading()">
+        @for (item of list.items; track item.id) {
+          <li>
+            <a class="game" [routerLink]="['/replay', item.id]">
+              <span class="outcome" [attr.data-outcome]="item.outcome">{{ outcome(item) }}</span>
+              <span class="who">
+                <strong>vs {{ opponent(item) }}</strong>
+                <small>{{ details(item) }}</small>
+              </span>
+              <time [attr.datetime]="item.endedAt">{{ item.endedAt | date: 'medium' }}</time>
+            </a>
+          </li>
+        }
+      </ol>
+      @if (pages() > 1) {
+        <nav class="pager" aria-label="Pages">
+          <button
+            type="button"
+            class="button secondary"
+            [disabled]="page() <= 1"
+            (click)="go(page() - 1)"
+          >
+            Previous
+          </button>
+          <span aria-current="page">Page {{ page() }} of {{ pages() }}</span>
+          <button
+            type="button"
+            class="button secondary"
+            [disabled]="page() >= pages()"
+            (click)="go(page() + 1)"
+          >
+            Next
+          </button>
+        </nav>
+      }
+    }
+  } @else if (loading()) {
+    <p class="muted" role="status">Loading your games…</p>
+  }
+</section>

@@ -6,6 +6,7 @@ import {
   OnApplicationShutdown,
   UnauthorizedException,
 } from '@nestjs/common';
+import { MatchmakingEvents } from '../matchmaking/matchmaking-events.service.js';
 import { PresenceGateway } from '../presence/presence.gateway.js';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost } from '@nestjs/core';
@@ -14,9 +15,11 @@ import type { IncomingMessage, Server } from 'node:http';
 import type { Duplex } from 'node:stream';
 import WebSocket, { WebSocketServer } from 'ws';
 import { apiError } from '../common/api-error.js';
+import { MetricsService } from '../metrics/metrics.service.js';
 import { RealtimeAuthenticator } from './realtime-authenticator.js';
 import type { RealtimePrincipal } from './realtime-authenticator.js';
 import { parseRealtimeMessage, RealtimeMessages } from './realtime-messages.js';
+import { PrivateMessageRealtime } from '../chat/private-message-realtime.js';
 
 @Injectable()
 export class RealtimeGateway
@@ -33,8 +36,28 @@ export class RealtimeGateway
     private readonly auth: RealtimeAuthenticator,
     private readonly messages: RealtimeMessages,
     private readonly config: ConfigService,
+    metrics: MetricsService,
     @Optional() private readonly presence?: PresenceGateway,
-  ) {}
+    @Optional() private readonly matchmaking?: MatchmakingEvents,
+    @Optional() private readonly privateMessages?: PrivateMessageRealtime,
+  ) {
+    this.connectionsActive = metrics.gauge({
+      name: 'websocket_connections_active',
+      help: 'Accepted WebSocket connections currently open, including connections awaiting authentication.',
+    });
+    this.connectionsOpened = metrics.counter({
+      name: 'websocket_connections_opened_total',
+      help: 'Total accepted WebSocket connections, including connections awaiting authentication.',
+    });
+    this.connectionsClosed = metrics.counter({
+      name: 'websocket_connections_closed_total',
+      help: 'Total accepted WebSocket connections that closed, including authentication failures.',
+    });
+  }
+
+  private readonly connectionsActive;
+  private readonly connectionsOpened;
+  private readonly connectionsClosed;
 
   onApplicationBootstrap(): void {
     this.http = this.adapter.httpAdapter.getHttpServer() as Server;
@@ -101,6 +124,8 @@ export class RealtimeGateway
   }
 
   private connect(socket: WebSocket): void {
+    this.connectionsActive.inc();
+    this.connectionsOpened.inc();
     const connectionId = randomUUID();
     let principal: RealtimePrincipal | undefined;
     let expiry: ReturnType<typeof setTimeout> | undefined;
@@ -122,12 +147,16 @@ export class RealtimeGateway
     this.alive.add(socket);
     socket.on('pong', () => this.alive.add(socket));
     socket.on('error', () => this.logger.warn('Realtime connection failed.'));
-    socket.on('close', () => {
+    socket.once('close', () => {
+      this.connectionsActive.dec();
+      this.connectionsClosed.inc();
       clearTimeout(authTimeout);
       clearTimeout(expiry);
       clearInterval(validation);
       this.presence?.disconnect(connectionId);
       this.messages.disconnect(connectionId);
+      this.matchmaking?.disconnect(connectionId);
+      this.privateMessages?.disconnect(connectionId);
     });
     socket.on('message', (raw, binary) => {
       if (socket.readyState !== WebSocket.OPEN) return;
@@ -148,12 +177,14 @@ export class RealtimeGateway
       queue = queue
         .then(async () => {
           if (socket.readyState !== WebSocket.OPEN) return;
+          let command: string | undefined;
           try {
             if (binary) {
               socket.close(1003, 'Text JSON messages required');
               return;
             }
             const message = parseRealtimeMessage(raw.toString());
+            command = message.event;
             if (!principal) {
               if (message.event !== 'AUTHENTICATE')
                 throw new UnauthorizedException(
@@ -211,7 +242,7 @@ export class RealtimeGateway
               );
               expiry.unref();
               this.send(socket, 'AUTHENTICATED', { userId: principal.userId });
-              this.presence?.connect(connectionId, {
+              const authenticatedClient = {
                 userId: verified.userId,
                 connected: () =>
                   socket.readyState === WebSocket.OPEN &&
@@ -219,8 +250,12 @@ export class RealtimeGateway
                 validate: async () => {
                   await verified.validate?.();
                 },
-                send: (event, data) => this.send(socket, event, data),
-              });
+                send: (event: string, data: unknown) =>
+                  this.send(socket, event, data),
+              };
+              this.presence?.connect(connectionId, authenticatedClient);
+              this.matchmaking?.connect(connectionId, authenticatedClient);
+              this.privateMessages?.connect(connectionId, authenticatedClient);
             } else {
               if (
                 principal.expiresAt <= Date.now() ||
@@ -231,6 +266,13 @@ export class RealtimeGateway
                 );
               await principal.validate?.();
               if (socket.readyState !== WebSocket.OPEN) return;
+              if (
+                message.event === 'SEND_PRIVATE_MESSAGE' &&
+                this.privateMessages
+              ) {
+                await this.privateMessages.send(principal.userId, message.data);
+                return;
+              }
               await this.messages.handle(
                 {
                   userId: principal.userId,
@@ -245,7 +287,14 @@ export class RealtimeGateway
             }
           } catch (error: unknown) {
             const response = apiError(error);
-            this.send(socket, 'ERROR', response);
+            // The chat must not take an error for a move's, nor the board one of the chat's.
+            this.send(
+              socket,
+              'ERROR',
+              command === 'SEND_GAME_MESSAGE'
+                ? { ...response, event: command }
+                : response,
+            );
             if (!principal || response.statusCode === 401) {
               this.presence?.disconnect(connectionId);
               socket.close(4401, 'Authentication failed');

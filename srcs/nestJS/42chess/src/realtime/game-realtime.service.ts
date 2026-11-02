@@ -7,17 +7,25 @@ import {
   OnModuleInit,
   HttpException,
 } from '@nestjs/common';
+import { GameMessagesService } from '../chat/game-messages.service.js';
 import { GamesService } from '../games/games.service.js';
 import { GamePresenterService } from '../games/game-presenter.service.js';
 import { GameError } from '../games/game-error.js';
 import { identifier, moveInput } from '../games/game-input.js';
 import type { GameState } from '../games/game-state.js';
 import type { GameResponse } from '../games/game-api.types.js';
+import { SpectatorRegistry } from '../games/spectator-registry.js';
 import { RealtimeMessages } from './realtime-messages.js';
 import type { RealtimeClient, RealtimeMessage } from './realtime-messages.js';
+import { DataSource } from 'typeorm';
 
 interface Room {
   clients: Map<string, RealtimeClient>;
+  // Connections watching without a seat: they receive everything and may send nothing.
+  spectators: Set<string>;
+  spectatorCount: number;
+  // Last GAME_STATE, resent when only the spectator count changes.
+  snapshot: Record<string, unknown> | null;
   signature: string;
   ended: boolean;
   // Moves already announced to this room with MOVE_PLAYED.
@@ -29,12 +37,16 @@ interface GameQueue {
 }
 const commands = new Set([
   'JOIN_GAME',
+  'SYNC_CLOCK',
   'LEAVE_GAME',
   'MAKE_MOVE',
   'RESIGN',
   'OFFER_DRAW',
   'ACCEPT_DRAW',
   'DECLINE_DRAW',
+  'START_SPECTATING',
+  'STOP_SPECTATING',
+  'SEND_GAME_MESSAGE',
 ]);
 const promotions: Record<string, string> = {
   QUEEN: 'q',
@@ -57,6 +69,9 @@ export class GameRealtimeService
   constructor(
     private readonly games: GamesService,
     private readonly presenter: GamePresenterService,
+    private readonly spectators: SpectatorRegistry,
+    private readonly source: DataSource,
+    private readonly chat: GameMessagesService,
   ) {
     super();
   }
@@ -83,10 +98,27 @@ export class GameRealtimeService
       });
     const id = identifier(message.data.gameId);
     this.validate(message);
+    // Half of the queue stays free, so chat can never get a player's move refused.
+    if (
+      message.event === 'SEND_GAME_MESSAGE' &&
+      (this.queues.get(id)?.depth ?? 0) >= 32
+    )
+      throw new HttpException(
+        {
+          statusCode: 429,
+          code: 'TOO_MANY_REQUESTS',
+          message: 'The game chat is busy.',
+        },
+        429,
+      );
     await this.inGame(id, async () => {
       if (!client.connected()) return;
       if (message.event === 'JOIN_GAME') {
         await this.join(client, id);
+        return;
+      }
+      if (message.event === 'START_SPECTATING') {
+        await this.spectate(client, id);
         return;
       }
       const room = this.rooms.get(id);
@@ -96,11 +128,70 @@ export class GameRealtimeService
           code: 'ROOM_REQUIRED',
           message: 'Join the game before sending commands.',
         });
-      if (message.event === 'LEAVE_GAME') {
+      if (message.event === 'SYNC_CLOCK') {
+        const started = performance.now();
+        const state = await this.games.settle(id);
+        // Read the same wall-clock authority as the persisted checkpoint. Settlement
+        // can spend time saving/committing after sampling; application wall time can
+        // differ from PostgreSQL and must never be used to measure that sample's age.
+        const querying = performance.now();
+        const [row]: { now: Date }[] = await this.source.query(
+          'SELECT clock_timestamp() AS now',
+        );
+        const sampled = performance.now();
+        const view = await this.presenter.state(state);
+        const sending = performance.now();
+        // Approximate the DB query's return leg by half its monotonic round trip,
+        // just as the client estimates transport latency. Include all later work.
+        const sampleAgeMs = state.game.clock
+          ? Math.max(0, row.now.getTime() - state.game.clock.updatedAt) +
+            (sampled - querying) / 2 +
+            (sending - sampled)
+          : 0;
+        client.send('CLOCK_SYNC', {
+          gameId: id,
+          requestId: message.data.requestId,
+          processingMs: sending - started,
+          sampleAgeMs,
+          ...this.clockSample(state),
+          clocks: view.clocks,
+          turn: view.board.turn,
+          status: view.status,
+        });
+        return;
+      }
+      if (message.event === 'SEND_GAME_MESSAGE') {
+        // Players and spectators may talk: being in the room is what counts.
+        const { game } = await this.games.settle(id);
+        if (game.status === 'FINISHED')
+          throw new GameError(
+            'GAME_ALREADY_FINISHED',
+            'The chat closes when the game ends.',
+          );
+        this.broadcast(
+          room,
+          'GAME_MESSAGE',
+          await this.chat.send(client.userId, id, message.data.content),
+        );
+        return;
+      }
+      const spectating = room.spectators.has(client.connectionId);
+      if (
+        message.event === 'LEAVE_GAME' ||
+        (message.event === 'STOP_SPECTATING' && spectating)
+      ) {
         this.leave(client.connectionId, id);
         client.send('GAME_LEFT', { gameId: id });
         return;
       }
+      if (spectating || message.event === 'STOP_SPECTATING')
+        throw new ForbiddenException({
+          statusCode: 403,
+          code: spectating ? 'SPECTATOR_READ_ONLY' : 'NOT_SPECTATING',
+          message: spectating
+            ? 'Spectators cannot act on the game.'
+            : 'This connection is not spectating the game.',
+        });
       let state: GameState;
       switch (message.event) {
         case 'MAKE_MOVE':
@@ -167,7 +258,7 @@ export class GameRealtimeService
                 gameId: id,
                 clocks: view.clocks,
                 turn: view.board.turn,
-                serverTime: new Date().toISOString(),
+                ...this.clockSample(state),
               });
           }).catch(() => this.logger.warn('Realtime game refresh failed.')),
         ),
@@ -189,6 +280,17 @@ export class GameRealtimeService
           'NOT_A_PLAYER',
           'Only seated players may subscribe.',
         );
+      // An old challenge link must not start a clock against someone who left.
+      if (
+        state.game.invitedOpponentId &&
+        ![...(this.rooms.get(id)?.clients.values() ?? [])].some((other) =>
+          state.players.some((player) => player.userId === other.userId),
+        )
+      )
+        throw new GameError(
+          'OPPONENT_AWAY',
+          'The player who created this game is not here.',
+        );
       try {
         state = await this.games.join(client.userId, id);
       } catch (error) {
@@ -206,17 +308,79 @@ export class GameRealtimeService
     if (!client.connected()) return;
     const view = await this.presenter.state(state);
     if (!client.connected()) return;
+    const room = this.room(id, state);
+    room.clients.set(client.connectionId, client);
+    room.spectators.delete(client.connectionId);
+    memberships.add(id);
+    this.memberships.set(client.connectionId, memberships);
+    this.count(room, id);
+    this.publish(room, state, view);
+  }
+
+  /**
+   * Read-only subscription for any signed-in user (spec §28). Every game but a WAITING one
+   * is visible: there are no private games, and a finished game sends its state and end.
+   */
+  private async spectate(client: RealtimeClient, id: string): Promise<void> {
+    const memberships =
+      this.memberships.get(client.connectionId) ?? new Set<string>();
+    if (!memberships.has(id) && memberships.size >= 8)
+      throw new HttpException('Too many game subscriptions.', 429);
+    const state = await this.games.settle(id);
+    if (state.game.status === 'WAITING')
+      throw new GameError('GAME_NOT_ACTIVE', 'This game has not started yet.');
+    if (!client.connected()) return;
+    const view = await this.presenter.state(state);
+    if (!client.connected()) return;
+    const room = this.room(id, state);
+    // A seated connection keeps its seat; spectating never downgrades it.
+    if (!room.clients.has(client.connectionId))
+      room.spectators.add(client.connectionId);
+    room.clients.set(client.connectionId, client);
+    memberships.add(id);
+    this.memberships.set(client.connectionId, memberships);
+    const ended = room.ended;
+    if (!room.snapshot || this.signature(state) !== room.signature) {
+      this.count(room, id);
+      this.publish(room, state, view);
+    } else if (this.count(room, id)) {
+      this.broadcast(room, 'GAME_STATE', room.snapshot);
+    } else {
+      // Nothing changed for the others: only the newcomer needs the state.
+      client.send('GAME_STATE', room.snapshot);
+    }
+    // publish() announces the end once per room; a late spectator still needs it.
+    if (ended) client.send('GAME_ENDED', { gameId: id, result: view.result });
+  }
+
+  private room(id: string, state: GameState): Room {
     const room = this.rooms.get(id) ?? {
       clients: new Map(),
+      spectators: new Set<string>(),
+      spectatorCount: 0,
+      snapshot: null,
       signature: '',
       ended: false,
       plies: state.moves.length,
     };
     this.rooms.set(id, room);
-    room.clients.set(client.connectionId, client);
-    memberships.add(id);
-    this.memberships.set(client.connectionId, memberships);
-    this.publish(room, state, view);
+    return room;
+  }
+
+  /** Recounts distinct watching users; true when the number changed. */
+  private count(room: Room, id: string): boolean {
+    const users = new Set(
+      [...room.spectators].map(
+        (connection) => room.clients.get(connection)?.userId,
+      ),
+    );
+    users.delete(undefined);
+    if (users.size === room.spectatorCount) return false;
+    room.spectatorCount = users.size;
+    this.spectators.set(id, users.size);
+    if (room.snapshot)
+      room.snapshot = { ...room.snapshot, spectatorCount: users.size };
+    return true;
   }
 
   /**
@@ -253,11 +417,14 @@ export class GameRealtimeService
   private publish(room: Room, state: GameState, view: GameResponse): void {
     this.announce(room, state, view);
     room.signature = this.signature(state);
-    this.broadcast(room, 'GAME_STATE', {
+    room.snapshot = {
       ...view,
+      ...this.clockSample(state),
       gameId: view.id,
       moves: this.presenter.moves(state).moves,
-    });
+      spectatorCount: room.spectatorCount,
+    };
+    this.broadcast(room, 'GAME_STATE', room.snapshot);
     if (view.status === 'FINISHED' && !room.ended) {
       room.ended = true;
       this.broadcast(room, 'GAME_ENDED', {
@@ -265,6 +432,16 @@ export class GameRealtimeService
         result: view.result,
       });
     }
+  }
+
+  /** Timestamp belongs to the persisted PostgreSQL clock sample, not packet emission. */
+  private clockSample(state: GameState) {
+    return {
+      serverTime: state.game.clock
+        ? new Date(state.game.clock.updatedAt).toISOString()
+        : null,
+      clockStatus: state.game.clock?.status ?? 'WAITING',
+    };
   }
 
   private signature(state: GameState): string {
@@ -285,7 +462,12 @@ export class GameRealtimeService
   private leave(connectionId: string, id: string): void {
     const room = this.rooms.get(id);
     room?.clients.delete(connectionId);
-    if (room?.clients.size === 0) this.rooms.delete(id);
+    if (room?.spectators.delete(connectionId) && this.count(room, id))
+      this.broadcast(room, 'GAME_STATE', room.snapshot);
+    if (room?.clients.size === 0) {
+      this.rooms.delete(id);
+      this.spectators.set(id, 0);
+    }
     const memberships = this.memberships.get(connectionId);
     memberships?.delete(id);
     if (memberships?.size === 0) this.memberships.delete(connectionId);
@@ -307,10 +489,24 @@ export class GameRealtimeService
     const allowed =
       message.event === 'MAKE_MOVE'
         ? ['gameId', 'from', 'to', 'promotion']
-        : ['gameId'];
+        : message.event === 'SYNC_CLOCK'
+          ? ['gameId', 'requestId']
+          : message.event === 'SEND_GAME_MESSAGE'
+            ? ['gameId', 'content']
+            : ['gameId'];
     if (Object.keys(message.data).some((key) => !allowed.includes(key)))
       throw new BadRequestException('Unexpected command fields.');
+    if (
+      message.event === 'SYNC_CLOCK' &&
+      (!Number.isSafeInteger(message.data.requestId) ||
+        Number(message.data.requestId) < 0)
+    )
+      throw new BadRequestException(
+        'Expected a non-negative clock request identifier.',
+      );
     if (message.event === 'MAKE_MOVE') this.uci(message.data);
+    if (message.event === 'SEND_GAME_MESSAGE')
+      this.chat.content(message.data.content);
   }
   private uci(data: Record<string, unknown>): string {
     if (

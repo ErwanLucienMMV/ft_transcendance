@@ -58,6 +58,9 @@ jobs:
       - name: Show service status
         run: docker compose -f srcs/docker-compose.yml ps
 
+      - name: Verify API health and applied migrations
+        run: docker compose -f srcs/docker-compose.yml exec -T nestjs node dist/database/run-readiness-check.js
+
       - name: Show logs on failure
         if: failure()
         run: docker compose -f srcs/docker-compose.yml logs

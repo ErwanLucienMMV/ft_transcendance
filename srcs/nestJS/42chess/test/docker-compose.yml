@@ -16,11 +16,15 @@ services:
       - '127.0.0.1:${TEST_CHESS_ENGINE_PORT:-55433}:8081'
 
   postgres-test:
-    image: docker.io/library/postgres:15
+    # Exercise the production initialization path as well as the migrations.
+    build:
+      context: ../../../postgreSQL
     environment:
       POSTGRES_DB: transcendence_test
       POSTGRES_USER: foundation_test
       POSTGRES_PASSWORD: foundation_test_only
+      POSTGRES_BACKUP_USER: foundation_backup
+      POSTGRES_BACKUP_PASSWORD: foundation_backup_test_only
     ports:
       - '127.0.0.1:${TEST_DATABASE_PORT:-55432}:5432'
     tmpfs:

@@ -2,11 +2,13 @@ import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, UrlTree } from '@angular/router';
+import { firstValueFrom, isObservable, Observable } from 'rxjs';
 import { AuthService } from './auth.service';
 import { AuthSession, AuthTokenResponse } from './auth-session';
 import { authInterceptor, safeReturnUrl } from './auth.interceptor';
 import { authGuard } from './auth.guard';
 import { apiErrorInterceptor } from '../api/api-error.interceptor';
+import { SessionRefresh } from './session-refresh';
 
 const user = { id: 'user-1', username: 'Ta2b', elo: 1000 };
 function response(seconds = 3600): AuthTokenResponse {
@@ -132,16 +134,34 @@ describe('Authentication lifecycle', () => {
       req.flush({});
     }
   });
-  it('clears on protected 401, preserves the failure and redirects safely', () => {
+  it('clears on protected 401 once the cookie cannot renew, and redirects safely', () => {
     session.establish(response());
     const router = TestBed.inject(Router);
     const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
     const error = vi.fn();
     TestBed.inject(HttpClient).get('/api/v1/games').subscribe({ error });
     http.expectOne('/api/v1/games').flush({}, { status: 401, statusText: 'Unauthorized' });
+    const renew = http.expectOne('/api/v1/auth/refresh');
+    expect(renew.request.headers.get('X-Session-Refresh')).toBe('1');
+    expect(renew.request.headers.get('Authorization')).toBeNull();
+    renew.flush(null, { status: 204, statusText: 'No Content' });
     expect(session.token()).toBeNull();
+    expect(session.notice()).toContain('expired');
     expect(error).toHaveBeenCalled();
     expect(navigate).toHaveBeenCalledWith(['/login'], { queryParams: { returnUrl: '/' } });
+  });
+  it('renews once from the refresh cookie and retries the failed request', () => {
+    session.establish(response());
+    const next = vi.fn();
+    TestBed.inject(HttpClient).get('/api/v1/games').subscribe(next);
+    http.expectOne('/api/v1/games').flush({}, { status: 401, statusText: 'Unauthorized' });
+    const renewed = response(7200);
+    http.expectOne('/api/v1/auth/refresh').flush(renewed);
+    const retry = http.expectOne('/api/v1/games');
+    expect(retry.request.headers.get('Authorization')).toBe(`Bearer ${renewed.accessToken}`);
+    retry.flush({ ok: true });
+    expect(next).toHaveBeenCalledWith({ ok: true });
+    expect(session.token()).toBe(renewed.accessToken);
   });
   it('does not let a stale 401 clear a newer session', () => {
     session.establish(response(100));
@@ -154,12 +174,31 @@ describe('Authentication lifecycle', () => {
     old.flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(session.token()).toBe(fresh.accessToken);
   });
-  it('redirects an unauthenticated protected route, then allows a session', () => {
+  it('waits for the cookie restore before redirecting a protected route', async () => {
     const guard = () =>
       TestBed.runInInjectionContext(() => authGuard({} as never, { url: '/session' } as never));
+    const pending = guard() as Observable<unknown>;
+    expect(isObservable(pending)).toBe(true);
+    const decision = firstValueFrom(pending);
+    TestBed.inject(SessionRefresh).restore();
+    http.expectOne('/api/v1/auth/refresh').flush(null, { status: 204, statusText: 'No Content' });
+    TestBed.tick();
+    expect(await decision).toBeInstanceOf(UrlTree);
     expect(guard()).toBeInstanceOf(UrlTree);
     session.establish(response());
     expect(guard()).toBe(true);
+  });
+  it('lets a protected route through when the cookie restores the session', async () => {
+    const decision = firstValueFrom(
+      TestBed.runInInjectionContext(() =>
+        authGuard({} as never, { url: '/session' } as never),
+      ) as Observable<unknown>,
+    );
+    TestBed.inject(SessionRefresh).restore();
+    http.expectOne('/api/v1/auth/refresh').flush(response());
+    TestBed.tick();
+    expect(await decision).toBe(true);
+    expect(session.user()).toEqual(user);
   });
   it.each([
     '//evil.example',

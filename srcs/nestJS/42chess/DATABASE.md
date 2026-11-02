@@ -32,13 +32,36 @@ PostgreSQL's health check. The database initializer also needs the existing
 When running Node on the host, override `DATABASE_HOST=127.0.0.1` and use the
 published PostgreSQL port instead of the Compose service hostname.
 
+## Database requirements
+
+The application requires PostgreSQL 15 or newer and database encoding `UTF8`.
+Before running migrations, both Nest startup and the TypeORM migration CLI
+perform a read-only check of `server_encoding` and `server_version_num`.
+Incompatible settings raise a `Database requirements:` error; Nest does not
+retry these configuration errors. Temporary connection failures still use the
+existing retry policy. No automatic encoding conversion or data deletion is
+performed. Rebuilding an image does not change an existing database's encoding.
+
+After startup, the CI Docker job runs the following inside the Nest container:
+
+```sh
+node dist/database/run-readiness-check.js
+```
+
+It requests `/v1/health` on the configured API port with a five-second timeout,
+checks database requirements and compares the compiled migrations with recorded
+history. An unhealthy API, missing history or pending migration fails the job.
+The check does not apply migrations or create a missing migration history table.
+
 ## Entities and migrations
 
 Add entities as `src/<feature>/*.entity.ts`. Register them with
 `TypeOrmModule.forFeature([YourEntity])` in their feature module to inject
 repositories. Both the application and CLI discover compiled `*.entity.js`.
-`synchronize`, automatic migrations on startup and automatic schema dropping
-are disabled in every environment.
+`synchronize` and automatic schema dropping are disabled in every environment.
+API startup applies pending migrations transactionally after the database
+preflight. Initializing the CLI data source alone does not apply migrations;
+the CLI's `migration:run` command applies them explicitly after the same check.
 
 Create an empty migration:
 
@@ -64,8 +87,9 @@ These commands rebuild the backend and use `dist/database/data-source.js`.
 They connect using the same configuration as Nest. Migration history is stored
 in `typeorm_migrations`, and pending migrations run in a transaction. Existing
 migrations create users, games and the feature tables documented in the model.
-Apply them explicitly before API startup. New business migrations should
-accompany their entities; changing PostgreSQL's initialization script is unnecessary.
+They may also be applied explicitly before API startup. New business migrations
+should accompany their entities. If a migration introduces a database requirement,
+update the preflight, production fixture and upgrade tests together.
 
 ## Isolated database tests
 
@@ -77,9 +101,10 @@ npm run test:e2e
 npm run test:db:down
 ```
 
-The test Compose project runs official PostgreSQL 15 on `127.0.0.1:55432`, with
-database `transcendence_test` and disposable data in tmpfs. Its credentials are
-test fixtures. It does not mount the application's `postgres_data` volume.
+The test Compose project builds the production PostgreSQL 15 image and exposes
+it at `127.0.0.1:55432`, with database `transcendence_test` and disposable data in
+tmpfs. Its credentials are test fixtures. It does not mount the application's
+`postgres_data` volume.
 If that host port is occupied, set `TEST_DATABASE_PORT` to the same free port
 for both the Compose and test commands.
 
@@ -89,19 +114,44 @@ They cannot target an arbitrary database name or host. Ordinary unit tests
 do not require PostgreSQL. Integration tests use a random schema and remove
 only that schema on completion; no production migration fixture is installed.
 
+`test/database-upgrade.integration-spec.ts` builds the actual migration chain
+preceding private-message validation, stores users and messages (including emoji,
+Unicode whitespace and legacy blank content), and reconnects through the same
+automatic-migration path as Nest. It checks exact row and UTF8 byte preservation,
+migration history, idempotency and enforcement of the new constraint. When adding
+migrations, keep this upgrade fixture representative of the supported previous
+schema alongside the fresh-database tests.
+
 With Podman, the equivalent disposable fixture is:
 
 ```sh
+podman build --tag localhost/transcendence-postgres-test ../../postgreSQL
 podman run --detach --name transcendence-backend-tests \
   --publish 127.0.0.1:55432:5432 \
   --tmpfs /var/lib/postgresql/data:rw \
   --env POSTGRES_DB=transcendence_test \
   --env POSTGRES_USER=foundation_test \
-  --env POSTGRES_PASSWORD=foundation_test_only docker.io/library/postgres:15
+  --env POSTGRES_PASSWORD=foundation_test_only \
+  --env POSTGRES_BACKUP_USER=foundation_backup \
+  --env POSTGRES_BACKUP_PASSWORD=foundation_backup_test_only \
+  localhost/transcendence-postgres-test
 podman exec transcendence-backend-tests pg_isready -U foundation_test -d transcendence_test
 # Run npm tests only once PostgreSQL is ready.
 podman rm --force transcendence-backend-tests
 ```
+
+Production, backend database tests and browser E2E tests all build
+`srcs/postgreSQL/Dockerfile` and use its initialization script. The test projects
+use separate tmpfs data directories and test-only application and backup roles.
+The regression suite asserts UTF8 and a Unicode round trip; the browser API must
+apply the same migrations before it becomes healthy.
+
+For existing installations, inspect the application database with
+`SHOW server_encoding;` and `SHOW server_version;` before upgrading. The
+initializer only creates a cluster when `PG_VERSION` is absent, so rebuilding
+does not convert existing volumes. Preserve a non-UTF8 database, back up and
+validate its data, and plan a restore into a separate UTF8 database before
+switching services. Never delete a persistent volume as an encoding fix.
 
 Reference: [Nest configuration](https://docs.nestjs.com/techniques/configuration),
 [Nest database integration](https://docs.nestjs.com/techniques/database),

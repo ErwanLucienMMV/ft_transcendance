@@ -128,6 +128,19 @@ main {
 .site-footer span:last-child {
   font-weight: 400;
 }
+.footer-links {
+  display: flex;
+  gap: 20px;
+}
+.footer-links a {
+  color: inherit;
+  font-size: inherit;
+  text-transform: uppercase;
+}
+.footer-links a:hover,
+.footer-links a:focus-visible {
+  color: var(--text);
+}
 .skip-link {
   position: fixed;
   z-index: 10;
@@ -145,12 +158,14 @@ main {
   .header-inner {
     padding: 18px 20px;
     gap: 25px;
+    flex-wrap: wrap;
+    row-gap: 12px;
   }
+  /* The links get their own row under the brand instead of squeezing beside it. */
   nav[aria-label='Main navigation'] {
+    flex-basis: 100%;
+    row-gap: 10px;
     gap: 15px;
-  }
-  nav a:first-child {
-    display: none;
   }
   .brand {
     font-size: 14px;
@@ -160,11 +175,12 @@ main {
     font-size: 11px;
   }
   .nav-signout {
-    width: 100%;
-    text-align: right;
+    margin-left: auto;
+    min-height: 0;
   }
   .site-footer {
     padding: 28px 20px;
+    flex-wrap: wrap;
   }
   .site-footer span:last-child {
     display: none;

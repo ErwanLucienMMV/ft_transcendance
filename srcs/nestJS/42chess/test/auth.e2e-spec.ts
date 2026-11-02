@@ -291,6 +291,13 @@ describe('/v1/auth (e2e)', () => {
         sub: response.body.user.id,
         username: name,
       });
+      // The refresh secret travels only in the httpOnly cookie, never in the body.
+      const cookie = String(response.headers['set-cookie']);
+      expect(cookie).toMatch(/^refresh_token=[0-9a-f-]{36}\.[\w-]{43};/);
+      expect(cookie).toContain('Path=/api/v1/auth');
+      expect(cookie).toContain('HttpOnly');
+      expect(cookie).toContain('SameSite=Strict');
+      expect(response.headers['cache-control']).toBe('no-store');
     });
 
     it.each([

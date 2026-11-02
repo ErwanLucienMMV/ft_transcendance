@@ -33,12 +33,20 @@ import { User } from '../users/user.entity.js';
   ['initialTime', 'increment', 'rating', 'createdAt', 'id'],
   { where: `"status" = 'WAITING'` },
 )
+@Index('IDX_matchmaking_expiry', ['leaseExpiresAt'], {
+  where: `"status" = 'WAITING'`,
+})
 @Entity('matchmaking_queue')
 export class MatchmakingEntry {
   @PrimaryGeneratedColumn('uuid')
   id: string;
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
+  @Column({
+    type: 'timestamptz',
+    default: () => "clock_timestamp() + interval '30 seconds'",
+  })
+  leaseExpiresAt: Date;
   @Column({ type: 'uuid' })
   userId: string;
   @Column({ type: 'integer' })
@@ -49,6 +57,10 @@ export class MatchmakingEntry {
   increment: number;
   @Column({ type: 'varchar', length: 9, default: 'WAITING' })
   status: 'WAITING' | 'MATCHED' | 'CANCELLED';
+  @Column({ type: 'uuid', nullable: true })
+  matchedGameId: string | null;
+  @Column({ type: 'timestamptz', nullable: true })
+  matchedAt: Date | null;
   get timeControl(): { initialTime: number; increment: number } {
     return { initialTime: this.initialTime, increment: this.increment };
   }

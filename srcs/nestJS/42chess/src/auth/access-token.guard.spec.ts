@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { ExecutionContext } from '@nestjs/common';
 import { AccessTokenGuard } from './access-token.guard.js';
@@ -27,6 +28,7 @@ describe('AccessTokenGuard', () => {
     }),
     rows as unknown as Repository<AuthSession>,
     users as unknown as Repository<User>,
+    { get: () => 604800 } as unknown as ConfigService,
   );
   const guard = new AccessTokenGuard(new AuthGuard(sessions));
   beforeEach(() => {

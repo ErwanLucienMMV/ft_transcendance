@@ -36,6 +36,7 @@ All routes use the existing API error envelope `{statusCode, code, message}`. Au
 | POST | `/v1/puzzles/:id/attempts` | Bearer | New independent attempt |
 | GET | `/v1/puzzles/attempts/:id` | Bearer, owner | Resume persisted attempt |
 | POST | `/v1/puzzles/attempts/:id/moves` | Bearer, owner | Validate move and apply automatic reply |
+| POST | `/v1/puzzles/:id/move` | Bearer | Spec §30 route: same move on the caller's latest unfinished attempt |
 
 Start response and resumed state:
 
@@ -59,6 +60,8 @@ Submit a UCI move, including a lower-case promotion suffix when applicable:
 ```
 
 The answer includes the updated state plus `correct`, `completed`, `nextPosition`, and (when played) `opponentMove`. `fen` and `nextPosition` describe the board **after** the automatic reply. Only that already-played reply is returned; future moves and either solution representation are never exposed. The daily FEN already includes the Lichess setup move, so the player must not replay it.
+
+The spec §30 route `POST /v1/puzzles/:id/move` takes `{"from": "a2", "to": "e6"}`, with an optional `promotion` of `QUEEN`, `ROOK`, `BISHOP` or `KNIGHT` (spec §12). It plays on the caller's most recent unfinished attempt at that puzzle and starts a new attempt when there is none, so a finished attempt is never changed. It returns the same answer as the attempt route, which includes the spec fields `correct`, `completed` and `nextPosition`. Two tabs playing the same puzzle through it share one attempt; a simultaneous submission gets `409 PUZZLE_STALE_VERSION`, as on the attempt route. Clients that keep an attempt open, such as the puzzle page, keep using the attempt routes and their version.
 
 A legal move outside the stored solution is incorrect. An illegal move is also incorrect. Both leave the board and accepted plies unchanged, increment `attempts` and `version`, and allow retry. Mate-in-one puzzles additionally accept any legal move that actually checkmates, as specified by Lichess. Other variations are validated against the imported main line; this backend does not evaluate alternative winning lines.
 

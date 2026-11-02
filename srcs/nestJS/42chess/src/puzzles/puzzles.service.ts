@@ -196,6 +196,34 @@ export class PuzzlesService {
     };
   }
 
+  /**
+   * Spec §30 `POST /puzzles/:id/move`: plays on the caller's latest unfinished attempt
+   * at this puzzle, starting one when there is none. The attempt routes stay the way
+   * to resume a specific attempt with its version.
+   */
+  async move(
+    userId: string,
+    puzzleId: string,
+    move: string,
+  ): Promise<PuzzleTurnResponse> {
+    const latest = await this.source
+      .getRepository(PuzzleAttempt)
+      .createQueryBuilder('a')
+      .where('a."userId" = :userId AND a."puzzleId" = :puzzleId', {
+        userId,
+        puzzleId,
+      })
+      .andWhere('a.solved = false AND a."currentFen" IS NOT NULL')
+      .andWhere('a.attempts IS NOT NULL AND a.duration IS NOT NULL')
+      .orderBy('a."createdAt"', 'DESC')
+      .addOrderBy('a.id', 'DESC')
+      .getOne();
+    const attempt = latest
+      ? { attemptId: latest.id, version: latest.version }
+      : await this.start(userId, puzzleId);
+    return this.play(userId, attempt.attemptId, move, attempt.version);
+  }
+
   private async puzzle(id: string): Promise<Puzzle> {
     const puzzle = await this.source
       .getRepository(Puzzle)

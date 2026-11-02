@@ -4,6 +4,9 @@ import type { GamesService } from '../games/games.service.js';
 import type { GamePresenterService } from '../games/game-presenter.service.js';
 import { GameError } from '../games/game-error.js';
 import { apiError } from '../common/api-error.js';
+import { SpectatorRegistry } from '../games/spectator-registry.js';
+import type { DataSource } from 'typeorm';
+import type { GameMessagesService } from '../chat/game-messages.service.js';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const white = '00000000-0000-4000-8000-000000000002';
@@ -13,8 +16,23 @@ describe('Game realtime routing and rooms', () => {
   let service: GameRealtimeService;
   let games: Record<string, ReturnType<typeof vi.fn>>;
   let state: any;
+  let source: { query: ReturnType<typeof vi.fn> };
   let a: RealtimeClient, b: RealtimeClient;
+  let registry: SpectatorRegistry;
+  let chat: {
+    content: ReturnType<typeof vi.fn>;
+    send: ReturnType<typeof vi.fn>;
+  };
   beforeEach(() => {
+    chat = {
+      content: vi.fn((value: string) => value),
+      send: vi.fn(async (_user, gameId, content) => ({
+        id: 'm',
+        gameId,
+        content,
+      })),
+    };
+    registry = new SpectatorRegistry();
     state = {
       game: {
         id,
@@ -49,9 +67,13 @@ describe('Game realtime routing and rooms', () => {
       })),
       moves: vi.fn((value: typeof state) => ({ moves: value.moves })),
     };
+    source = { query: vi.fn(async () => [{ now: new Date(1793181600000) }]) };
     service = new GameRealtimeService(
       games as unknown as GamesService,
       presenter as unknown as GamePresenterService,
+      registry,
+      source as unknown as DataSource,
+      chat as unknown as GameMessagesService,
     );
     a = {
       userId: white,
@@ -73,6 +95,72 @@ describe('Game realtime routing and rooms', () => {
   async function command(event: string, client = a, extra = {}) {
     await service.handle(client, { event, data: { gameId: id, ...extra } });
   }
+  describe('game chat', () => {
+    const message = { id: 'm', gameId: id, content: 'Good luck!' };
+    it('saves, then broadcasts to everyone in the room', async () => {
+      await join();
+      await join(b);
+      await command('SEND_GAME_MESSAGE', a, { content: 'Good luck!' });
+      expect(chat.send).toHaveBeenCalledWith(white, id, 'Good luck!');
+      expect(a.send).toHaveBeenCalledWith('GAME_MESSAGE', message);
+      expect(b.send).toHaveBeenCalledWith('GAME_MESSAGE', message);
+    });
+    it('lets a spectator talk, and refuses a connection outside the room', async () => {
+      const watcher: RealtimeClient = {
+        userId: '00000000-0000-4000-8000-000000000009',
+        connectionId: 'w',
+        connected: () => true,
+        send: vi.fn(),
+      };
+      await expect(
+        command('SEND_GAME_MESSAGE', watcher, { content: 'Hi' }),
+      ).rejects.toMatchObject({ response: { code: 'ROOM_REQUIRED' } });
+      expect(chat.send).not.toHaveBeenCalled();
+      await join();
+      await command('START_SPECTATING', watcher);
+      await command('SEND_GAME_MESSAGE', watcher, { content: 'Good luck!' });
+      expect(chat.send).toHaveBeenCalledWith(watcher.userId, id, 'Good luck!');
+      expect(a.send).toHaveBeenCalledWith('GAME_MESSAGE', message);
+    });
+    it('refuses a message once the game has ended, even if ended by the clock', async () => {
+      await join();
+      state.game.status = 'FINISHED';
+      await expect(
+        command('SEND_GAME_MESSAGE', a, { content: 'Too late' }),
+      ).rejects.toMatchObject({ code: 'GAME_ALREADY_FINISHED' });
+      expect(chat.send).not.toHaveBeenCalled();
+    });
+    it('leaves half of the game queue free for moves', async () => {
+      await join();
+      let release = () => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      chat.send.mockImplementation(async () => {
+        await gate;
+        return message;
+      });
+      const queued = Array.from({ length: 32 }, () =>
+        command('SEND_GAME_MESSAGE', a, { content: 'Good luck!' }),
+      );
+      await expect(
+        command('SEND_GAME_MESSAGE', a, { content: 'One more' }),
+      ).rejects.toMatchObject({ response: { code: 'TOO_MANY_REQUESTS' } });
+      release();
+      await Promise.all(queued);
+    });
+    it('refuses unexpected fields and invalid text before queueing', async () => {
+      await join();
+      await expect(
+        command('SEND_GAME_MESSAGE', a, { content: 'x', sender: black }),
+      ).rejects.toThrow('Unexpected command fields');
+      chat.content.mockImplementationOnce(() => {
+        throw new Error('invalid');
+      });
+      await expect(
+        command('SEND_GAME_MESSAGE', a, { content: ' ' }),
+      ).rejects.toThrow('invalid');
+      expect(chat.send).not.toHaveBeenCalled();
+    });
+  });
   it('sends a full snapshot and permits idempotent reconnects for seated players', async () => {
     await join();
     await join();
@@ -85,6 +173,74 @@ describe('Game realtime routing and rooms', () => {
         moves: [],
       }),
     );
+  });
+  it('samples the durable database clock and validates room sync requests', async () => {
+    state.game.clock = { updatedAt: 1793181600000, status: 'RUNNING' };
+    await expect(
+      command('SYNC_CLOCK', a, { requestId: 1 }),
+    ).rejects.toMatchObject({ status: 403 });
+    await join();
+    await command('SYNC_CLOCK', a, { requestId: 7 });
+    expect(a.send).toHaveBeenCalledWith(
+      'CLOCK_SYNC',
+      expect.objectContaining({
+        gameId: id,
+        requestId: 7,
+        serverTime: new Date(state.game.clock.updatedAt).toISOString(),
+        clockStatus: 'RUNNING',
+        processingMs: expect.any(Number),
+        sampleAgeMs: expect.any(Number),
+      }),
+    );
+    await service.tick();
+    expect(a.send).toHaveBeenCalledWith(
+      'CLOCK_UPDATE',
+      expect.objectContaining({
+        serverTime: new Date(state.game.clock.updatedAt).toISOString(),
+      }),
+    );
+    await expect(
+      command('SYNC_CLOCK', a, { requestId: -1 }),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      command('SYNC_CLOCK', a, { requestId: 1, clocks: {} }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+  it('includes settlement commit latency in sample age using database time', async () => {
+    const checkpoint = 1793181600000;
+    state.game.clock = { updatedAt: checkpoint, status: 'RUNNING' };
+    await join();
+    let now = 0;
+    const monotonic = vi
+      .spyOn(performance, 'now')
+      .mockImplementation(() => now);
+    const wall = vi.spyOn(Date, 'now').mockReturnValue(checkpoint + 3600000);
+    try {
+      games.settle.mockImplementation(async () => {
+        // Checkpoint at 20ms, then 100ms of persistence/commit work.
+        now = 120;
+        return structuredClone(state);
+      });
+      source.query.mockImplementation(async () => {
+        now = 140;
+        return [{ now: new Date(checkpoint + 110) }];
+      });
+      await command('SYNC_CLOCK', a, { requestId: 8 });
+      expect(a.send).toHaveBeenCalledWith(
+        'CLOCK_SYNC',
+        expect.objectContaining({
+          serverTime: new Date(checkpoint).toISOString(),
+          processingMs: 140,
+          sampleAgeMs: 120,
+        }),
+      );
+      expect(source.query).toHaveBeenCalledWith(
+        'SELECT clock_timestamp() AS now',
+      );
+    } finally {
+      monotonic.mockRestore();
+      wall.mockRestore();
+    }
   });
   it('refuses outsiders without subscribing them', async () => {
     await expect(join({ ...a, userId: 'outsider' })).rejects.toMatchObject({
@@ -283,5 +439,167 @@ describe('Game realtime routing and rooms', () => {
     await join();
     await command(event);
     expect(games[method]).toHaveBeenCalledWith(white, id);
+  });
+
+  describe('spectators (SPEC-01..10)', () => {
+    const viewer = (name: string, userId = `user-${name}`): RealtimeClient => ({
+      userId,
+      connectionId: name,
+      connected: () => true,
+      send: vi.fn(),
+    });
+    const watch = (client: RealtimeClient) =>
+      service.handle(client, {
+        event: 'START_SPECTATING',
+        data: { gameId: id },
+      });
+    const counts = (client: RealtimeClient) =>
+      vi
+        .mocked(client.send)
+        .mock.calls.filter(([event]) => event === 'GAME_STATE')
+        .map(([, data]) => (data as { spectatorCount: number }).spectatorCount);
+
+    it('sends the current state to a new spectator without seating them', async () => {
+      const s1 = viewer('s1');
+      await watch(s1);
+      expect(games.join).not.toHaveBeenCalled();
+      expect(s1.send).toHaveBeenCalledWith(
+        'GAME_STATE',
+        expect.objectContaining({ gameId: id, moves: [], spectatorCount: 1 }),
+      );
+      expect(registry.count(id)).toBe(1);
+    });
+
+    it('refuses a game that has not started, and any extra field', async () => {
+      state.game.status = 'WAITING';
+      await expect(watch(viewer('s1'))).rejects.toMatchObject({
+        code: 'GAME_NOT_ACTIVE',
+      });
+      state.game.status = 'ACTIVE';
+      await expect(
+        service.handle(viewer('s2'), {
+          event: 'START_SPECTATING',
+          data: { gameId: id, color: 'WHITE' },
+        }),
+      ).rejects.toThrow();
+      expect(registry.count(id)).toBe(0);
+    });
+
+    it('broadcasts moves and the end of the game to every spectator', async () => {
+      const [s1, s2] = [viewer('s1'), viewer('s2')];
+      await join();
+      await watch(s1);
+      await watch(s2);
+      games.play.mockImplementation(async () => {
+        const next = structuredClone(state);
+        next.moves.push(e4);
+        next.game.currentFen = e4.fen;
+        return next;
+      });
+      await command('MAKE_MOVE', a, { from: 'e2', to: 'e4' });
+      for (const client of [s1, s2])
+        expect(played(client)).toEqual([expect.objectContaining({ move: e4 })]);
+      games.resign.mockImplementation(async () => {
+        const next = structuredClone(state);
+        next.game.status = 'FINISHED';
+        next.game.result = { winner: 'BLACK', reason: 'RESIGNATION' };
+        return next;
+      });
+      await command('RESIGN');
+      for (const client of [s1, s2])
+        expect(
+          events(client).filter((event) => event === 'GAME_ENDED'),
+        ).toHaveLength(1);
+    });
+
+    it.each([
+      'MAKE_MOVE',
+      'RESIGN',
+      'OFFER_DRAW',
+      'ACCEPT_DRAW',
+      'DECLINE_DRAW',
+    ])(
+      'refuses %s from a spectator, even a seated user who chose to watch',
+      async (event) => {
+        const seated = viewer('watching-white', white);
+        await watch(seated);
+        const extra = event === 'MAKE_MOVE' ? { from: 'e2', to: 'e4' } : {};
+        await expect(command(event, seated, extra)).rejects.toMatchObject({
+          response: { code: 'SPECTATOR_READ_ONLY' },
+        });
+        for (const method of [
+          'play',
+          'resign',
+          'offerDraw',
+          'acceptDraw',
+          'declineDraw',
+        ])
+          expect(games[method]).not.toHaveBeenCalled();
+      },
+    );
+
+    it('counts distinct users, tells the room, and stops on STOP_SPECTATING or disconnect', async () => {
+      await join();
+      const [s1, s1Again, s2] = [
+        viewer('s1'),
+        viewer('s1-tab', 'user-s1'),
+        viewer('s2'),
+      ];
+      await watch(s1);
+      await watch(s1Again);
+      expect(registry.count(id)).toBe(1);
+      await watch(s2);
+      expect(registry.count(id)).toBe(2);
+      expect(counts(a)).toEqual([0, 1, 2]);
+
+      await service.handle(s2, {
+        event: 'STOP_SPECTATING',
+        data: { gameId: id },
+      });
+      expect(s2.send).toHaveBeenLastCalledWith('GAME_LEFT', { gameId: id });
+      expect(registry.count(id)).toBe(1);
+      expect(counts(a).at(-1)).toBe(1);
+      service.disconnect('s1');
+      expect(registry.count(id)).toBe(1); // the other tab still watches
+      service.disconnect('s1-tab');
+      expect(registry.count(id)).toBe(0);
+      expect(counts(a).at(-1)).toBe(0);
+
+      vi.mocked(s2.send).mockClear();
+      await service.tick();
+      expect(s2.send).not.toHaveBeenCalled();
+    });
+
+    it('lets a seated player switch from watching to playing with JOIN_GAME', async () => {
+      const seated = viewer('white-tab', white);
+      await watch(seated);
+      expect(registry.count(id)).toBe(1);
+      await join(seated);
+      expect(registry.count(id)).toBe(0);
+      await command('RESIGN', seated);
+      expect(games.resign).toHaveBeenCalledWith(white, id);
+    });
+
+    it('answers STOP_SPECTATING from a player with an error, keeping the seat', async () => {
+      await join();
+      await expect(command('STOP_SPECTATING')).rejects.toMatchObject({
+        response: { code: 'NOT_SPECTATING' },
+      });
+      await command('RESIGN');
+      expect(games.resign).toHaveBeenCalled();
+    });
+
+    it('sends the end to a spectator who arrives after the game finished', async () => {
+      await join();
+      state.game.status = 'FINISHED';
+      state.game.result = { winner: 'WHITE', reason: 'CHECKMATE' };
+      await service.tick();
+      const late = viewer('late');
+      await watch(late);
+      expect(
+        events(late).filter((event) => event === 'GAME_ENDED'),
+      ).toHaveLength(1);
+      expect(events(late)).toEqual(['GAME_STATE', 'GAME_ENDED']);
+    });
   });
 });

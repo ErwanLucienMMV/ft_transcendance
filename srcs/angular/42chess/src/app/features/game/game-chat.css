@@ -1,0 +1,79 @@
+.game-chat {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.game-chat h3,
+.game-chat p {
+  margin: 0;
+}
+.log {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+}
+li strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+li.mine strong {
+  color: var(--accent);
+}
+li p {
+  grid-column: 1 / -1;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+time {
+  color: var(--muted);
+  font-size: 12px;
+}
+form {
+  display: grid;
+  gap: 8px;
+}
+label {
+  font-size: 14px;
+  color: var(--muted);
+}
+textarea {
+  width: 100%;
+  min-height: 54px;
+  resize: vertical;
+  font: inherit;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.count {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.count.over,
+.error {
+  color: var(--error, #ff8f8f);
+}
+.muted {
+  color: var(--muted);
+}

@@ -43,7 +43,8 @@ export class RealtimeService {
   private attempts = 0;
   private wanted = false;
   private token: string | null = null;
-  private readonly rooms = new Set<string>();
+  /** Game rooms to restore after a reconnect, with the way each one was entered. */
+  private readonly rooms = new Map<string, 'JOIN_GAME' | 'START_SPECTATING'>();
 
   constructor() {
     effect(() => {
@@ -78,13 +79,25 @@ export class RealtimeService {
   }
 
   joinGame(gameId: string): boolean {
-    if (!this.send('JOIN_GAME', { gameId })) return false;
-    this.rooms.add(gameId);
-    return true;
+    return this.enter(gameId, 'JOIN_GAME');
   }
   leaveGame(gameId: string): boolean {
     this.rooms.delete(gameId);
     return this.send('LEAVE_GAME', { gameId });
+  }
+  /** Read-only room: the server sends the game and refuses every command from it. */
+  spectateGame(gameId: string): boolean {
+    return this.enter(gameId, 'START_SPECTATING');
+  }
+  stopSpectating(gameId: string): boolean {
+    this.rooms.delete(gameId);
+    return this.send('STOP_SPECTATING', { gameId });
+  }
+
+  private enter(gameId: string, event: 'JOIN_GAME' | 'START_SPECTATING'): boolean {
+    if (!this.send(event, { gameId })) return false;
+    this.rooms.set(gameId, event);
+    return true;
   }
 
   /**
@@ -148,7 +161,7 @@ export class RealtimeService {
         this.attempts = 0;
         this.error.set(null);
         this.state.set('connected');
-        for (const gameId of this.rooms) this.send('JOIN_GAME', { gameId });
+        for (const [gameId, event] of this.rooms) this.send(event, { gameId });
       } else if (this.state() !== 'connected' && packet.event !== 'ERROR') {
         socket.close(4000, 'Authenticate first');
         return;

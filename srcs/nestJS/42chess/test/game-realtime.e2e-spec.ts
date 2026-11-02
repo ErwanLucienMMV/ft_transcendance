@@ -6,6 +6,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import WebSocket from 'ws';
+import request from 'supertest';
 import { AppModule } from '../dist/app.module.js';
 import { RealtimeAuthenticator } from '../dist/realtime/realtime-authenticator.js';
 import { GamesService } from '../dist/games/games.service.js';
@@ -56,7 +57,7 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
   let app: INestApplication;
   let source: DataSource;
   let games: GamesService;
-  let white: User, black: User, outsider: User;
+  let white: User, black: User, outsider: User, watcher: User;
   let url: string;
   let clients: PlayerSocket[];
   let owned: string[];
@@ -86,8 +87,8 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
     games = app.get(GamesService);
     const users = source.getRepository(User);
     const suffix = randomUUID().slice(0, 8);
-    [white, black, outsider] = await users.save(
-      ['white', 'black', 'outside'].map((name) =>
+    [white, black, outsider, watcher] = await users.save(
+      ['white', 'black', 'outside', 'watcher'].map((name) =>
         users.create({
           username: `ws_${name}_${suffix}`,
           emailVerifiedAt: new Date(),
@@ -97,6 +98,7 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
     tokens.set('fixture-white', white.id);
     tokens.set('fixture-black', black.id);
     tokens.set('fixture-outsider', outsider.id);
+    tokens.set('fixture-watcher', watcher.id);
   });
   beforeEach(() => {
     clients = [];
@@ -111,7 +113,7 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
   });
   afterAll(async () => {
     if (source?.isInitialized)
-      for (const user of [white, black, outsider])
+      for (const user of [white, black, outsider, watcher])
         if (user)
           await source.query('DELETE FROM users WHERE id=$1', [user.id]);
     await app?.close();
@@ -142,6 +144,36 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
     return { id, a, b };
   }
 
+  it('synchronizes a persisted clock after reconnect and freezes after resignation', async () => {
+    const { id, a } = await active();
+    a.send('SYNC_CLOCK', { gameId: id, requestId: 42 });
+    const first = await a.take('CLOCK_SYNC');
+    expect(first.data).toMatchObject({
+      requestId: 42,
+      clockStatus: 'RUNNING',
+      status: 'ACTIVE',
+      turn: 'WHITE',
+    });
+    expect(Number.isFinite(Date.parse(first.data.serverTime))).toBe(true);
+    expect(first.data.clocks.white).toBeLessThanOrEqual(300000);
+    await a.close();
+    const reconnected = await connect('fixture-white');
+    reconnected.send('JOIN_GAME', { gameId: id });
+    const restored = await reconnected.take('GAME_STATE');
+    expect(restored.data.clockStatus).toBe('RUNNING');
+    expect(Date.parse(restored.data.serverTime)).toBeGreaterThanOrEqual(
+      Date.parse(first.data.serverTime),
+    );
+    reconnected.send('RESIGN', { gameId: id });
+    await reconnected.take('GAME_STATE', (data) => data.status === 'FINISHED');
+    reconnected.send('SYNC_CLOCK', { gameId: id, requestId: 43 });
+    const terminal = await reconnected.take('CLOCK_SYNC');
+    expect(terminal.data).toMatchObject({
+      requestId: 43,
+      status: 'FINISHED',
+      clockStatus: 'STOPPED',
+    });
+  });
   it('broadcasts a legal move identically to both players with durable SAN/history', async () => {
     const { id, a, b } = await active();
     a.send('MAKE_MOVE', { gameId: id, from: 'e2', to: 'e4', promotion: null });
@@ -307,4 +339,93 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
     expect((await games.get(id)).moves).toHaveLength(0);
     expect(a.packets.filter((p) => p.event === 'MOVE_PLAYED')).toHaveLength(0);
   }, 10000);
+
+  describe('spectators (SPEC-01..10, SEC-06, E2E-12)', () => {
+    const live = async () =>
+      (await request(app.getHttpServer()).get('/v1/games/live').expect(200))
+        .body.games as { id: string; spectatorCount: number }[];
+
+    it('lets several users watch the same moves and end, and counts them in the live list', async () => {
+      const { id, a, b } = await active();
+      expect((await live()).find((game) => game.id === id)).toMatchObject({
+        whitePlayer: { id: white.id, username: white.username },
+        blackPlayer: { id: black.id },
+        spectatorCount: 0,
+        timeControl: { initialTime: 300000, increment: 2000 },
+      });
+      const s1 = await connect('fixture-outsider');
+      const s2 = await connect('fixture-watcher');
+      s1.send('START_SPECTATING', { gameId: id });
+      expect((await s1.take('GAME_STATE')).data).toMatchObject({
+        gameId: id,
+        status: 'ACTIVE',
+        moves: [],
+        spectatorCount: 1,
+      });
+      s2.send('START_SPECTATING', { gameId: id });
+      await s2.take('GAME_STATE', (data) => data.spectatorCount === 2);
+      await a.take('GAME_STATE', (data) => data.spectatorCount === 2);
+      expect(
+        (await live()).find((game) => game.id === id)?.spectatorCount,
+      ).toBe(2);
+
+      a.send('MAKE_MOVE', { gameId: id, from: 'e2', to: 'e4' });
+      for (const viewer of [s1, s2, b])
+        expect((await viewer.take('MOVE_PLAYED')).data.move).toMatchObject({
+          from: 'e2',
+          to: 'e4',
+          notation: 'e4',
+        });
+
+      // A spectator never acts on the game, whatever the command.
+      for (const [event, extra] of [
+        ['MAKE_MOVE', { from: 'e7', to: 'e5' }],
+        ['RESIGN', {}],
+        ['OFFER_DRAW', {}],
+        ['ACCEPT_DRAW', {}],
+      ] as const) {
+        s1.send(event, { gameId: id, ...extra });
+        expect((await s1.take('ERROR')).data.code).toBe('SPECTATOR_READ_ONLY');
+      }
+      expect((await games.get(id)).moves).toHaveLength(1);
+      expect((await games.get(id)).game.status).toBe('ACTIVE');
+
+      s2.send('STOP_SPECTATING', { gameId: id });
+      await s2.take('GAME_LEFT');
+      await a.take('GAME_STATE', (data) => data.spectatorCount === 1);
+      expect(
+        (await live()).find((game) => game.id === id)?.spectatorCount,
+      ).toBe(1);
+
+      b.send('RESIGN', { gameId: id });
+      expect((await s1.take('GAME_ENDED')).data.result).toEqual({
+        winner: 'WHITE',
+        reason: 'RESIGNATION',
+      });
+      expect(s2.packets.filter((p) => p.event === 'GAME_ENDED')).toHaveLength(
+        0,
+      );
+      expect((await live()).some((game) => game.id === id)).toBe(false);
+    });
+
+    it('refuses to watch a game that has not started', async () => {
+      const id = await create();
+      const s1 = await connect('fixture-outsider');
+      s1.send('START_SPECTATING', { gameId: id });
+      expect((await s1.take('ERROR')).data.code).toBe('GAME_NOT_ACTIVE');
+      expect((await live()).some((game) => game.id === id)).toBe(false);
+    });
+
+    it('drops the count when a spectator disconnects', async () => {
+      const { id, a } = await active();
+      const s1 = await connect('fixture-outsider');
+      s1.send('START_SPECTATING', { gameId: id });
+      await a.take('GAME_STATE', (data) => data.spectatorCount === 1);
+      await s1.close();
+      await a.take('GAME_STATE', (data) => data.spectatorCount === 0);
+      expect(
+        (await live()).find((game) => game.id === id)?.spectatorCount,
+      ).toBe(0);
+    });
+  });
 });

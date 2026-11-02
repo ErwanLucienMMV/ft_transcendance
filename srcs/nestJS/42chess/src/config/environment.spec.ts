@@ -62,4 +62,15 @@ describe('Environment validation', () => {
       ).toThrow('JWT_EXPIRES_IN');
     },
   );
+
+  it('defaults the refresh session lifetime to seven days', () => {
+    expect(validateEnvironment(valid).REFRESH_EXPIRES_IN).toBe(604800);
+    expect(
+      validateEnvironment({ ...valid, REFRESH_EXPIRES_IN: '86400' })
+        .REFRESH_EXPIRES_IN,
+    ).toBe(86400);
+    expect(() =>
+      validateEnvironment({ ...valid, REFRESH_EXPIRES_IN: '7d' }),
+    ).toThrow('REFRESH_EXPIRES_IN');
+  });
 });

@@ -16,11 +16,14 @@ export interface Environment extends DatabaseEnvironment {
   JWT_SECRET: string;
   /** Access token lifetime, in seconds. */
   JWT_EXPIRES_IN: number;
+  /** Session lifetime behind the refresh cookie, in seconds; renewed on each refresh. */
+  REFRESH_EXPIRES_IN: number;
 }
 
 // HS256 key: shorter secrets can be brute-forced offline from any token.
 const JWT_SECRET_MIN_LENGTH = 32;
 const DEFAULT_JWT_EXPIRES_IN = 3600;
+export const DEFAULT_REFRESH_EXPIRES_IN = 7 * 24 * 3600;
 
 function required(input: Record<string, unknown>, name: string): string {
   const value = input[name];
@@ -83,6 +86,10 @@ export function validateEnvironment(
     JWT_EXPIRES_IN: seconds(
       'JWT_EXPIRES_IN',
       input.JWT_EXPIRES_IN ?? DEFAULT_JWT_EXPIRES_IN,
+    ),
+    REFRESH_EXPIRES_IN: seconds(
+      'REFRESH_EXPIRES_IN',
+      input.REFRESH_EXPIRES_IN ?? DEFAULT_REFRESH_EXPIRES_IN,
     ),
   };
 }

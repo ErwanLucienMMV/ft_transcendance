@@ -1,0 +1,62 @@
+@if (position()) {
+  <div class="board" role="group" aria-label="Chessboard">
+    @for (square of squares(); track square.name) {
+      <button
+        type="button"
+        class="square"
+        [class.dark]="square.dark"
+        [class.selected]="selected() === square.name"
+        [class.last-move]="lastMove()?.from === square.name || lastMove()?.to === square.name"
+        [class.check]="checkSquare() === square.name"
+        [class.target]="targets().has(square.name)"
+        [class.capture]="targets().has(square.name) && !!square.piece"
+        [attr.data-square]="square.name"
+        [attr.aria-label]="label(square)"
+        [attr.aria-pressed]="selected() === square.name"
+        [attr.draggable]="movable(square.name)"
+        [disabled]="!canMove()"
+        (click)="choose(square.name)"
+        (dragstart)="drag($event, square.name)"
+        (dragover)="$event.preventDefault()"
+        (drop)="drop($event, square.name)"
+      >
+        @if (square.piece; as piece) {
+          <svg viewBox="0 0 64 64" aria-hidden="true" [class]="'piece ' + piece.color">
+            <use [attr.href]="'/chess-pieces.svg#' + piece.name" />
+          </svg>
+        }
+        @if (square.rankLabel) {
+          <span class="coord rank" aria-hidden="true">{{ square.rankLabel }}</span>
+        }
+        @if (square.fileLabel) {
+          <span class="coord file" aria-hidden="true">{{ square.fileLabel }}</span>
+        }
+      </button>
+    }
+    @if (promotion()) {
+      <div class="overlay" role="dialog" aria-label="Choose a promotion piece">
+        <div class="promotion">
+          @for (choice of promotionChoices(); track choice.type) {
+            <button
+              type="button"
+              [attr.aria-label]="'Promote to ' + choice.name"
+              [attr.data-promotion]="choice.type"
+              (click)="promote(choice.type)"
+            >
+              <svg viewBox="0 0 64 64" aria-hidden="true" [class]="'piece ' + choice.color">
+                <use [attr.href]="'/chess-pieces.svg#' + choice.name" />
+              </svg>
+            </button>
+          }
+          <button type="button" class="cancel" (click)="cancel()">Cancel</button>
+        </div>
+      </div>
+    } @else if (outcome(); as text) {
+      <div class="overlay result" role="status">
+        <p>{{ text }}</p>
+      </div>
+    }
+  </div>
+} @else {
+  <p class="invalid" role="alert">This position cannot be displayed.</p>
+}

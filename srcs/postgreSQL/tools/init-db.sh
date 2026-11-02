@@ -15,7 +15,9 @@ chown -R postgres:postgres "$PGDATA"
 if [ ! -s "$PGDATA/PG_VERSION" ]; then
     echo "Initializing PostgreSQL..."
 
-    su - postgres -c "$PG_BIN/initdb -D '$PGDATA'"
+    # Migrations and message content require Unicode, even on a minimal image
+    # whose default locale would otherwise create a SQL_ASCII cluster.
+    su - postgres -c "$PG_BIN/initdb -D '$PGDATA' --encoding=UTF8 --locale=C.UTF-8"
 
     sed -i "s/^#listen_addresses = 'localhost'/listen_addresses = '*'/" \
         "$PGDATA/postgresql.conf"

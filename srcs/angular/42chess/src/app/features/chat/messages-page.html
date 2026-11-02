@@ -1,0 +1,152 @@
+<section class="messages-page" aria-labelledby="messages-title">
+  <header class="title">
+    <span class="eyebrow">Community</span>
+    <h2 id="messages-title">Messages</h2>
+  </header>
+
+  <div class="layout" [class.open]="peerId()">
+    <nav class="inbox" aria-labelledby="inbox-title">
+      <h3 id="inbox-title">Conversations</h3>
+      @if (listFailed()) {
+        <div class="error" role="alert">
+          <p>Your conversations could not be loaded.</p>
+          <button type="button" class="button secondary" (click)="loadConversations()">
+            Try again
+          </button>
+        </div>
+      } @else if (conversations(); as list) {
+        @if (list.length === 0) {
+          <p class="muted">
+            No conversation yet. Open a player's profile from
+            <a routerLink="/friends">Friends</a> and choose Message.
+          </p>
+        } @else {
+          <ul class="conversations" aria-label="Conversations">
+            @for (conversation of list; track conversation.user.id) {
+              <li>
+                <a
+                  [routerLink]="['/messages', conversation.user.id]"
+                  [attr.aria-current]="conversation.user.id === peerId() ? 'page' : null"
+                >
+                  <strong>{{ conversation.user.username }}</strong>
+                  <span class="preview"
+                    >{{ mine(conversation.lastMessage) ? 'You: ' : ''
+                    }}{{ conversation.lastMessage.content }}</span
+                  >
+                  @if (unread(conversation); as count) {
+                    <span class="unread" [attr.aria-label]="count + ' unread'">{{ count }}</span>
+                  }
+                </a>
+              </li>
+            }
+          </ul>
+        }
+      } @else {
+        <p class="muted" role="status">Loading your conversations…</p>
+      }
+    </nav>
+
+    <section class="conversation" aria-labelledby="conversation-title">
+      @if (!peerId()) {
+        <h3 id="conversation-title" class="sr-only">Conversation</h3>
+        <p class="muted placeholder">Choose a conversation to read it and reply.</p>
+      } @else if (peerError(); as message) {
+        <h3 id="conversation-title">Conversation</h3>
+        <p class="error" role="alert">{{ message }}</p>
+      } @else if (peer(); as player) {
+        <header class="peer">
+          <a class="back" routerLink="/messages">All conversations</a>
+          <h3 id="conversation-title">
+            <a [routerLink]="['/players', player.id]">{{ player.username }}</a>
+          </h3>
+          <app-presence-badge [status]="status()" />
+        </header>
+        @if (status() === 'OFFLINE') {
+          <p class="note" role="status">
+            {{ player.username }} is offline. They will find your messages when they come back.
+          </p>
+        }
+
+        @if (threadFailed()) {
+          <div class="error" role="alert">
+            <p>The conversation could not be loaded.</p>
+            <button type="button" class="button secondary" (click)="retry()">Try again</button>
+          </div>
+        } @else if (thread(); as messages) {
+          @if (refreshFailed()) {
+            <div class="error" role="alert">
+              <p>Recent messages could not be loaded, so some may be missing.</p>
+              <button type="button" class="button secondary" (click)="reload()">Try again</button>
+            </div>
+          }
+          <div class="log" #log role="log" [attr.aria-label]="'Messages with ' + player.username">
+            @if (hasOlder()) {
+              <button
+                type="button"
+                class="button secondary older"
+                [disabled]="loadingOlder()"
+                (click)="loadOlder()"
+              >
+                Load older messages
+              </button>
+            }
+            @if (messages.length === 0) {
+              <p class="muted">No message yet. Say hello to {{ player.username }}.</p>
+            }
+            <ol class="bubbles">
+              @for (message of messages; track message.id) {
+                <li [class.mine]="mine(message)">
+                  <span class="sr-only">{{ mine(message) ? 'You' : player.username }}:</span>
+                  <p>{{ message.content }}</p>
+                  @if (challenge(message); as game) {
+                    <a class="button secondary" [routerLink]="['/game', game]">Open the game</a>
+                  }
+                  <time [attr.datetime]="message.createdAt">{{
+                    message.createdAt | date: 'short'
+                  }}</time>
+                </li>
+              }
+            </ol>
+          </div>
+        } @else {
+          <p class="muted" role="status">Loading the conversation…</p>
+        }
+
+        <form class="composer" (submit)="$event.preventDefault(); send()">
+          <label for="message-input">Message {{ player.username }}</label>
+          <textarea
+            id="message-input"
+            rows="3"
+            [value]="draft()"
+            [readOnly]="pending() !== null"
+            [attr.aria-invalid]="tooLong()"
+            aria-describedby="message-count"
+            (input)="input($event)"
+            (keydown)="keydown($event)"
+          ></textarea>
+          <div class="row">
+            <span id="message-count" class="count" [class.over]="tooLong()"
+              >{{ length() }} / {{ maxLength }}</span
+            >
+            <button
+              type="submit"
+              class="button"
+              [disabled]="blank() || tooLong() || pending() !== null"
+            >
+              {{ pending() !== null ? 'Sending…' : 'Send' }}
+            </button>
+          </div>
+          @if (tooLong()) {
+            <p class="error" role="alert">A message can have at most {{ maxLength }} characters.</p>
+          }
+          @if (sendError(); as message) {
+            <p class="error" role="alert">{{ message }}</p>
+          }
+        </form>
+      } @else {
+        <h3 id="conversation-title" class="sr-only">Conversation</h3>
+        <p class="muted" role="status">Loading the conversation…</p>
+      }
+    </section>
+  </div>
+</section>

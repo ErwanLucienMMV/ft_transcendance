@@ -1,0 +1,55 @@
+<section class="live-page" aria-labelledby="live-title">
+  <div class="heading">
+    <div>
+      <span class="eyebrow">Spectate</span>
+      <h2 id="live-title">Live games</h2>
+    </div>
+    <button type="button" class="button secondary" [disabled]="loading()" (click)="refresh()">
+      Refresh
+    </button>
+  </div>
+
+  @if (failed()) {
+    <p class="live-error" role="alert">
+      The live games could not be loaded. Try again in a moment.
+    </p>
+  }
+
+  @if (games(); as list) {
+    @if (list.length === 0) {
+      <p class="muted">No game is being played right now.</p>
+      <a class="button" routerLink="/play">Start one</a>
+    } @else {
+      <ul class="games" [attr.aria-busy]="loading()">
+        @for (game of list; track game.id) {
+          <li class="game">
+            <span class="players">
+              <strong>{{ name(game.whitePlayer) }}</strong>
+              <span class="versus">vs</span>
+              <strong>{{ name(game.blackPlayer) }}</strong>
+            </span>
+            <span class="meta">
+              {{ timeControlLabel(game.timeControl) }} ·
+              <span data-spectators>
+                {{ game.spectatorCount }}
+                {{ game.spectatorCount === 1 ? 'spectator' : 'spectators' }}
+              </span>
+            </span>
+            @if (mine(game)) {
+              <a class="button" [routerLink]="['/game', game.id]">Back to your game</a>
+            } @else {
+              <a
+                class="button secondary"
+                [routerLink]="['/game', game.id]"
+                [queryParams]="{ watch: 1 }"
+                >Watch</a
+              >
+            }
+          </li>
+        }
+      </ul>
+    }
+  } @else if (!failed()) {
+    <p class="muted" role="status">Loading the live games…</p>
+  }
+</section>
