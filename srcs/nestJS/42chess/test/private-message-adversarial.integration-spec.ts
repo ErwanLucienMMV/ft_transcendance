@@ -107,6 +107,7 @@ describe('SCRUM-249/252/253/254 adversarial PostgreSQL contracts', () => {
         receiverId: bob.id,
         content,
         createdAt: row.createdAt.toISOString(),
+        readAt: null,
       });
       expect(
         (await service.history(bob.id, alice.id, { limit: 1, offset: 0 }))

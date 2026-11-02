@@ -382,9 +382,40 @@ describe('Account self-service (e2e)', () => {
         'privateMessages',
         'gameChatMessages',
         'ratingHistory',
+        'blockedPlayers',
       ])
         expect(data[key]).toEqual([]);
       expect(mail.last('data-exported', fay.email)).toBeDefined();
+
+      // Friends on either side of the stored pair, and blocked players.
+      const [first, second, blocked] = await Promise.all([
+        account(),
+        account(),
+        account(),
+      ]);
+      for (const other of [first, second])
+        await database.query(
+          `INSERT INTO friendships ("userId", "friendId") VALUES ($1, $2)`,
+          [fay.id, other.id].sort(),
+        );
+      await http()
+        .put(`/v1/blocks/${blocked.id}`)
+        .auth(fay.token, { type: 'bearer' })
+        .expect(204);
+      const again = JSON.parse(
+        (
+          await http()
+            .get('/v1/users/me/export')
+            .auth(fay.token, { type: 'bearer' })
+            .expect(200)
+        ).text,
+      );
+      expect(
+        again.friends.map((row: { username: string }) => row.username).sort(),
+      ).toEqual([first.username, second.username].sort());
+      expect(again.blockedPlayers).toEqual([
+        { username: blocked.username, since: expect.any(String) },
+      ]);
     });
 
     it('deletes an account after confirmation and anonymizes what other players keep', async () => {
@@ -397,6 +428,10 @@ describe('Account self-service (e2e)', () => {
       );
       await database.query(
         `INSERT INTO messages ("senderId", "recipientId", content) VALUES ($1, $2, 'hello')`,
+        [gus.id, friend.id],
+      );
+      await database.query(
+        `INSERT INTO user_blocks ("blockerId", "blockedId") VALUES ($1, $2), ($2, $1)`,
         [gus.id, friend.id],
       );
       const remove = (body: Record<string, unknown>) =>
@@ -428,7 +463,8 @@ describe('Account self-service (e2e)', () => {
       expect(row.deletedAt).not.toBeNull();
       const [{ count }] = await database.query(
         `SELECT (SELECT count(*) FROM friendships WHERE "userId" = $1 OR "friendId" = $1)
-              + (SELECT count(*) FROM messages WHERE "senderId" = $1 OR "recipientId" = $1) AS count`,
+              + (SELECT count(*) FROM messages WHERE "senderId" = $1 OR "recipientId" = $1)
+              + (SELECT count(*) FROM user_blocks WHERE "blockerId" = $1 OR "blockedId" = $1) AS count`,
         [gus.id],
       );
       expect(Number(count)).toBe(0);

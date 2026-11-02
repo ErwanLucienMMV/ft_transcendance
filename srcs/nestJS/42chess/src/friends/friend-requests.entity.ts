@@ -29,6 +29,9 @@ export class FriendRequest {
   recipientId: string;
   @Column({ type: 'varchar', length: 8, default: 'PENDING' })
   status: string;
+  /** When the recipient accepted or declined it. */
+  @Column({ type: 'timestamptz', nullable: true })
+  resolvedAt: Date | null;
   @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({
     name: 'senderId',

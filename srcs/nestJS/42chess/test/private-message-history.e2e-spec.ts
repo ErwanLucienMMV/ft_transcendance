@@ -90,11 +90,16 @@ describe('Persistent private conversation HTTP contract', () => {
       receiverId: bob.id,
       content: 'Message 25',
       createdAt: timestamp,
+      readAt: null,
     });
+    // Message 2 was read when it was inserted.
+    const all = (await history(bob.id).query({ limit: 100 }).expect(200)).body
+      .messages as { id: string; readAt: string | null }[];
+    expect(all.find((row) => row.id === ids[1])?.readAt).toBe(timestamp);
     const reverse = await history(alice.id, bobToken).expect(200);
     expect(reverse.body).toEqual(response.body);
     expect(JSON.stringify(response.body)).not.toMatch(
-      /readAt|recipientId|password|@example/,
+      /recipientId|password|@example/,
     );
   });
 
@@ -133,6 +138,7 @@ describe('Persistent private conversation HTTP contract', () => {
             receiverId: alice.id,
             content: 'other conversation',
             createdAt: '2026-10-02T12:00:00.000Z',
+            readAt: null,
           },
           unreadCount: 1,
         },
@@ -144,6 +150,7 @@ describe('Persistent private conversation HTTP contract', () => {
             receiverId: bob.id,
             content: 'Message 25',
             createdAt: timestamp,
+            readAt: null,
           },
           unreadCount: 11,
         },
@@ -206,6 +213,7 @@ describe('Persistent private conversation HTTP contract', () => {
       receiverId: outsider.id,
       content,
       createdAt: expect.any(String),
+      readAt: null,
     });
     expect(Date.parse(saved.createdAt)).toBeGreaterThanOrEqual(before - 1000);
     expect(Date.parse(saved.createdAt)).toBeLessThanOrEqual(Date.now() + 1000);
@@ -267,5 +275,52 @@ describe('Persistent private conversation HTTP contract', () => {
     expect((await service.send(carol.id, outsider.id, emoji)).content).toBe(
       emoji,
     );
+  });
+
+  it('marks what a peer sent as read, and only that', async () => {
+    const read = (peer: string, token = aliceToken) =>
+      request(app.getHttpServer())
+        .post(`/v1/conversations/${peer}/read`)
+        .auth(token, { type: 'bearer' });
+    const unread = async (token: string) =>
+      Object.fromEntries(
+        (
+          await request(app.getHttpServer())
+            .get('/v1/conversations')
+            .auth(token, { type: 'bearer' })
+            .expect(200)
+        ).body.conversations.map(
+          (row: { user: { id: string }; unreadCount: number }) => [
+            row.user.id,
+            row.unreadCount,
+          ],
+        ),
+      );
+    await read('invalid').expect(400);
+    await request(app.getHttpServer())
+      .post(`/v1/conversations/${bob.id}/read`)
+      .expect(401);
+    const bobBefore = await unread(bobToken);
+    await read(bob.id).expect(204);
+    // Alice read Bob's messages; Carol's stay unread, and Bob's own counter is untouched.
+    expect(await unread(aliceToken)).toMatchObject({
+      [bob.id]: 0,
+      [carol.id]: 1,
+    });
+    expect(await unread(bobToken)).toEqual(bobBefore);
+    const fromBob = (await history(bob.id).query({ limit: 100 }).expect(200))
+      .body.messages as { senderId: string; readAt: string | null }[];
+    expect(
+      fromBob
+        .filter((row) => row.senderId === bob.id)
+        .every((row) => row.readAt !== null),
+    ).toBe(true);
+    expect(
+      fromBob
+        .filter((row) => row.senderId === alice.id)
+        .every((row) => row.readAt === null),
+    ).toBe(true);
+    // Nothing left to read: still 204, nothing changes.
+    await read(bob.id).expect(204);
   });
 });

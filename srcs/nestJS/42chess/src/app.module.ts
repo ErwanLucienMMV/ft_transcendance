@@ -23,6 +23,7 @@ import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { PresenceModule } from './presence/presence.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
 import { OAuthModule } from './oauth/oauth.module.js';
+import { SocialModule } from './social/social.module.js';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { OAuthModule } from './oauth/oauth.module.js';
     AuthModule,
     OAuthModule,
     UsersModule,
+    SocialModule,
     FriendsModule,
     GamesModule,
     MatchmakingModule,

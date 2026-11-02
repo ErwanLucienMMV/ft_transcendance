@@ -13,4 +13,8 @@ export class UpdatePreferencesDto implements Partial<UserPreferences> {
   @ValidateIf((_object, value) => value !== undefined)
   @IsBoolean()
   soundEnabled?: boolean;
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsBoolean()
+  messagesFromFriendsOnly?: boolean;
 }

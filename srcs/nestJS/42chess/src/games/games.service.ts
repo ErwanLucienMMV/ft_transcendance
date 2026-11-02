@@ -6,6 +6,8 @@ import type { EntityManager } from 'typeorm';
 import { BotEngine, BOT_DIFFICULTIES } from '../bots/bot-engine.js';
 import type { BotDifficulty } from '../bots/bot-engine.js';
 import { BotPacer } from '../bots/bot-think-time.js';
+import { ContactRules } from '../social/contact-rules.js';
+import { UserEvents } from '../social/user-events.js';
 import { User } from '../users/user.entity.js';
 import { Game } from './game.entity.js';
 import { GamePlayer } from './game-player.entity.js';
@@ -51,6 +53,8 @@ export class GamesService {
     @Optional() private readonly bot?: BotEngine,
     @Optional() private readonly presence?: PresenceService,
     @Optional() private readonly pacer?: BotPacer,
+    @Optional() private readonly contacts?: ContactRules,
+    @Optional() private readonly events?: UserEvents,
   ) {}
 
   /** Matching supplies its transaction; queue changes and both seats commit together. */
@@ -121,7 +125,8 @@ export class GamesService {
         'The initial position must allow an ongoing game.',
       );
     }
-    return this.store.transaction(async (manager) => {
+    let creator: User | null = null;
+    const state = await this.store.transaction(async (manager) => {
       // Serializes concurrent creates from the same account.
       const user = await manager.findOne(User, {
         where: { id: userId },
@@ -143,7 +148,9 @@ export class GamesService {
             'USER_NOT_FOUND',
             'Opponent account is not available.',
           );
+        await this.contacts?.check(userId, opponentId, 'challenge', manager);
       }
+      creator = user;
       const game = manager.create(Game, {
         initialTime,
         increment,
@@ -161,6 +168,22 @@ export class GamesService {
       );
       return this.store.state(manager, game);
     });
+    // The invited player hears of it at once, wherever they are on the site.
+    const from = creator as User | null;
+    if (opponentId !== null && from)
+      await this.events?.send([opponentId], 'CHALLENGE_RECEIVED', {
+        gameId: state.game.id,
+        from: {
+          id: from.id,
+          username: from.username,
+          avatarUrl: from.avatarUrl,
+          elo: from.elo,
+        },
+        initialTime,
+        increment,
+        rated: state.game.rated,
+      });
+    return state;
   }
 
   async join(actor: string, id: string): Promise<GameState> {

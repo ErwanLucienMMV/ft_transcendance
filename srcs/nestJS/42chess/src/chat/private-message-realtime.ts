@@ -2,54 +2,32 @@ import {
   BadRequestException,
   Injectable,
   OnModuleDestroy,
+  Optional,
 } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 import { PrivateMessagesService } from './private-messages.service.js';
-import type { PrivateMessageResponse } from '../messages/message-presenter.js';
+import { UserEvents } from '../social/user-events.js';
+import type { UserConnection } from '../social/user-events.js';
 
-const VALIDATION_TIMEOUT_MS = 1000;
-
-interface MessageConnection {
-  userId: string;
-  connected(): boolean;
-  validate(): Promise<void>;
-  send(event: string, data: unknown): void;
-}
+/** A player announces typing at most this often to the same peer. */
+export const TYPING_INTERVAL_MS = 2000;
 
 /** Sockets are delivery targets only. PostgreSQL owns every accepted message. */
 @Injectable()
 export class PrivateMessageRealtime implements OnModuleDestroy {
-  private readonly clients = new Map<string, MessageConnection>();
-  // Connections by user: a message reaches its two participants without
-  // scanning every open socket.
-  private readonly byUser = new Map<string, Set<string>>();
+  private readonly typing = new Map<string, number>();
 
-  constructor(private readonly messages: PrivateMessagesService) {}
+  constructor(
+    private readonly messages: PrivateMessagesService,
+    @Optional() private readonly events: UserEvents = new UserEvents(),
+  ) {}
 
-  connect(id: string, client: MessageConnection): void {
-    this.disconnect(id);
-    this.clients.set(id, client);
-    const ids = this.byUser.get(client.userId) ?? new Set<string>();
-    ids.add(id);
-    this.byUser.set(client.userId, ids);
+  connect(id: string, client: UserConnection): void {
+    this.events.connect(id, client);
   }
 
   disconnect(id: string): void {
-    const client = this.clients.get(id);
-    if (!client) return;
-    this.clients.delete(id);
-    const ids = this.byUser.get(client.userId);
-    ids?.delete(id);
-    if (ids?.size === 0) this.byUser.delete(client.userId);
-  }
-
-  /** Open connections of these users. */
-  private connectionsOf(userIds: string[]): [string, MessageConnection][] {
-    return [...new Set(userIds)].flatMap((userId) =>
-      [...(this.byUser.get(userId) ?? [])].flatMap((id) => {
-        const client = this.clients.get(id);
-        return client ? [[id, client] as [string, MessageConnection]] : [];
-      }),
-    );
+    this.events.disconnect(id);
   }
 
   async send(senderId: string, data: Record<string, unknown>): Promise<void> {
@@ -62,52 +40,58 @@ export class PrivateMessageRealtime implements OnModuleDestroy {
       data.receiverId,
       data.content,
     );
-
     // Never acknowledge/broadcast before the save commits. Offline recipients
     // recover via HTTP history; one failed socket cannot undo the saved message
     // or suppress delivery to the remaining valid sessions.
-    await Promise.all(
-      this.connectionsOf([saved.senderId, saved.receiverId]).map(
-        ([id, client]) => this.deliver(id, client, saved),
-      ),
+    await this.events.send(
+      [saved.senderId, saved.receiverId],
+      'PRIVATE_MESSAGE',
+      saved,
     );
   }
 
-  private async deliver(
-    id: string,
-    client: MessageConnection,
-    saved: PrivateMessageResponse,
+  /** The sender sees "Read"; the reader's other tabs clear their unread count. */
+  async markRead(readerId: string, peerId: string): Promise<void> {
+    const read = await this.messages.markRead(readerId, peerId);
+    if (!read) return;
+    await this.events.send([peerId, readerId], 'MESSAGES_READ', {
+      readerId,
+      senderId: peerId,
+      readAt: read.readAt,
+      messageIds: read.messageIds,
+    });
+  }
+
+  /**
+   * "Typing…" is a hint, never an error: a malformed, too frequent or unwelcome one is
+   * dropped silently.
+   */
+  async announceTyping(
+    senderId: string,
+    data: Record<string, unknown>,
   ): Promise<void> {
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    try {
-      if (
-        ![saved.senderId, saved.receiverId].includes(client.userId) ||
-        !client.connected()
-      )
-        return;
-      await Promise.race([
-        client.validate(),
-        new Promise<never>((_, reject) => {
-          timeout = setTimeout(
-            () => reject(new Error('Session validation timed out.')),
-            VALIDATION_TIMEOUT_MS,
-          );
-          timeout.unref();
-        }),
-      ]);
-      if (this.clients.get(id) !== client || !client.connected()) return;
-      client.send('PRIVATE_MESSAGE', saved);
-    } catch {
-      // A revoked, stalled or broken connection cannot delay healthy sessions.
-      // After timeout, late validation results never resume this delivery.
-      // The committed message remains available through authenticated history.
-    } finally {
-      clearTimeout(timeout);
-    }
+    const receiverId = data.receiverId;
+    if (
+      Object.keys(data).length !== 1 ||
+      typeof receiverId !== 'string' ||
+      !isUUID(receiverId) ||
+      receiverId.toLowerCase() === senderId
+    )
+      return;
+    const peer = receiverId.toLowerCase();
+    const key = `${senderId}:${peer}`;
+    const now = Date.now();
+    if (now - (this.typing.get(key) ?? 0) < TYPING_INTERVAL_MS) return;
+    this.typing.set(key, now);
+    if (this.typing.size > 10_000)
+      for (const [entry, at] of this.typing)
+        if (now - at >= TYPING_INTERVAL_MS) this.typing.delete(entry);
+    if (!this.events.online(peer)) return;
+    if (!(await this.messages.mayWrite(senderId, peer))) return;
+    await this.events.send([peer], 'TYPING', { userId: senderId });
   }
 
   onModuleDestroy(): void {
-    this.clients.clear();
-    this.byUser.clear();
+    this.typing.clear();
   }
 }

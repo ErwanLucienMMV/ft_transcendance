@@ -1,4 +1,5 @@
 import type { User } from './user.entity.js';
+import { DEFAULT_PREFERENCES } from './user-preferences.js';
 
 export function publicProfile(
   user: Pick<User, 'id' | 'username' | 'avatarUrl' | 'elo' | 'gamesPlayed'>,
@@ -26,6 +27,7 @@ export function ownProfile(user: User) {
     gamesDraw: user.gamesDraw,
     gamesLost: user.gamesLost,
     createdAt: user.createdAt.toISOString(),
-    preferences: { ...user.preferences },
+    // Keys added after an account was created take their default.
+    preferences: { ...DEFAULT_PREFERENCES, ...user.preferences },
   };
 }

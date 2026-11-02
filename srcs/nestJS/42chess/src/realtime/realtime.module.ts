@@ -11,6 +11,7 @@ import { GamesModule } from '../games/games.module.js';
 import { GameRealtimeService } from './game-realtime.service.js';
 import { MetricsModule } from '../metrics/metrics.module.js';
 import { ChatModule } from '../chat/chat.module.js';
+import { SocialModule } from '../social/social.module.js';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ChatModule } from '../chat/chat.module.js';
     PresenceModule,
     MatchmakingEventsModule,
     ChatModule,
+    SocialModule,
   ],
   providers: [
     RealtimeGateway,

@@ -54,6 +54,7 @@ export class AccountDataService {
       messages,
       chat,
       puzzles,
+      blocked,
     ] = await Promise.all([
       query(
         `SELECT provider, "createdAt" AS "linkedAt" FROM oauth_accounts WHERE "userId" = $1 ORDER BY "createdAt"`,
@@ -78,7 +79,10 @@ export class AccountDataService {
         `SELECT "gameId", "ratingBefore", "ratingAfter", "createdAt" FROM rating_history WHERE "userId" = $1 ORDER BY "createdAt"`,
       ),
       query(
-        `SELECT u.username, f."createdAt" AS since FROM friendships f JOIN users u ON u.id = f."friendId" WHERE f."userId" = $1 ORDER BY f."createdAt"`,
+        // A friendship is stored once, with the smaller id first: the user can be on either side.
+        `SELECT u.username, f."createdAt" AS since FROM friendships f
+           JOIN users u ON u.id = CASE WHEN f."userId" = $1 THEN f."friendId" ELSE f."userId" END
+          WHERE f."userId" = $1 OR f."friendId" = $1 ORDER BY f."createdAt"`,
       ),
       query(
         `SELECT CASE WHEN r."senderId" = $1 THEN 'sent' ELSE 'received' END AS direction,
@@ -101,6 +105,9 @@ export class AccountDataService {
       ),
       query(
         `SELECT "puzzleId", solved, attempts, duration, "createdAt" FROM puzzle_attempts WHERE "userId" = $1 ORDER BY "createdAt"`,
+      ),
+      query(
+        `SELECT u.username, b."createdAt" AS since FROM user_blocks b JOIN users u ON u.id = b."blockedId" WHERE b."blockerId" = $1 ORDER BY b."createdAt"`,
       ),
     ]);
     await this.mail.notify(user.email, user.username, 'data-exported');
@@ -134,6 +141,7 @@ export class AccountDataService {
       ratingHistory: ratings,
       friends,
       friendRequests: requests,
+      blockedPlayers: blocked,
       privateMessages: messages,
       gameChatMessages: chat,
       puzzleAttempts: puzzles,
@@ -215,6 +223,7 @@ export class AccountDataService {
       `DELETE FROM matchmaking_queue WHERE "userId" = $1 AND status = 'WAITING'`,
       `DELETE FROM friendships WHERE "userId" = $1 OR "friendId" = $1`,
       `DELETE FROM friend_requests WHERE "senderId" = $1 OR "recipientId" = $1`,
+      `DELETE FROM user_blocks WHERE "blockerId" = $1 OR "blockedId" = $1`,
       `DELETE FROM messages WHERE "senderId" = $1 OR "recipientId" = $1`,
       `DELETE FROM game_messages WHERE "userId" = $1`,
       `DELETE FROM puzzle_attempts WHERE "userId" = $1`,

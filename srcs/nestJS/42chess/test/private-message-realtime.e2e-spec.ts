@@ -144,6 +144,7 @@ describe('Durable private messaging over the shared WebSocket (SCRUM-256)', () =
       receiverId: bob.id,
       content: '  Hello ♟️\nBob!  ',
       createdAt: expect.any(String),
+      readAt: null,
     });
     for (const client of [senderTab, recipient, recipientTab])
       expect(await client.take('PRIVATE_MESSAGE')).toEqual(first);

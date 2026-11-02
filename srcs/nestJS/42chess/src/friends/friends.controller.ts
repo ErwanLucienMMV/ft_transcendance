@@ -36,6 +36,11 @@ export class FriendsController {
     return this.friends.receivedRequests(gameActor(request));
   }
 
+  @Get('requests/sent')
+  sentRequests(@Req() request: Request): Promise<FriendRequestsResponse> {
+    return this.friends.sentRequests(gameActor(request));
+  }
+
   @Post('requests')
   sendRequest(
     @Req() request: Request,
@@ -53,13 +58,14 @@ export class FriendsController {
     return this.friends.acceptRequest(gameActor(request), requestId);
   }
 
-  @Post('requests/:requestId/reject')
-  @HttpCode(200)
-  rejectRequest(
+  /** The recipient declines the request; the sender withdraws it. */
+  @Delete('requests/:requestId')
+  @HttpCode(204)
+  removeRequest(
     @Req() request: Request,
     @Param('requestId', new ParseUUIDPipe()) requestId: string,
-  ): Promise<FriendRequestResponse> {
-    return this.friends.rejectRequest(gameActor(request), requestId);
+  ): Promise<void> {
+    return this.friends.removeRequest(gameActor(request), requestId);
   }
 
   @Delete(':friendId')

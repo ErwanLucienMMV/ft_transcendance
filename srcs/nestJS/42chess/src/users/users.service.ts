@@ -141,6 +141,9 @@ export class UsersService {
       preferences.theme = input.preferences.theme;
     if (input.preferences?.soundEnabled !== undefined)
       preferences.soundEnabled = input.preferences.soundEnabled;
+    if (input.preferences?.messagesFromFriendsOnly !== undefined)
+      preferences.messagesFromFriendsOnly =
+        input.preferences.messagesFromFriendsOnly;
     if (Object.keys(preferences).length)
       changes.preferences = () =>
         '"preferences" || CAST(:preferences AS jsonb)';
