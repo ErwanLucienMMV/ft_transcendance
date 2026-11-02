@@ -83,7 +83,8 @@ queue; a late validation result cannot emit the timed-out notification. The
 underlying session query is not cancelled by this deadline.
 Socket delivery is best effort on the current backend
 process; HTTP history is authoritative, including after reconnect or restart.
-No read receipt is inferred from delivery, and reconnect does not replay events
+No read receipt is inferred from delivery (the reader marks a conversation read
+explicitly, see [social.md](social.md)), and reconnect does not replay events
 automatically: retrieve history and deduplicate by message ID. Retransmitting a
 send is a new message (there is no client idempotency key in this contract).
 

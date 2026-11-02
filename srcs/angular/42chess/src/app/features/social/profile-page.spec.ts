@@ -35,6 +35,13 @@ describe('Player profile page', () => {
   let refreshUser: ReturnType<typeof vi.fn>;
   let friends: ReturnType<typeof vi.fn>;
   let sendFriendRequest: ReturnType<typeof vi.fn>;
+  let friendRequests: ReturnType<typeof vi.fn>;
+  let sentFriendRequests: ReturnType<typeof vi.fn>;
+  let acceptFriendRequest: ReturnType<typeof vi.fn>;
+  let removeFriendRequest: ReturnType<typeof vi.fn>;
+  let blocked: ReturnType<typeof vi.fn>;
+  let block: ReturnType<typeof vi.fn>;
+  let unblock: ReturnType<typeof vi.fn>;
   let events: Subject<ServerEvent>;
 
   beforeEach(() => {
@@ -82,13 +89,32 @@ describe('Player profile page', () => {
     refreshUser = vi.fn().mockReturnValue(of(aliceAccount));
     friends = vi.fn().mockReturnValue(of({ friends: [] }));
     sendFriendRequest = vi.fn().mockReturnValue(of({ id: 'r1', status: 'PENDING' }));
+    friendRequests = vi.fn().mockReturnValue(of({ requests: [] }));
+    sentFriendRequests = vi.fn().mockReturnValue(of({ requests: [] }));
+    acceptFriendRequest = vi.fn().mockReturnValue(of({}));
+    removeFriendRequest = vi.fn().mockReturnValue(of(undefined));
+    blocked = vi.fn().mockReturnValue(of({ users: [] }));
+    block = vi.fn().mockReturnValue(of(undefined));
+    unblock = vi.fn().mockReturnValue(of(undefined));
     events = new Subject();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([{ path: 'players/:id', component: ProfilePage }]),
         {
           provide: UsersApi,
-          useValue: { profile, ratingHistory, friends, sendFriendRequest },
+          useValue: {
+            profile,
+            ratingHistory,
+            friends,
+            sendFriendRequest,
+            friendRequests,
+            sentFriendRequests,
+            acceptFriendRequest,
+            removeFriendRequest,
+            blocked,
+            block,
+            unblock,
+          },
         },
         { provide: GamesApi, useValue: { history } },
         { provide: SessionLifecycle, useValue: { refreshUser } },
@@ -257,5 +283,114 @@ describe('Player profile page', () => {
       'A friend request between you is already pending.',
     );
     expect(element.querySelector('a[href="/friends"]')).not.toBeNull();
+  });
+
+  function pendingRequest(id: string, senderId: string, recipientId: string) {
+    return { id, senderId, recipientId, status: 'PENDING', createdAt: '2026-11-01T00:00:00.000Z' };
+  }
+
+  function button(element: HTMLElement, name: string) {
+    return [...element.querySelectorAll('button')].find(
+      (item) => item.textContent?.trim() === name,
+    ) as HTMLButtonElement;
+  }
+
+  it('cancels a request this visitor sent', async () => {
+    signIn('me');
+    sentFriendRequests.mockReturnValue(of({ requests: [pendingRequest('r1', 'me', 'alice')] }));
+    const { harness, element } = await open('/players/alice');
+    expect(element.textContent).toContain('Friend request sent.');
+    button(element, 'Cancel request').click();
+    harness.detectChanges();
+    expect(removeFriendRequest).toHaveBeenCalledWith('r1');
+    expect(button(element, 'Add friend')).toBeDefined();
+  });
+
+  it('answers a request from the profile owner', async () => {
+    signIn('me');
+    friendRequests.mockReturnValue(of({ requests: [pendingRequest('r2', 'alice', 'me')] }));
+    const { harness, element } = await open('/players/alice');
+    expect(element.textContent).toContain('alice sent you a friend request.');
+    button(element, 'Accept').click();
+    harness.detectChanges();
+    expect(acceptFriendRequest).toHaveBeenCalledWith('r2');
+    expect(element.textContent).toContain('You are friends.');
+  });
+
+  it('says so when a request answered theirs and made you friends at once', async () => {
+    signIn('me');
+    sendFriendRequest.mockReturnValue(of({ id: 'r3', status: 'ACCEPTED' }));
+    const { harness, element } = await open('/players/alice');
+    button(element, 'Add friend').click();
+    harness.detectChanges();
+    expect(element.textContent).toContain('alice had already asked: you are now friends.');
+  });
+
+  it('explains the waiting time after a declined request', async () => {
+    signIn('me');
+    sendFriendRequest.mockReturnValue(
+      throwError(
+        () =>
+          new ApiError(
+            new HttpErrorResponse({
+              status: 409,
+              error: { statusCode: 409, code: 'FRIEND_REQUEST_DECLINED_RECENTLY' },
+            }),
+          ),
+      ),
+    );
+    const { harness, element } = await open('/players/alice');
+    button(element, 'Add friend').click();
+    harness.detectChanges();
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain(
+      'You can ask again in a few days.',
+    );
+  });
+
+  it('follows a request answered by the profile owner while the page is open', async () => {
+    signIn('me');
+    sentFriendRequests.mockReturnValue(of({ requests: [pendingRequest('r1', 'me', 'alice')] }));
+    const { harness, element } = await open('/players/alice');
+    events.next({
+      event: 'FRIEND_ADDED',
+      data: {
+        requestId: 'r1',
+        friend: { id: 'alice', username: 'alice', avatarUrl: null, elo: 1452, status: 'ONLINE' },
+      },
+    });
+    harness.detectChanges();
+    expect(element.textContent).toContain('You are friends.');
+    events.next({ event: 'FRIEND_REMOVED', data: { userId: 'alice' } });
+    harness.detectChanges();
+    expect(button(element, 'Add friend')).toBeDefined();
+  });
+
+  it('blocks after confirmation and hides every contact action until unblocked', async () => {
+    signIn('me');
+    const { harness, element } = await open('/players/alice');
+    button(element, 'Block player').click();
+    harness.detectChanges();
+    expect(block).not.toHaveBeenCalled();
+    expect(element.textContent).toContain('They are not told.');
+    button(element, 'Block').click();
+    harness.detectChanges();
+    expect(block).toHaveBeenCalledWith('alice');
+    expect(element.textContent).toContain('You blocked this player.');
+    expect(button(element, 'Add friend')).toBeUndefined();
+    expect(element.querySelector('a[href="/messages/alice"]')).toBeNull();
+    button(element, 'Unblock').click();
+    harness.detectChanges();
+    expect(unblock).toHaveBeenCalledWith('alice');
+    expect(button(element, 'Add friend')).toBeDefined();
+  });
+
+  it('knows a player this visitor blocked', async () => {
+    signIn('me');
+    blocked.mockReturnValue(
+      of({ users: [{ id: 'alice', username: 'alice', avatarUrl: null, blockedAt: '' }] }),
+    );
+    const { element } = await open('/players/alice');
+    expect(element.textContent).toContain('You blocked this player.');
+    expect(button(element, 'Unblock')).toBeDefined();
   });
 });

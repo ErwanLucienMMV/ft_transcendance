@@ -5,7 +5,7 @@ import { API_BASE_URL } from '../../core/api/api-base-url';
 import { ApiClient } from '../../core/api/api-client';
 import { handledErrors } from '../../core/api/api-error.interceptor';
 import { AuthSession } from '../../core/auth/auth-session';
-import { CurrentUser } from '../../core/auth/session-lifecycle';
+import { CurrentUser, UserPreferences } from '../../core/auth/session-lifecycle';
 
 /** What the security section shows. `recoveryCodesLeft` is null while 2FA is off. */
 export interface SecurityStatus {
@@ -52,6 +52,11 @@ export class AccountApi {
 
   rename(username: string): Observable<CurrentUser> {
     return this.api.patch('users/me', { username });
+  }
+
+  /** Only the keys given change. */
+  updatePreferences(preferences: Partial<UserPreferences>): Observable<CurrentUser> {
+    return this.api.patch('users/me', { preferences });
   }
 
   /** Reports the upload progress, then the updated account. */

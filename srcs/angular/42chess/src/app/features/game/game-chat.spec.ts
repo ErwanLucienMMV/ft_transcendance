@@ -7,7 +7,13 @@ import {
   RealtimeService,
   ServerEvent,
 } from '../../core/realtime/realtime.service';
-import { GAME_CHAT_CONFIRM_MS, GameChat, GameChatApi, GameMessage } from './game-chat';
+import {
+  GAME_CHAT_CONFIRM_MS,
+  GameChat,
+  GameChatApi,
+  GameMessage,
+  HIDE_SPECTATORS_KEY,
+} from './game-chat';
 
 function message(id: string, sender: string, content: string, minute: number): GameMessage {
   return {
@@ -21,11 +27,12 @@ function message(id: string, sender: string, content: string, minute: number): G
 
 @Component({
   imports: [GameChat],
-  template: '<app-game-chat [gameId]="gameId()" [open]="open()" />',
+  template: '<app-game-chat [gameId]="gameId()" [open]="open()" [players]="players()" />',
 })
 class Host {
   readonly gameId = signal('g1');
   readonly open = signal(true);
+  readonly players = signal<string[]>([]);
 }
 
 describe('Game chat', () => {
@@ -88,7 +95,7 @@ describe('Game chat', () => {
     const { element, lines } = setup();
     expect(history).toHaveBeenCalledWith('g1');
     expect(lines()).toEqual(['Good luck', 'Thanks']);
-    expect(element.querySelector('li.mine strong')?.textContent).toBe('me');
+    expect(element.querySelector('li.mine strong')?.textContent?.trim()).toBe('me');
   });
 
   it('sends the draft, and clears it when the server confirms it', () => {
@@ -245,5 +252,54 @@ describe('Game chat', () => {
     });
     fixture.detectChanges();
     expect(lines()).toEqual([]);
+  });
+
+  it('marks spectators and lets a player hide what they write', () => {
+    localStorage.removeItem(HIDE_SPECTATORS_KEY);
+    history.mockReturnValue(
+      of({
+        messages: [
+          message('m3', 'fan', 'Go!', 3),
+          message('m2', 'rival', 'Thanks', 2),
+          message('m1', 'me', 'Good luck', 1),
+        ],
+        total: 3,
+        limit: 100,
+        offset: 0,
+      }),
+    );
+    const { fixture, element, lines } = setup();
+    // Seats not known yet: nobody is marked and nothing is offered.
+    expect(element.querySelector('.tag')).toBeNull();
+    expect(element.querySelector('.switch')).toBeNull();
+    fixture.componentInstance.players.set(['me', 'rival']);
+    fixture.detectChanges();
+    expect(element.querySelector('li.spectator strong')?.textContent).toContain('fan');
+    expect(element.querySelector('li.spectator .tag')?.textContent).toBe('spectator');
+
+    const toggle = element.querySelector('.switch input') as HTMLInputElement;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(lines()).toEqual(['Good luck', 'Thanks']);
+    expect(element.textContent).toContain('1 spectator message is hidden.');
+    expect(localStorage.getItem(HIDE_SPECTATORS_KEY)).toBe('1');
+    // A new spectator line stays hidden; a player's line shows.
+    push(message('m4', 'fan', 'Wow', 4));
+    push(message('m5', 'rival', 'Check', 5));
+    fixture.detectChanges();
+    expect(lines()).toEqual(['Good luck', 'Thanks', 'Check']);
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(lines()).toEqual(['Good luck', 'Thanks', 'Go!', 'Wow', 'Check']);
+    localStorage.removeItem(HIDE_SPECTATORS_KEY);
+  });
+
+  it('offers spectators no toggle', () => {
+    const { fixture, element } = setup();
+    fixture.componentInstance.players.set(['white', 'black']);
+    fixture.detectChanges();
+    expect(element.querySelector('.switch')).toBeNull();
   });
 });

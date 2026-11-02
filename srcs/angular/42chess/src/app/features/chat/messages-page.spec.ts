@@ -11,6 +11,7 @@ import {
   RealtimeService,
   ServerEvent,
 } from '../../core/realtime/realtime.service';
+import { Challenges } from '../social/challenge';
 import { UsersApi } from '../social/users-api';
 import { MESSAGE_MAX_LENGTH, MessagePage, MessagesApi, PrivateMessage } from './messages-api';
 import { MessagesPage, SEND_CONFIRM_MS } from './messages-page';
@@ -36,6 +37,12 @@ describe('Messages page', () => {
   let history: ReturnType<typeof vi.fn>;
   let send: ReturnType<typeof vi.fn>;
   let profile: ReturnType<typeof vi.fn>;
+  let markRead: ReturnType<typeof vi.fn>;
+  let typing: ReturnType<typeof vi.fn>;
+  let blocked: ReturnType<typeof vi.fn>;
+  let block: ReturnType<typeof vi.fn>;
+  let unblock: ReturnType<typeof vi.fn>;
+  let challenge: ReturnType<typeof vi.fn>;
   let events: Subject<ServerEvent>;
   let state: ReturnType<typeof signal<ConnectionState>>;
 
@@ -85,6 +92,12 @@ describe('Messages page', () => {
             online: id !== 'carol',
           }),
     );
+    markRead = vi.fn().mockReturnValue(of(undefined));
+    typing = vi.fn();
+    blocked = vi.fn().mockReturnValue(of({ users: [] }));
+    block = vi.fn().mockReturnValue(of(undefined));
+    unblock = vi.fn().mockReturnValue(of(undefined));
+    challenge = vi.fn().mockReturnValue(of(undefined));
     events = new Subject();
     state = signal<ConnectionState>('connected');
     TestBed.configureTestingModule({
@@ -93,8 +106,9 @@ describe('Messages page', () => {
           { path: 'messages', component: MessagesPage },
           { path: 'messages/:userId', component: MessagesPage },
         ]),
-        { provide: MessagesApi, useValue: { conversations, history, send } },
-        { provide: UsersApi, useValue: { profile } },
+        { provide: MessagesApi, useValue: { conversations, history, send, markRead, typing } },
+        { provide: UsersApi, useValue: { profile, blocked, block, unblock } },
+        { provide: Challenges, useValue: { send: challenge } },
         { provide: RealtimeService, useValue: { events: events.asObservable(), state } },
       ],
     });
@@ -159,6 +173,142 @@ describe('Messages page', () => {
     );
     expect(inbox(element)[0]).toBe('bob See you');
     expect(element.querySelector('a[aria-current="page"]')?.textContent).toContain('bob');
+    // The server is told, so the count stays at zero in every tab and for bob.
+    expect(markRead).toHaveBeenCalledExactlyOnceWith('bob');
+  });
+
+  it('does not mark a conversation read when nothing in it is unread', async () => {
+    await open('/messages/carol');
+    expect(markRead).not.toHaveBeenCalled();
+  });
+
+  it('shows Sent, then Read under the last message this account sent', async () => {
+    history.mockReturnValue(
+      of({
+        messages: [message('m1', 'me', 'bob', 'Hi', 1)],
+        total: 1,
+        limit: 30,
+        offset: 0,
+      }),
+    );
+    const { harness, element } = await open('/messages/bob');
+    expect(element.querySelector('.receipt')?.textContent?.trim()).toBe('Sent');
+    events.next({
+      event: 'MESSAGES_READ',
+      data: {
+        readerId: 'bob',
+        senderId: 'me',
+        readAt: '2026-10-31T10:05:00.000Z',
+        messageIds: ['m1'],
+      },
+    });
+    harness.detectChanges();
+    expect(element.querySelector('.receipt')?.textContent).toContain('Read');
+    expect(element.querySelector('.receipt')?.classList).toContain('read');
+  });
+
+  it('clears the unread count when another tab reads the conversation', async () => {
+    const { harness, element } = await open('/messages');
+    expect(inbox(element)[0]).toBe('bob See you 1');
+    events.next({
+      event: 'MESSAGES_READ',
+      data: { readerId: 'me', senderId: 'bob', readAt: '2026-10-31T10:05:00.000Z', messageIds: [] },
+    });
+    harness.detectChanges();
+    expect(inbox(element)[0]).toBe('bob See you');
+  });
+
+  it('says when the other player is typing, and tells them when this player types', async () => {
+    vi.useFakeTimers();
+    const { harness, element } = await open('/messages/bob');
+    events.next({ event: 'TYPING', data: { userId: 'carol' } });
+    harness.detectChanges();
+    expect(element.querySelector('.typing')).toBeNull();
+    events.next({ event: 'TYPING', data: { userId: 'bob' } });
+    harness.detectChanges();
+    expect(element.querySelector('.typing')?.textContent).toContain('bob is typing');
+    vi.advanceTimersByTime(4000);
+    harness.detectChanges();
+    expect(element.querySelector('.typing')).toBeNull();
+
+    type(element, 'H');
+    type(element, 'He');
+    expect(typing).toHaveBeenCalledExactlyOnceWith('bob');
+    vi.advanceTimersByTime(2000);
+    type(element, 'Hel');
+    expect(typing).toHaveBeenCalledTimes(2);
+  });
+
+  it('challenges the other player from the conversation', async () => {
+    const { harness, element } = await open('/messages/bob');
+    button(element, 'Challenge').click();
+    expect(challenge).toHaveBeenCalledWith('bob');
+    challenge.mockReturnValue(
+      throwError(
+        () =>
+          new ApiError(
+            new HttpErrorResponse({
+              status: 403,
+              error: {
+                statusCode: 403,
+                code: 'FRIENDS_ONLY',
+                message: 'This player only lets friends challenge them.',
+              },
+            }),
+          ),
+      ),
+    );
+    button(element, 'Challenge').click();
+    harness.detectChanges();
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain(
+      'only lets friends challenge them',
+    );
+  });
+
+  it('blocks after confirmation, then offers to unblock instead of the message box', async () => {
+    const { harness, element } = await open('/messages/bob');
+    (element.querySelector('button[aria-label="Block bob"]') as HTMLButtonElement).click();
+    harness.detectChanges();
+    expect(block).not.toHaveBeenCalled();
+    expect(element.textContent).toContain('They are not told');
+    button(element, 'Block bob').click();
+    harness.detectChanges();
+    expect(block).toHaveBeenCalledWith('bob');
+    expect(element.querySelector('textarea')).toBeNull();
+    expect(element.textContent).toContain('You blocked bob');
+    button(element, 'Unblock').click();
+    harness.detectChanges();
+    expect(unblock).toHaveBeenCalledWith('bob');
+    expect(element.querySelector('textarea')).not.toBeNull();
+  });
+
+  it('opens a conversation with a blocked player read-only', async () => {
+    blocked.mockReturnValue(
+      of({ users: [{ id: 'bob', username: 'bob', avatarUrl: null, blockedAt: '' }] }),
+    );
+    const { element } = await open('/messages/bob');
+    expect(element.querySelector('textarea')).toBeNull();
+    expect(button(element, 'Unblock')).toBeDefined();
+    expect(button(element, 'Challenge')).toBeUndefined();
+  });
+
+  it('explains a message refused because the player blocked this one or wants friends only', async () => {
+    const { harness, element } = await open('/messages/bob');
+    type(element, 'Hello?');
+    harness.detectChanges();
+    button(element, 'Send').click();
+    events.next({
+      event: 'ERROR',
+      data: {
+        statusCode: 403,
+        code: 'FRIENDS_ONLY',
+        message: 'This player only lets friends send messages to them.',
+      },
+    });
+    harness.detectChanges();
+    expect(element.querySelector('.composer [role="alert"]')?.textContent).toContain(
+      'only lets friends send messages to them. Your message was not sent.',
+    );
   });
 
   it('says when the other player is offline', async () => {

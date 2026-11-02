@@ -5,6 +5,11 @@
       <h2 id="friends-title">Friends</h2>
       <p>Find players, answer friend requests and challenge your friends.</p>
     </div>
+    <div class="head-links">
+      <a class="button secondary small" routerLink="/settings" fragment="privacy"
+        >Blocked players</a
+      >
+    </div>
   </header>
 
   <section class="panel card" aria-labelledby="search-title">
@@ -92,10 +97,46 @@
     </section>
   }
 
+  @if (sent()?.length) {
+    <section class="panel" aria-labelledby="sent-title">
+      <h3 id="sent-title" class="section-title">
+        Sent requests <span class="count">{{ sent()?.length }}</span>
+      </h3>
+      <ul class="people rows" aria-label="Sent requests">
+        @for (request of sent(); track request.id) {
+          <li class="request">
+            <a [routerLink]="['/players', request.recipientId]"
+              ><app-avatar
+                class="initial"
+                [username]="request.recipient?.username ?? '?'"
+                [url]="request.recipient?.avatarUrl"
+              /><strong>{{ request.recipient?.username ?? 'A player' }}</strong></a
+            >
+            <span class="elo">{{ request.recipient?.elo }}</span>
+            <span class="actions">
+              <small class="muted">Waiting for an answer</small>
+              <button
+                type="button"
+                class="ghost small"
+                [attr.aria-label]="
+                  'Cancel the request to ' + (request.recipient?.username ?? 'this player')
+                "
+                [disabled]="busy().has(request.id)"
+                (click)="cancel(request)"
+              >
+                Cancel
+              </button>
+            </span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
   <section class="panel" aria-labelledby="list-title">
     <h3 id="list-title" class="section-title">Your friends</h3>
-    @if (challengeFailed()) {
-      <p class="alert" role="alert">The challenge could not be sent. Try again.</p>
+    @if (challengeError(); as message) {
+      <p class="alert" role="alert">{{ message }}</p>
     }
     @if (friendsFailed()) {
       <div class="alert" role="alert">

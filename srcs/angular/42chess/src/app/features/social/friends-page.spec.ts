@@ -1,11 +1,17 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
 import { AuthSession } from '../../core/auth/auth-session';
-import { RealtimeService, ServerEvent } from '../../core/realtime/realtime.service';
+import {
+  ConnectionState,
+  RealtimeService,
+  ServerEvent,
+} from '../../core/realtime/realtime.service';
+import { Challenges } from './challenge';
 import { FriendsPage } from './friends-page';
 import { UsersApi } from './users-api';
 
@@ -21,9 +27,11 @@ describe('Friends page', () => {
   let friendRequests: ReturnType<typeof vi.fn>;
   let profile: ReturnType<typeof vi.fn>;
   let acceptFriendRequest: ReturnType<typeof vi.fn>;
-  let rejectFriendRequest: ReturnType<typeof vi.fn>;
+  let removeFriendRequest: ReturnType<typeof vi.fn>;
+  let sentFriendRequests: ReturnType<typeof vi.fn>;
   let removeFriend: ReturnType<typeof vi.fn>;
   let events: Subject<ServerEvent>;
+  let state: ReturnType<typeof signal<ConnectionState>>;
 
   beforeEach(() => {
     search = vi.fn().mockReturnValue(
@@ -49,9 +57,11 @@ describe('Friends page', () => {
         : of({ id, username: id, avatarUrl: null, elo: 1250, gamesPlayed: 0, online: true }),
     );
     acceptFriendRequest = vi.fn().mockReturnValue(of({}));
-    rejectFriendRequest = vi.fn().mockReturnValue(of({}));
+    removeFriendRequest = vi.fn().mockReturnValue(of(undefined));
+    sentFriendRequests = vi.fn().mockReturnValue(of({ requests: [] }));
     removeFriend = vi.fn().mockReturnValue(of(undefined));
     events = new Subject();
+    state = signal<ConnectionState>('connected');
     TestBed.configureTestingModule({
       providers: [
         provideRouter([{ path: 'friends', component: FriendsPage }]),
@@ -63,11 +73,12 @@ describe('Friends page', () => {
             friendRequests,
             profile,
             acceptFriendRequest,
-            rejectFriendRequest,
+            removeFriendRequest,
+            sentFriendRequests,
             removeFriend,
           },
         },
-        { provide: RealtimeService, useValue: { events: events.asObservable() } },
+        { provide: RealtimeService, useValue: { events: events.asObservable(), state } },
       ],
     });
     TestBed.inject(AuthSession).establish({
@@ -186,7 +197,7 @@ describe('Friends page', () => {
     expect(rows(element, 'Friend requests')).toEqual(['erin 1250']);
     button(element, 'Decline').click();
     harness.detectChanges();
-    expect(rejectFriendRequest).toHaveBeenCalledWith('r2');
+    expect(removeFriendRequest).toHaveBeenCalledWith('r2');
     expect(element.querySelector('ul[aria-label="Friend requests"]')).toBeNull();
   });
 
@@ -215,5 +226,101 @@ describe('Friends page', () => {
     harness.detectChanges();
     expect(removeFriend).toHaveBeenCalledWith('bob');
     expect(rows(element, 'Friends')).toEqual(['carol 1500 Offline']);
+  });
+
+  function sentRequest(id: string, recipientId: string) {
+    return { ...request(id, 'me'), recipientId };
+  }
+
+  it('lists the requests this player sent, and cancels one', async () => {
+    sentFriendRequests.mockReturnValue(
+      of({ requests: [sentRequest('s1', 'dave'), sentRequest('s2', 'erin')] }),
+    );
+    const { harness, element } = await open();
+    expect(rows(element, 'Sent requests')).toEqual([
+      'dave 1250 Waiting for an answer',
+      'erin 1250 Waiting for an answer',
+    ]);
+    (
+      element.querySelector('button[aria-label="Cancel the request to dave"]') as HTMLButtonElement
+    ).click();
+    harness.detectChanges();
+    expect(removeFriendRequest).toHaveBeenCalledWith('s1');
+    expect(rows(element, 'Sent requests')).toEqual(['erin 1250 Waiting for an answer']);
+  });
+
+  it('follows requests and friendships live, from the other player or another tab', async () => {
+    const { harness, element } = await open();
+    const sender = { id: 'dave', username: 'dave', avatarUrl: null, elo: 1310 };
+    events.next({
+      event: 'FRIEND_REQUEST_RECEIVED',
+      data: { request: request('r1', 'dave'), sender },
+    });
+    events.next({ event: 'FRIEND_REQUEST_SENT', data: { request: sentRequest('s1', 'erin') } });
+    harness.detectChanges();
+    expect(rows(element, 'Friend requests')).toEqual(['dave 1310']);
+    expect(rows(element, 'Sent requests')).toEqual(['erin 1250 Waiting for an answer']);
+
+    // Dave withdrew; Erin accepted.
+    events.next({ event: 'FRIEND_REQUEST_REMOVED', data: { requestId: 'r1' } });
+    events.next({
+      event: 'FRIEND_ADDED',
+      data: {
+        requestId: 's1',
+        friend: { id: 'erin', username: 'erin', avatarUrl: null, elo: 1250, status: 'ONLINE' },
+      },
+    });
+    harness.detectChanges();
+    expect(element.querySelector('ul[aria-label="Friend requests"]')).toBeNull();
+    expect(element.querySelector('ul[aria-label="Sent requests"]')).toBeNull();
+    expect(rows(element, 'Friends')).toEqual([
+      'bob 1300 Online',
+      'carol 1500 Offline',
+      'erin 1250 Online',
+    ]);
+
+    events.next({ event: 'FRIEND_REMOVED', data: { userId: 'bob' } });
+    harness.detectChanges();
+    expect(rows(element, 'Friends')).toEqual(['carol 1500 Offline', 'erin 1250 Online']);
+  });
+
+  it('reads friends and requests again after the socket reconnects', async () => {
+    const { harness } = await open();
+    friends.mockClear();
+    friendRequests.mockClear();
+    sentFriendRequests.mockClear();
+    state.set('reconnecting');
+    harness.detectChanges();
+    state.set('connected');
+    harness.detectChanges();
+    expect(friends).toHaveBeenCalledTimes(1);
+    expect(friendRequests).toHaveBeenCalledTimes(1);
+    expect(sentFriendRequests).toHaveBeenCalledTimes(1);
+  });
+
+  it('explains why a challenge was refused', async () => {
+    const { harness, element } = await open();
+    const send = vi.fn().mockReturnValue(
+      throwError(
+        () =>
+          new ApiError(
+            new HttpErrorResponse({
+              status: 403,
+              error: {
+                statusCode: 403,
+                code: 'FRIENDS_ONLY',
+                message: 'This player only lets friends challenge them.',
+              },
+            }),
+          ),
+      ),
+    );
+    TestBed.inject(Challenges).send = send;
+    (element.querySelector('button[aria-label="Challenge bob"]') as HTMLButtonElement).click();
+    harness.detectChanges();
+    expect(send).toHaveBeenCalledWith('bob');
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain(
+      'only lets friends challenge them',
+    );
   });
 });

@@ -9,7 +9,8 @@ branch, so its PR goes after them.
 | Where | Action | API |
 |---|---|---|
 | A player's profile | **Add friend**, then "Friend request sent." | `POST /v1/friends/requests` `{ recipientId }` |
-| `/friends`, "Friend requests" | see who asked (name and Elo), **Accept** or **Decline** | `GET /v1/friends/requests`, `POST …/:id/accept`, `POST …/:id/reject` |
+| `/friends`, "Friend requests" | see who asked (name and Elo), **Accept** or **Decline** | `GET /v1/friends/requests`, `POST …/:id/accept`, `DELETE …/:id` |
+| `/friends`, "Sent requests" | **Cancel** a request not answered yet | `GET /v1/friends/requests/sent`, `DELETE …/:id` |
 | `/friends`, "Your friends" | **Remove**, then **Confirm removal** | `DELETE /v1/friends/:friendId` |
 
 A profile already in the visitor's friend list says "You are friends." instead of the button.
@@ -19,6 +20,10 @@ pending", with a link to the requests), `ALREADY_FRIENDS`, a request resolved el
 elsewhere reloads the list.
 
 ## Differences from the spec, to settle with the backend
+
+Since the social lot ([social.md](social.md)): sent requests are listed, declining and
+cancelling are `DELETE /friends/requests/:id`, crossed requests accept each other, and events
+replace the 30 s polling. The notes below describe the state before it.
 
 - Spec §5 says `GET /friends/requests` returns `{ incoming, outgoing }`. PR #67 returns
   `{ requests }`, incoming only. Without the outgoing list, a profile cannot show "request

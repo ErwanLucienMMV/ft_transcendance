@@ -48,8 +48,8 @@ it was not changed.
 
 - Delivery is best effort: a message lost while the socket stays connected only shows after
   the next reload or reconnection.
-- Nothing marks messages read, so an unread count comes back after a reload. The page
-  shows 0 for conversations opened during the visit.
+- Opening a conversation marks it read on the server (`POST /v1/conversations/:id/read`), and
+  the sender sees "Read" (see [social.md](social.md)).
 - `ERROR` events carry no correlation id. While a message is pending, the page treats an
   `ERROR` as the answer to it; after 10 s with no answer it reloads the newest page.
 

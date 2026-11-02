@@ -42,7 +42,7 @@ request payloads cannot select a different actor.
 | POST | `/v1/friends/requests` | 201 safe request DTO (existing), body `{ recipientId }`. |
 | GET | `/v1/friends/requests` | 200 `{ requests: [...] }`, only incoming `PENDING` requests, oldest first with UUID tie-breaking. Empty inbox returns `{ requests: [] }`. |
 | POST | `/v1/friends/requests/:requestId/accept` | 200 request with `status: ACCEPTED` (existing). |
-| POST | `/v1/friends/requests/:requestId/reject` | 200 request with `status: REJECTED`; only the recipient may resolve it. |
+| DELETE | `/v1/friends/requests/:requestId` | 204. The recipient declines (`REJECTED`), the sender withdraws (row deleted). Replaces `POST …/reject`; see [social.md](social.md). |
 | DELETE | `/v1/friends/:friendId` | 204 with empty body; `friendId` identifies the other account, and either participant may remove the relationship. |
 
 The request DTO contains exactly `id`, `senderId`, `recipientId`, `status` and

@@ -40,6 +40,16 @@ export interface GameMessagePage {
 export const GAME_CHAT_HISTORY = 100;
 /** How long a sent message may wait for its GAME_MESSAGE before the chat says so. */
 export const GAME_CHAT_CONFIRM_MS = 10_000;
+/** Remembered in this browser: a player who hid spectators keeps them hidden. */
+export const HIDE_SPECTATORS_KEY = '42chess.chat.hideSpectators';
+
+function remembered(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(HIDE_SPECTATORS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 const FOLLOW_MARGIN_PX = 48;
 
 function chronological(a: GameMessage, b: GameMessage): number {
@@ -93,6 +103,17 @@ export class GameChat {
   readonly gameId = input.required<string>();
   /** False once the game is over: the history stays, and nothing can be sent. */
   readonly open = input(true);
+  /** The seated players' ids; every other author is a spectator. */
+  readonly players = input<readonly string[]>([]);
+  /** Players can hide what spectators write, to play without comments. */
+  readonly hideSpectators = signal(remembered());
+  private readonly seated = computed(() => new Set(this.players().filter(Boolean)));
+  readonly visible = computed(() =>
+    this.hideSpectators() && this.seated().size
+      ? this.messages().filter((message) => this.seated().has(message.sender.id))
+      : this.messages(),
+  );
+  readonly hidden = computed(() => this.messages().length - this.visible().length);
   readonly maxLength = MESSAGE_MAX_LENGTH;
 
   readonly messages = signal<GameMessage[]>([]);
@@ -107,6 +128,11 @@ export class GameChat {
   readonly blank = computed(() => this.draft().trim() === '');
   readonly truncated = computed(() => this.total() > this.messages().length);
   private readonly me = computed(() => this.session.user()?.id ?? null);
+  /** The toggle is offered to the players, who are the ones it helps. */
+  readonly seatedViewer = computed(() => {
+    const me = this.me();
+    return Boolean(me) && this.seated().has(me!);
+  });
   private readonly log = viewChild<ElementRef<HTMLElement>>('log');
   private request = 0;
   private confirmTimer?: ReturnType<typeof setTimeout>;
@@ -152,6 +178,21 @@ export class GameChat {
 
   mine(message: GameMessage): boolean {
     return message.sender.id === this.me();
+  }
+
+  /** Known only once the seats are: until then nobody is marked. */
+  spectator(message: GameMessage): boolean {
+    return this.seated().size > 0 && !this.seated().has(message.sender.id);
+  }
+
+  toggleSpectators(event: Event): void {
+    const hide = (event.target as HTMLInputElement).checked;
+    this.hideSpectators.set(hide);
+    try {
+      globalThis.localStorage?.setItem(HIDE_SPECTATORS_KEY, hide ? '1' : '0');
+    } catch {
+      // Private browsing: the choice lasts for this page only.
+    }
   }
 
   input(event: Event): void {

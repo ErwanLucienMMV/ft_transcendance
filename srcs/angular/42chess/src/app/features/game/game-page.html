@@ -216,7 +216,11 @@
           }
         </section>
 
-        <app-game-chat [gameId]="current.id" [open]="current.status !== 'FINISHED'" />
+        <app-game-chat
+          [gameId]="current.id"
+          [open]="current.status !== 'FINISHED'"
+          [players]="[current.whitePlayer?.id ?? '', current.blackPlayer?.id ?? '']"
+        />
       }
     </div>
   </section>
