@@ -40,4 +40,26 @@ describe('PasswordService', () => {
       false,
     );
   });
+
+  it('preserves Unicode and rejects visually similar or truncated passwords', async () => {
+    const password = 'échecs-♞-secret-long';
+    const hash = await passwords.hash(password);
+    await expect(passwords.verify(hash, password)).resolves.toBe(true);
+    await expect(
+      passwords.verify(hash, password.normalize('NFD')),
+    ).resolves.toBe(false);
+    await expect(passwords.verify(hash, password.slice(0, -1))).resolves.toBe(
+      false,
+    );
+  });
+
+  it('does not truncate a password at an embedded null byte', async () => {
+    const password = 'long-prefix\u0000private-suffix';
+    const hash = await passwords.hash(password);
+    await expect(passwords.verify(hash, password)).resolves.toBe(true);
+    await expect(passwords.verify(hash, 'long-prefix')).resolves.toBe(false);
+    await expect(
+      passwords.verify(hash, 'long-prefix\u0000different-suffix'),
+    ).resolves.toBe(false);
+  });
 });
