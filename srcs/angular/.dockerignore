@@ -3,3 +3,5 @@
 42chess/.angular
 42chess/test-results
 42chess/playwright-report
+**/.env
+**/.env.*
