@@ -9,8 +9,8 @@ export function registerDurableMetrics(
   for (const [name, help, sql] of [
     [
       'games_finished',
-      'Retained finished games in the shared database',
-      "SELECT count(*)::float8 AS value FROM games WHERE status='FINISHED'",
+      'Retained finished games in the shared database, aborted games excluded',
+      "SELECT count(*)::float8 AS value FROM games WHERE status='FINISHED' AND \"endReason\" IS DISTINCT FROM 'ABORTED'",
     ],
     [
       'matchmaking_queue_size',

@@ -188,6 +188,12 @@ describe('Draw offers and resignation', () => {
     await f.service.play(f.white, game.id, 'e2e4');
     const runner = f.source.createQueryRunner();
     const migration = new AddGameAgreements1791740100000();
+    // Later migrations constrain the agreement columns: undo them first.
+    const later = f.source.migrations.filter(
+      (m) => Number((m.name ?? m.constructor.name).slice(-13)) > 1793392000000,
+    ).length;
+    for (let undone = 0; undone < later; undone++)
+      await f.source.undoLastMigration();
     await migration.down(runner);
     await f.source.undoLastMigration();
     try {

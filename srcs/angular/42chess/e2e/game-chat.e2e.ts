@@ -88,8 +88,7 @@ test('a friend is challenged by message, and players and a spectator chat until 
   await alice.getByLabel('Message the game').fill('');
 
   // The chat closes with the game, and what was said stays.
-  await bob.getByRole('button', { name: 'Resign' }).click();
-  await bob.getByRole('button', { name: 'Confirm resignation' }).click();
+  await bob.getByRole('button', { name: 'Abort game' }).click();
   for (const page of [alice, bob, carol]) {
     await expect(page.getByText('The chat closed when the game ended.')).toBeVisible();
     await expect(page.getByLabel('Message the game')).toHaveCount(0);

@@ -4,6 +4,8 @@ export interface RealtimePrincipal {
   userId: string;
   expiresAt: number;
   validate?: () => Promise<void>;
+  /** Calls `ended` as soon as the session is revoked; returns the unsubscribe. */
+  watch?: (ended: () => void) => () => void;
 }
 
 /** SCRUM-178 integration seam: implementations MUST verify JWT and user eligibility. */

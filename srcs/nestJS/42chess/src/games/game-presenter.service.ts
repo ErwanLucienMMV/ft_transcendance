@@ -3,6 +3,7 @@ import { DataSource, In } from 'typeorm';
 import { User } from '../users/user.entity.js';
 import { GameError } from './game-error.js';
 import type { GameState } from './game-state.js';
+import { DRAW_OFFER_COOLDOWN_PLIES } from './game-agreements.service.js';
 import type {
   GameMovesResponse,
   GameResponse,
@@ -72,7 +73,9 @@ export class GamePresenterService {
       status: game.status,
       whitePlayer: refs.find((player) => player.color === 'WHITE') ?? null,
       blackPlayer: refs.find((player) => player.color === 'BLACK') ?? null,
+      rated: game.rated,
       timeControl: { initialTime: game.initialTime, increment: game.increment },
+      initialFen: game.initialFen,
       board: {
         fen: game.currentFen,
         turn: game.turn,
@@ -82,17 +85,23 @@ export class GamePresenterService {
       clocks: game.clock
         ? { white: game.clock.white, black: game.clock.black }
         : null,
-      result: game.result
-        ? {
-            winner:
-              game.result === 'WHITE_WIN'
-                ? 'WHITE'
-                : game.result === 'BLACK_WIN'
-                  ? 'BLACK'
-                  : null,
-            reason: game.endReason,
-          }
-        : null,
+      // An aborted game is finished without a winner or a draw: only its reason says so.
+      result:
+        game.result || game.endReason === 'ABORTED'
+          ? {
+              winner:
+                game.result === 'WHITE_WIN'
+                  ? 'WHITE'
+                  : game.result === 'BLACK_WIN'
+                    ? 'BLACK'
+                    : null,
+              reason: game.endReason,
+            }
+          : null,
+      drawOfferAllowedFrom: {
+        white: nextOffer(game.whiteDrawOfferPly),
+        black: nextOffer(game.blackDrawOfferPly),
+      },
       drawOffer: game.drawOffer
         ? {
             playerId: refs.find((player) => player.color === game.drawOffer)!
@@ -135,4 +144,8 @@ export class GamePresenterService {
       }),
     };
   }
+}
+
+function nextOffer(last: number | null): number {
+  return last === null ? 0 : last + DRAW_OFFER_COOLDOWN_PLIES;
 }

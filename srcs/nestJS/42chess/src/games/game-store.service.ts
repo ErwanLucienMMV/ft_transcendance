@@ -42,6 +42,73 @@ export class GameStoreService {
     return row.count;
   }
 
+  /** First active game of any of these users, human or bot. */
+  async activeGameOf(
+    manager: EntityManager,
+    userIds: string[],
+  ): Promise<string | null> {
+    const rows: { id: string }[] = await manager.query(
+      `SELECT g.id FROM games g JOIN game_players p ON p."gameId" = g.id
+       WHERE p."userId" = ANY($1::uuid[]) AND g.status = 'ACTIVE' LIMIT 1`,
+      [userIds],
+    );
+    return rows[0]?.id ?? null;
+  }
+
+  async waitingGamesOf(
+    manager: EntityManager,
+    userId: string,
+  ): Promise<number> {
+    const [row]: { count: number }[] = await manager.query(
+      `SELECT count(*)::int AS count FROM games g
+       JOIN game_players p ON p."gameId" = g.id
+       WHERE p."userId" = $1 AND g.status = 'WAITING'`,
+      [userId],
+    );
+    return row.count;
+  }
+
+  /**
+   * Games between two people where a side did not play its first move in time.
+   * The deadline counts from the start, then from White's first move.
+   */
+  async dueAborts(delaySeconds: number): Promise<string[]> {
+    const rows: { id: string }[] = await this.source.query(
+      `SELECT g.id FROM games g
+       WHERE g.status = 'ACTIVE'
+       AND NOT EXISTS (SELECT 1 FROM game_players b
+         WHERE b."gameId" = g.id AND b."botDifficulty" IS NOT NULL)
+       AND NOT EXISTS (SELECT 1 FROM moves m WHERE m."gameId" = g.id AND m.ply = 2)
+       AND COALESCE((SELECT m."createdAt" FROM moves m WHERE m."gameId" = g.id AND m.ply = 1),
+                    g."startedAt") <= CURRENT_TIMESTAMP - make_interval(secs => $1)
+       ORDER BY g."startedAt", g.id LIMIT 100`,
+      [delaySeconds],
+    );
+    return rows.map((row) => row.id);
+  }
+
+  /** Removes open invitations nobody accepted, with their pre-game chat. */
+  async expireWaiting(maxAgeHours: number): Promise<number> {
+    return this.source.transaction(async (manager) => {
+      const rows: { id: string }[] = await manager.query(
+        `SELECT id FROM games WHERE status = 'WAITING'
+         AND "createdAt" <= CURRENT_TIMESTAMP - make_interval(hours => $1)
+         ORDER BY "createdAt", id LIMIT 500 FOR UPDATE SKIP LOCKED`,
+        [maxAgeHours],
+      );
+      if (rows.length === 0) return 0;
+      const ids = rows.map((row) => row.id);
+      await manager.query(
+        `DELETE FROM game_messages WHERE "gameId" = ANY($1::uuid[])`,
+        [ids],
+      );
+      await manager.query(`DELETE FROM games WHERE id = ANY($1::uuid[])`, [
+        ids,
+      ]);
+      return ids.length;
+    });
+  }
+
   async dueClocks(): Promise<string[]> {
     const rows: { id: string }[] = await this.source.query(`SELECT id FROM games
       WHERE status='ACTIVE' AND "clockDeadline" <= CURRENT_TIMESTAMP
@@ -100,6 +167,8 @@ export class GameStoreService {
         if (
           wasActive &&
           game.status === 'FINISHED' &&
+          game.rated &&
+          game.result !== null &&
           state.players.every((player) => player.userId !== null)
         ) {
           await this.ratings.applyFinishedGame(manager, game, state.players);
@@ -136,6 +205,19 @@ export class GameStoreService {
       }
       throw error;
     }
+  }
+
+  /**
+   * A coherent read without the game lock, with the database time it was taken at:
+   * clocks can be brought up to date in memory without writing anything.
+   */
+  observe(id: string): Promise<{ state: GameState; now: number }> {
+    return this.source.transaction('REPEATABLE READ', async (manager) => {
+      const game = await manager.findOneBy(Game, { id });
+      if (!game) throw new GameError('GAME_NOT_FOUND', 'Game does not exist.');
+      const state = await this.state(manager, game);
+      return { state, now: (await this.now(manager)).getTime() };
+    });
   }
 
   /** A coherent game + seats + history, even while another connection plays. */

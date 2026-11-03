@@ -21,6 +21,13 @@ import type { RealtimePrincipal } from './realtime-authenticator.js';
 import { parseRealtimeMessage, RealtimeMessages } from './realtime-messages.js';
 import { PrivateMessageRealtime } from '../chat/private-message-realtime.js';
 
+/**
+ * Periodic check that the session behind a socket still exists. Revocations made
+ * by this process close the socket at once; this catches the others (expired
+ * account, another replica) without querying the database every second.
+ */
+export const SESSION_REVALIDATION_MS = 15_000;
+
 @Injectable()
 export class RealtimeGateway
   implements OnApplicationBootstrap, OnApplicationShutdown
@@ -130,6 +137,7 @@ export class RealtimeGateway
     let principal: RealtimePrincipal | undefined;
     let expiry: ReturnType<typeof setTimeout> | undefined;
     let validation: ReturnType<typeof setInterval> | undefined;
+    let unwatch: (() => void) | undefined;
     let validating = false;
     let queued = 0,
       count = 0,
@@ -153,6 +161,7 @@ export class RealtimeGateway
       clearTimeout(authTimeout);
       clearTimeout(expiry);
       clearInterval(validation);
+      unwatch?.();
       this.presence?.disconnect(connectionId);
       this.messages.disconnect(connectionId);
       this.matchmaking?.disconnect(connectionId);
@@ -213,6 +222,17 @@ export class RealtimeGateway
               }
               if (socket.readyState !== WebSocket.OPEN) return;
               principal = verified;
+              const end = () => {
+                if (socket.readyState !== WebSocket.OPEN) return;
+                this.send(socket, 'ERROR', {
+                  statusCode: 401,
+                  code: 'INVALID_TOKEN',
+                  message: 'The session is no longer valid.',
+                });
+                this.presence?.disconnect(connectionId);
+                socket.close(4401, 'Session ended');
+              };
+              unwatch = verified.watch?.(end);
               if (verified.validate) {
                 validation = setInterval(async () => {
                   if (validating || socket.readyState !== WebSocket.OPEN)
@@ -221,17 +241,11 @@ export class RealtimeGateway
                   try {
                     await verified.validate!();
                   } catch {
-                    this.send(socket, 'ERROR', {
-                      statusCode: 401,
-                      code: 'INVALID_TOKEN',
-                      message: 'The session is no longer valid.',
-                    });
-                    this.presence?.disconnect(connectionId);
-                    socket.close(4401, 'Session ended');
+                    end();
                   } finally {
                     validating = false;
                   }
-                }, 1000);
+                }, SESSION_REVALIDATION_MS);
                 validation.unref();
               }
               clearTimeout(authTimeout);

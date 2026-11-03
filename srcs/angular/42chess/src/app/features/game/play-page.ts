@@ -8,7 +8,7 @@ import {
   PLATFORM_ID,
   signal,
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ApiError } from '../../core/api/api-error';
 import type { PlayerColor } from '../../core/realtime/game-realtime';
 import {
@@ -18,11 +18,15 @@ import {
   TIME_CONTROLS,
   TimeControlChoice,
   timeControlLabel,
+  WaitingGame,
 } from './games-api';
 import { formatClock } from './game-clock';
 import { MatchmakingSearch } from './matchmaking';
 
 export type ColorChoice = PlayerColor | 'RANDOM';
+
+/** After this long without an opponent, the page suggests a game against the bot. */
+export const BOT_SUGGESTION_MS = 60_000;
 
 /**
  * Starts a game. Matchmaking finds a rated opponent with the same time control; against a
@@ -31,6 +35,7 @@ export type ColorChoice = PlayerColor | 'RANDOM';
  */
 @Component({
   selector: 'app-play-page',
+  imports: [RouterLink],
   templateUrl: './play-page.html',
   styleUrl: './play-page.css',
   providers: [MatchmakingSearch],
@@ -42,6 +47,11 @@ export class PlayPage {
   readonly selected = signal<TimeControlChoice>(TIME_CONTROLS[2]);
   readonly creating = signal(false);
   readonly error = signal<string | null>(null);
+  /** Games against a friend change Elo only when both chose a rated game. */
+  readonly rated = signal(false);
+  readonly invitations = signal<WaitingGame[]>([]);
+  readonly cancelling = signal<string | null>(null);
+  readonly label = timeControlLabel;
   readonly levels = BOT_LEVELS;
   readonly level = signal<BotChoice>(BOT_LEVELS[0]);
   readonly color = signal<ColorChoice>('WHITE');
@@ -64,9 +74,18 @@ export class PlayPage {
     const since = this.search.joinedAt();
     return formatClock(since === null ? 0 : this.now() - since, false);
   });
+  /** A long search: the opponent pool for this time control may be empty right now. */
+  readonly suggestBot = computed(() => {
+    const since = this.search.joinedAt();
+    return (
+      this.search.state() === 'waiting' && since !== null && this.now() - since >= BOT_SUGGESTION_MS
+    );
+  });
+  private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
 
   constructor() {
-    if (!isPlatformBrowser(inject(PLATFORM_ID))) return;
+    if (!this.browser) return;
+    this.loadInvitations();
     let timer: ReturnType<typeof setInterval> | undefined;
     effect(() => {
       clearInterval(timer);
@@ -88,7 +107,7 @@ export class PlayPage {
     const { initialTime, increment } = this.selected();
     this.creating.set(true);
     this.error.set(null);
-    this.games.create({ initialTime, increment }).subscribe({
+    this.games.create({ initialTime, increment }, undefined, this.rated()).subscribe({
       next: ({ gameId }) => void this.router.navigate(['/game', gameId]),
       error: (error: unknown) => {
         this.creating.set(false);
@@ -96,6 +115,34 @@ export class PlayPage {
           error instanceof ApiError ? error.message : 'The game could not be created.',
         );
       },
+    });
+  }
+
+  /** Stops searching and plays the bot with the same time control. */
+  playBotInstead(): void {
+    this.search.cancel();
+    this.createBot();
+  }
+
+  cancelInvitation(id: string): void {
+    if (this.cancelling()) return;
+    this.cancelling.set(id);
+    this.games.cancel(id).subscribe({
+      next: () => {
+        this.cancelling.set(null);
+        this.invitations.update((games) => games.filter((game) => game.id !== id));
+      },
+      error: () => {
+        this.cancelling.set(null);
+        this.loadInvitations();
+      },
+    });
+  }
+
+  private loadInvitations(): void {
+    this.games.waiting().subscribe({
+      next: ({ games }) => this.invitations.set(games),
+      error: () => this.invitations.set([]),
     });
   }
 

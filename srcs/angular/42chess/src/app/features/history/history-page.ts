@@ -60,6 +60,8 @@ export class HistoryPage {
       `${item.color === 'WHITE' ? 'White' : 'Black'}`,
       reason,
       timeControlLabel(item.timeControl),
+      // Rated is the usual case: only casual games between people are marked.
+      item.rated || item.opponent.botDifficulty ? null : 'Casual',
       `${moves} ${moves === 1 ? 'move' : 'moves'}`,
     ]
       .filter(Boolean)

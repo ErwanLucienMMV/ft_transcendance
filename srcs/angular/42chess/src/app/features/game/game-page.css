@@ -107,3 +107,29 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.game-kind {
+  margin: -6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.notice,
+.away {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--field);
+  font-size: 14px;
+}
+.away {
+  display: grid;
+  gap: 10px;
+  border-color: var(--accent);
+}
+.away p {
+  margin: 0;
+}
+.rules-link {
+  margin: 0;
+  font-size: 13px;
+}

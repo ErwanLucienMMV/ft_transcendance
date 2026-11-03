@@ -71,23 +71,69 @@ test('two players create, join and finish a live game by checkmate', async ({
   expect(errors).toEqual([]);
 });
 
-test('a player resigns after declining a draw offer', async ({ browser, request }) => {
-  const host = await signedIn(browser, await verifiedAccount(request));
-  const guest = await signedIn(browser, await verifiedAccount(request));
+/** Host creates a game from the play page, guest opens the link; returns [white, black]. */
+async function startGame(
+  host: Page,
+  guest: Page,
+  options: { rated?: boolean } = {},
+): Promise<[Page, Page]> {
   await host.goto('/play');
+  if (options.rated) await host.getByLabel(/Rated game/).check();
   await host.getByRole('button', { name: 'Create game' }).click();
   await expect(host).toHaveURL(/\/game\//);
   await guest.goto(new URL(await host.getByLabel('Game link').inputValue()).pathname);
-  await expect(host.getByRole('button', { name: 'Offer draw' })).toBeVisible();
+  const headline = (page: Page) => page.locator('#game-title');
+  await expect(headline(host)).not.toHaveText('Waiting for an opponent');
+  await expect(headline(guest)).not.toHaveText('Waiting for an opponent');
+  return (await headline(host).textContent()) === 'Your turn' ? [host, guest] : [guest, host];
+}
 
-  await host.getByRole('button', { name: 'Offer draw' }).click();
-  await expect(guest.getByText('Your opponent offers a draw.')).toBeVisible();
-  await guest.getByRole('button', { name: 'Decline' }).click();
-  await expect(host.getByText('Your draw offer was declined.')).toBeVisible();
+test('a player resigns after declining a draw offer', async ({ browser, request }) => {
+  const host = await signedIn(browser, await verifiedAccount(request));
+  const guest = await signedIn(browser, await verifiedAccount(request));
+  const [white, black] = await startGame(host, guest, { rated: true });
+  await expect(white.locator('[data-kind]')).toHaveText('Rated · 10 + 0');
+  await move(white, 'e2', 'e4');
+  await expect(black.locator('#game-title')).toHaveText('Your turn');
+  await move(black, 'e7', 'e5');
+  await expect(white.getByRole('button', { name: 'Offer draw' })).toBeVisible();
 
-  await guest.getByRole('button', { name: 'Resign' }).click();
-  await guest.getByRole('button', { name: 'Confirm resignation' }).click();
-  await expect(host.locator('#game-title')).toHaveText('You won by resignation');
-  await expect(guest.locator('#game-title')).toHaveText('You lost by resignation');
-  await expect(guest.getByRole('link', { name: 'New game' })).toBeVisible();
+  await white.getByRole('button', { name: 'Offer draw' }).click();
+  await expect(black.getByText('Your opponent offers a draw.')).toBeVisible();
+  await black.getByRole('button', { name: 'Decline' }).click();
+  await expect(white.getByText('Your draw offer was declined.')).toBeVisible();
+  // A refused offer cannot be repeated straight away.
+  await expect(white.getByRole('button', { name: 'Offer draw' })).toHaveCount(0);
+
+  await black.getByRole('button', { name: 'Resign' }).click();
+  await black.getByRole('button', { name: 'Confirm resignation' }).click();
+  await expect(white.locator('#game-title')).toHaveText('You won by resignation');
+  await expect(black.locator('#game-title')).toHaveText('You lost by resignation');
+  await expect(black.getByRole('link', { name: 'New game' })).toBeVisible();
+});
+
+test('a game is aborted before the first moves, and a departure is announced', async ({
+  browser,
+  request,
+}) => {
+  const host = await signedIn(browser, await verifiedAccount(request));
+  const guest = await signedIn(browser, await verifiedAccount(request));
+  let [white, black] = await startGame(host, guest);
+  await expect(white.locator('[data-kind]')).toHaveText('Casual · 10 + 0');
+  await expect(white.locator('[data-first-move]')).toContainText('to play a first move');
+  await expect(white.getByRole('button', { name: 'Resign' })).toHaveCount(0);
+  await black.getByRole('button', { name: 'Abort game' }).click();
+  await expect(white.locator('#game-title')).toHaveText('Game aborted');
+  await expect(black.locator('#game-title')).toHaveText('Game aborted');
+
+  [white, black] = await startGame(host, guest);
+  await move(white, 'e2', 'e4');
+  await expect(black.locator('#game-title')).toHaveText('Your turn');
+  await move(black, 'e7', 'e5');
+  await expect(white.locator('#game-title')).toHaveText('Your turn');
+  // The opponent closes the game: the other player is told and can wait or claim later.
+  await black.goto('/play');
+  await expect(white.locator('[data-away]')).toContainText('Your opponent disconnected');
+  await black.goBack();
+  await expect(white.locator('[data-away]')).toHaveCount(0);
 });

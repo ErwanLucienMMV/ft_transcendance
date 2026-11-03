@@ -26,7 +26,7 @@ describe('SCRUM-450/470 matchmaking workflow', () => {
   let users: User[];
   let tokens: string[];
   const sockets: WebSocket[] = [];
-  const control = { initialTime: 300000, increment: 2000 };
+  const control = { initialTime: 180000, increment: 2000 };
 
   beforeAll(async () => {
     process.env.CHESS_ENGINE_URL =

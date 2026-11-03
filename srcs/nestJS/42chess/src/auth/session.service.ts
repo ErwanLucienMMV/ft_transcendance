@@ -66,6 +66,7 @@ export function invalidAccessToken(): UnauthorizedException {
 
 @Injectable()
 export class SessionService {
+  private readonly revocationListeners = new Map<string, Set<() => void>>();
   constructor(
     private readonly jwt: JwtService,
     @InjectRepository(AuthSession)
@@ -223,5 +224,26 @@ export class SessionService {
       { id: sessionId, userId, revokedAt: IsNull() },
       { revokedAt: new Date() },
     );
+    this.revoked(sessionId);
+  }
+
+  /**
+   * Calls `listener` as soon as this process revokes the session, so open
+   * WebSocket connections close at once instead of at their next periodic check.
+   */
+  onRevoked(sessionId: string, listener: () => void): () => void {
+    const listeners = this.revocationListeners.get(sessionId) ?? new Set();
+    listeners.add(listener);
+    this.revocationListeners.set(sessionId, listeners);
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0) this.revocationListeners.delete(sessionId);
+    };
+  }
+
+  private revoked(sessionId: string): void {
+    // A listener unsubscribes when its socket closes: iterate over a copy.
+    const listeners = Array.from(this.revocationListeners.get(sessionId) ?? []);
+    for (const listener of listeners) listener();
   }
 }

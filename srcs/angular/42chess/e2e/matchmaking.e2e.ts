@@ -35,9 +35,10 @@ test('two players queue with the same time control and land in the same game', a
   const turns = await Promise.all(headlines.map((headline) => headline.textContent()));
   expect(turns.sort()).toEqual(["Opponent's turn", 'Your turn']);
 
-  await first.getByRole('button', { name: 'Resign' }).click();
-  await first.getByRole('button', { name: 'Confirm resignation' }).click();
-  await expect(second.locator('#game-title')).toContainText('by resignation');
+  // Before the first moves the game is aborted, not resigned.
+  await expect(first.getByRole('button', { name: 'Resign' })).toHaveCount(0);
+  await first.getByRole('button', { name: 'Abort game' }).click();
+  await expect(second.locator('#game-title')).toHaveText('Game aborted');
   // A finished match is not reopened when the player comes back to the play page.
   await second.goto('/play');
   await expect(second.getByRole('button', { name: 'Find an opponent' })).toBeVisible();

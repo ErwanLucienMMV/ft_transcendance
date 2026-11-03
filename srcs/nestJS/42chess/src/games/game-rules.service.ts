@@ -46,6 +46,33 @@ export class GameRulesService {
     return snapshot;
   }
 
+  /**
+   * Plays a move from an already checked current position: legality comes from its
+   * legal moves, so a move costs two engine requests instead of three.
+   */
+  async play(
+    state: GameState,
+    before: ChessSnapshot,
+    uci: string,
+  ): Promise<ChessSnapshot> {
+    if (!before.legalMoves.includes(uci))
+      throw new GameError(
+        'ILLEGAL_MOVE',
+        'The rules engine rejected this move.',
+      );
+    const position = replayPosition(state, 1);
+    const snapshot = checkedSnapshot(
+      await this.request(() => this.engine.move(uci, position)),
+    );
+    if (snapshot.turn.toUpperCase() === state.game.turn) {
+      throw new GameError(
+        'INVALID_ENGINE_RESPONSE',
+        'An accepted move must switch the turn.',
+      );
+    }
+    return snapshot;
+  }
+
   async current(state: GameState): Promise<ChessSnapshot> {
     const snapshot = await this.analyze(replayPosition(state));
     if (

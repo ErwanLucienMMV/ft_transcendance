@@ -57,6 +57,7 @@ export interface GameHistoryItem {
   opponent: GamePlayer;
   outcome: 'WIN' | 'LOSS' | 'DRAW';
   reason: string | null;
+  rated: boolean;
   timeControl: TimeControl;
   moveCount: number;
   startedAt: string;
@@ -71,6 +72,14 @@ export interface LiveGame {
   timeControl: TimeControl;
   startedAt: string;
 }
+/** An invitation of the signed-in player that nobody accepted yet. */
+export interface WaitingGame {
+  id: string;
+  timeControl: TimeControl;
+  rated: boolean;
+  invitedOpponentId: string | null;
+  createdAt: string;
+}
 /** The backend's PaginatedResponse. */
 export interface Page<T> {
   items: T[];
@@ -84,12 +93,27 @@ export interface Page<T> {
 export class GamesApi {
   private readonly api = inject(ApiClient);
 
-  /** With an opponent, the free seat is reserved for them. */
+  /** With an opponent, the free seat is reserved for them. Casual unless `rated`. */
   create(
     timeControl: TimeControl,
     opponentId?: string,
+    rated = false,
   ): Observable<{ gameId: string; status: 'WAITING' }> {
-    return this.api.post('games', opponentId ? { timeControl, opponentId } : { timeControl });
+    return this.api.post('games', {
+      timeControl,
+      ...(opponentId ? { opponentId } : {}),
+      ...(rated ? { rated } : {}),
+    });
+  }
+
+  /** The signed-in player's open invitations, newest first. */
+  waiting(): Observable<{ games: WaitingGame[] }> {
+    return this.api.get('games/waiting');
+  }
+
+  /** Withdraws an invitation nobody accepted yet. */
+  cancel(id: string): Observable<void> {
+    return this.api.delete(`games/${encodeURIComponent(id)}`);
   }
 
   createBot(game: {

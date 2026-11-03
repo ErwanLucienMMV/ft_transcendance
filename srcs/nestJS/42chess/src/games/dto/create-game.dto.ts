@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDefined,
   IsInt,
   IsObject,
@@ -10,6 +11,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import type { UUID } from '../../common/types/api.js';
+import { IsAllowedTimeControl } from '../time-controls.js';
 
 export class TimeControlDto {
   @IsInt()
@@ -33,5 +35,15 @@ export class CreateGameDto {
   @IsObject()
   @ValidateNested()
   @Type(() => TimeControlDto)
+  @IsAllowedTimeControl()
   timeControl: TimeControlDto;
+
+  /**
+   * Games against a friend are casual unless their creator asks for a rated
+   * one. The opponent sees it when the game starts and can still abort it,
+   * unrated, before both sides have moved.
+   */
+  @IsOptional()
+  @IsBoolean()
+  rated = false;
 }

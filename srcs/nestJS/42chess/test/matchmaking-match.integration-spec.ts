@@ -54,6 +54,7 @@ describe('MATCH-02..12 atomic queue to game lifecycle', () => {
       clocks,
     );
     service = new MatchmakingService(source, games);
+    service.firstTakesWhite = () => true;
     presence = new PresenceService();
     events = new MatchmakingEvents(source, presence);
     await events.onApplicationBootstrap();
@@ -238,6 +239,7 @@ describe('MATCH-02..12 atomic queue to game lifecycle', () => {
       [a],
     );
     const replica = new MatchmakingService(source, games);
+    replica.firstTakesWhite = () => true;
     const [heartbeat, match] = await Promise.all([
       replica.heartbeat(a),
       service.matchNext(),
@@ -290,6 +292,7 @@ describe('MATCH-02..12 atomic queue to game lifecycle', () => {
     const ids = await Promise.all(Array.from({ length: 12 }, () => user()));
     await Promise.all(ids.map((id) => service.join(id, control)));
     const replica = new MatchmakingService(source, games);
+    replica.firstTakesWhite = () => true;
     const found = (
       await Promise.all(
         Array.from({ length: 10 }, (_, i) =>

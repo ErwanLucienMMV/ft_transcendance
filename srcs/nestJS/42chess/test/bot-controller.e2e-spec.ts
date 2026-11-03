@@ -74,7 +74,7 @@ describe('Bot controller HTTP contract', () => {
   const payload = {
     difficulty: 'MEDIUM',
     color: 'BLACK',
-    timeControl: { initialTime: 300000, increment: 2000 },
+    timeControl: { initialTime: 180000, increment: 2000 },
   };
   it('creates a Black-human game and returns the service result including bot readiness', async () => {
     const response = await request(app.getHttpServer())
@@ -85,7 +85,7 @@ describe('Bot controller HTTP contract', () => {
     expect(response.body).toMatchObject({ gameId, ...pending });
     expect(games.createBot).toHaveBeenCalledWith(
       actor,
-      { initialTime: 300000, increment: 2000, color: 'BLACK' },
+      { initialTime: 180000, increment: 2000, color: 'BLACK' },
       'MEDIUM',
     );
   });

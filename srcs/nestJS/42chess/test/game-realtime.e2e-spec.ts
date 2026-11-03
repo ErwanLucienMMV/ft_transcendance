@@ -301,15 +301,18 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
     expect((await b.take('DRAW_OFFERED')).data.playerId).toBe(white.id);
     b.send('DECLINE_DRAW', { gameId: id });
     await a.take('DRAW_DECLINED');
+    // A refused offer cannot be repeated straight away; the opponent can offer.
     a.send('OFFER_DRAW', { gameId: id });
-    await b.take('DRAW_OFFERED');
-    b.send('ACCEPT_DRAW', { gameId: id });
-    const result = await a.take('GAME_ENDED');
+    expect((await a.take('ERROR')).data.code).toBe('DRAW_OFFER_TOO_SOON');
+    b.send('OFFER_DRAW', { gameId: id });
+    await a.take('DRAW_OFFERED');
+    a.send('ACCEPT_DRAW', { gameId: id });
+    const result = await b.take('GAME_ENDED');
     expect(result.data.result).toEqual({
       winner: null,
       reason: 'DRAW_AGREEMENT',
     });
-    expect((await b.take('GAME_ENDED')).data).toEqual(result.data);
+    expect((await a.take('GAME_ENDED')).data).toEqual(result.data);
     a.send('MAKE_MOVE', { gameId: id, from: 'e2', to: 'e4' });
     await a.take('ERROR');
     expect((await games.get(id)).moves).toHaveLength(0);
@@ -361,6 +364,36 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
     expect(state.moves[0].notation).toBe('e4');
   });
 
+  it('tells a player when the opponent leaves and when they come back', async () => {
+    const { id, a, b } = await active();
+    await b.close();
+    expect((await a.take('OPPONENT_DISCONNECTED')).data).toMatchObject({
+      gameId: id,
+      playerId: black.id,
+      claimableAt: expect.stringMatching(/Z$/),
+    });
+    // The claim opens one minute after the departure.
+    a.send('CLAIM_VICTORY', { gameId: id });
+    expect((await a.take('ERROR')).data.code).toBe('OPPONENT_STILL_HERE');
+    const back = await connect('fixture-black');
+    back.send('JOIN_GAME', { gameId: id });
+    expect((await a.take('OPPONENT_RECONNECTED')).data.playerId).toBe(black.id);
+    expect((await games.get(id)).game.status).toBe('ACTIVE');
+  });
+  it('aborts a game before both players moved, without a result', async () => {
+    const { id, a, b } = await active();
+    a.send('ABORT_GAME', { gameId: id });
+    expect((await b.take('GAME_ENDED')).data.result).toEqual({
+      winner: null,
+      reason: 'ABORTED',
+    });
+    expect((await games.get(id)).game.result).toBeNull();
+  });
+  it('refuses a draw claim the rules engine does not confirm', async () => {
+    const { id, a } = await active();
+    a.send('CLAIM_DRAW', { gameId: id });
+    expect((await a.take('ERROR')).data.code).toBe('DRAW_NOT_CLAIMABLE');
+  });
   it('persists resignation and restores a terminal result on reconnect', async () => {
     const { id, a, b } = await active();
     a.send('RESIGN', { gameId: id });

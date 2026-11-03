@@ -48,12 +48,16 @@ describe('Game realtime routing and rooms', () => {
       [
         'get',
         'settle',
+        'observe',
         'join',
         'play',
         'resign',
         'offerDraw',
         'acceptDraw',
         'declineDraw',
+        'claimDraw',
+        'abort',
+        'claimAbandonment',
       ].map((name) => [name, vi.fn(async () => structuredClone(state))]),
     );
     const presenter = {
@@ -386,10 +390,29 @@ describe('Game realtime routing and rooms', () => {
     await join();
     await command('LEAVE_GAME');
     vi.mocked(a.send).mockClear();
-    games.settle.mockClear();
+    games.observe.mockClear();
     await service.tick();
     expect(games.resign).not.toHaveBeenCalled();
-    expect(games.settle).not.toHaveBeenCalled();
+    expect(games.observe).not.toHaveBeenCalled();
+    expect(a.send).not.toHaveBeenCalled();
+  });
+  it('tells the room once that a waiting game is gone, then stops refreshing it', async () => {
+    state.game.status = 'WAITING';
+    state.players = [{ userId: white }];
+    await join();
+    games.observe.mockRejectedValue(
+      new GameError('GAME_NOT_FOUND', 'Game does not exist.'),
+    );
+    vi.mocked(a.send).mockClear();
+    await service.tick();
+    expect(a.send).toHaveBeenCalledWith(
+      'ERROR',
+      expect.objectContaining({ code: 'GAME_NOT_FOUND', gameId: id }),
+    );
+    vi.mocked(a.send).mockClear();
+    games.observe.mockClear();
+    await service.tick();
+    expect(games.observe).not.toHaveBeenCalled();
     expect(a.send).not.toHaveBeenCalled();
   });
   it('cleans memberships at disconnect without resigning', async () => {
@@ -407,9 +430,9 @@ describe('Game realtime routing and rooms', () => {
     });
     await join();
     expect(a.send).not.toHaveBeenCalled();
-    games.settle.mockClear();
+    games.observe.mockClear();
     await service.tick();
-    expect(games.settle).not.toHaveBeenCalled();
+    expect(games.observe).not.toHaveBeenCalled();
   });
   it('publishes durable clocks, a terminal result once, then no further ticks', async () => {
     await join();
@@ -435,10 +458,88 @@ describe('Game realtime routing and rooms', () => {
     ['OFFER_DRAW', 'offerDraw'],
     ['ACCEPT_DRAW', 'acceptDraw'],
     ['DECLINE_DRAW', 'declineDraw'],
+    ['CLAIM_DRAW', 'claimDraw'],
+    ['ABORT_GAME', 'abort'],
   ])('routes %s through %s with the trusted player', async (event, method) => {
     await join();
     await command(event);
     expect(games[method]).toHaveBeenCalledWith(white, id);
+  });
+
+  describe('a player who leaves (B2.1)', () => {
+    it('tells the opponent, then lets them claim the game after the delay', async () => {
+      const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+      try {
+        await join();
+        await join(b);
+        vi.mocked(a.send).mockClear();
+        service.disconnect('b');
+        expect(a.send).toHaveBeenCalledWith(
+          'OPPONENT_DISCONNECTED',
+          expect.objectContaining({
+            gameId: id,
+            playerId: black,
+            claimableAt: new Date(1_000_000 + 60_000).toISOString(),
+          }),
+        );
+        await expect(command('CLAIM_VICTORY')).rejects.toMatchObject({
+          code: 'OPPONENT_STILL_HERE',
+        });
+        expect(games.claimAbandonment).not.toHaveBeenCalled();
+        now.mockReturnValue(1_000_000 + 60_000);
+        await command('CLAIM_VICTORY');
+        expect(games.claimAbandonment).toHaveBeenCalledWith(white, id);
+      } finally {
+        now.mockRestore();
+      }
+    });
+    it('announces the return of the player and refuses a claim afterwards', async () => {
+      const now = vi.spyOn(Date, 'now').mockReturnValue(2_000_000);
+      try {
+        await join();
+        await join(b);
+        service.disconnect('b');
+        vi.mocked(a.send).mockClear();
+        now.mockReturnValue(2_000_000 + 90_000);
+        await join(b);
+        expect(events(a)).toContain('OPPONENT_RECONNECTED');
+        const latest = vi
+          .mocked(a.send)
+          .mock.calls.filter(([event]) => event === 'GAME_STATE')
+          .at(-1)?.[1] as { away: unknown[] };
+        expect(latest.away).toEqual([]);
+        await expect(command('CLAIM_VICTORY')).rejects.toMatchObject({
+          code: 'OPPONENT_STILL_HERE',
+        });
+      } finally {
+        now.mockRestore();
+      }
+    });
+    it('counts a player who never opened the game as away', async () => {
+      const now = vi.spyOn(Date, 'now').mockReturnValue(3_000_000);
+      try {
+        await join();
+        const snapshot = vi
+          .mocked(a.send)
+          .mock.calls.filter(([event]) => event === 'GAME_STATE')
+          .at(-1)?.[1] as { away: { playerId: string }[] };
+        expect(snapshot.away.map((entry) => entry.playerId)).toEqual([black]);
+        now.mockReturnValue(3_000_000 + 60_000);
+        await command('CLAIM_VICTORY');
+        expect(games.claimAbandonment).toHaveBeenCalledWith(white, id);
+      } finally {
+        now.mockRestore();
+      }
+    });
+    it('keeps a player with another open tab present', async () => {
+      await join();
+      await join(b);
+      const second = { ...b, connectionId: 'b2', send: vi.fn() };
+      await join(second);
+      vi.mocked(a.send).mockClear();
+      service.disconnect('b');
+      expect(events(a)).not.toContain('OPPONENT_DISCONNECTED');
+    });
   });
 
   describe('spectators (SPEC-01..10)', () => {

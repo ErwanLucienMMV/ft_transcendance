@@ -23,7 +23,12 @@ export type GameErrorCode =
   | 'BOT_UNAVAILABLE'
   | 'INVALID_BOT_RESPONSE'
   | 'BOT_GAME_LIMIT'
-  | 'BOT_DRAW_UNSUPPORTED';
+  | 'BOT_DRAW_UNSUPPORTED'
+  | 'DRAW_OFFER_TOO_SOON'
+  | 'WAITING_GAME_LIMIT'
+  | 'ABORT_TOO_LATE'
+  | 'CLAIM_NOT_ALLOWED'
+  | 'OPPONENT_STILL_HERE';
 
 /** Domain errors; future authenticated transports map these to their API contract. */
 export class GameError extends Error {

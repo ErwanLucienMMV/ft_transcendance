@@ -8,6 +8,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { GameMessagesService } from '../chat/game-messages.service.js';
+import { apiError } from '../common/api-error.js';
 import { GamesService } from '../games/games.service.js';
 import { GamePresenterService } from '../games/game-presenter.service.js';
 import { GameError } from '../games/game-error.js';
@@ -30,6 +31,8 @@ interface Room {
   ended: boolean;
   // Moves already announced to this room with MOVE_PLAYED.
   plies: number;
+  // Seated players with no open connection in the room, and since when (ms).
+  away: Map<string, number>;
 }
 interface GameQueue {
   tail: Promise<void>;
@@ -47,7 +50,12 @@ const commands = new Set([
   'START_SPECTATING',
   'STOP_SPECTATING',
   'SEND_GAME_MESSAGE',
+  'CLAIM_DRAW',
+  'CLAIM_VICTORY',
+  'ABORT_GAME',
 ]);
+/** How long a player must be gone before the opponent may claim the game. */
+export const ABANDON_CLAIM_DELAY_MS = 60_000;
 const promotions: Record<string, string> = {
   QUEEN: 'q',
   ROOK: 'r',
@@ -213,6 +221,16 @@ export class GameRealtimeService
         case 'DECLINE_DRAW':
           state = await this.games.declineDraw(client.userId, id);
           break;
+        case 'CLAIM_DRAW':
+          state = await this.games.claimDraw(client.userId, id);
+          break;
+        case 'ABORT_GAME':
+          state = await this.games.abort(client.userId, id);
+          break;
+        case 'CLAIM_VICTORY':
+          this.claimable(room, client.userId);
+          state = await this.games.claimAbandonment(client.userId, id);
+          break;
         default:
           throw new BadRequestException('Unsupported command.');
       }
@@ -234,6 +252,20 @@ export class GameRealtimeService
     });
   }
 
+  /** The other seated player must have been gone for the whole delay. */
+  private claimable(room: Room, claimant: string): void {
+    const now = Date.now();
+    const gone = [...room.away].some(
+      ([userId, since]) =>
+        userId !== claimant && now - since >= ABANDON_CLAIM_DELAY_MS,
+    );
+    if (!gone)
+      throw new GameError(
+        'OPPONENT_STILL_HERE',
+        'Your opponent has not been away long enough to claim the game.',
+      );
+  }
+
   override disconnect(connectionId: string): void {
     // leave() removes from this set: iterate over a copy.
     // oxlint-disable-next-line unicorn/no-useless-spread
@@ -251,7 +283,8 @@ export class GameRealtimeService
           this.inGame(id, async () => {
             const room = this.rooms.get(id);
             if (!room || room.ended) return;
-            const state = await this.games.settle(id);
+            // A read without lock nor write; only a fallen flag is settled.
+            const state = await this.games.observe(id);
             const view = await this.presenter.state(state);
             if (this.signature(state) !== room.signature)
               this.publish(room, state, view);
@@ -262,12 +295,30 @@ export class GameRealtimeService
                 turn: view.board.turn,
                 ...this.clockSample(state),
               });
-          }).catch(() => this.logger.warn('Realtime game refresh failed.')),
+          }).catch((error: unknown) => {
+            if (error instanceof GameError && error.code === 'GAME_NOT_FOUND')
+              this.vanished(id, error);
+            else this.logger.warn('Realtime game refresh failed.');
+          }),
         ),
       );
     } finally {
       this.ticking = false;
     }
+  }
+
+  /** The game was deleted (a withdrawn or expired invitation): say so, then close the room. */
+  private vanished(id: string, error: GameError): void {
+    const room = this.rooms.get(id);
+    if (!room) return;
+    this.broadcast(room, 'ERROR', { ...apiError(error), gameId: id });
+    for (const connectionId of room.clients.keys()) {
+      const memberships = this.memberships.get(connectionId);
+      memberships?.delete(id);
+      if (memberships?.size === 0) this.memberships.delete(connectionId);
+    }
+    this.rooms.delete(id);
+    this.spectators.set(id, 0);
   }
 
   private async join(client: RealtimeClient, id: string): Promise<void> {
@@ -316,7 +367,13 @@ export class GameRealtimeService
     memberships.add(id);
     this.memberships.set(client.connectionId, memberships);
     this.count(room, id);
+    const returning = room.away.delete(client.userId);
     this.publish(room, state, view);
+    if (returning)
+      this.broadcast(room, 'OPPONENT_RECONNECTED', {
+        gameId: id,
+        playerId: client.userId,
+      });
   }
 
   /**
@@ -356,17 +413,35 @@ export class GameRealtimeService
   }
 
   private room(id: string, state: GameState): Room {
-    const room = this.rooms.get(id) ?? {
-      clients: new Map(),
-      spectators: new Set<string>(),
-      spectatorCount: 0,
-      snapshot: null,
-      signature: '',
-      ended: false,
-      plies: state.moves.length,
-    };
-    this.rooms.set(id, room);
+    let room = this.rooms.get(id);
+    if (!room) {
+      room = {
+        clients: new Map(),
+        spectators: new Set<string>(),
+        spectatorCount: 0,
+        snapshot: null,
+        signature: '',
+        ended: false,
+        plies: state.moves.length,
+        away: new Map(),
+      };
+      // Nobody is connected yet: every human seat counts as away from now on,
+      // until it joins. The first player's own seat is cleared by join().
+      if (state.game.status === 'ACTIVE')
+        for (const player of state.players)
+          if (player.userId) room.away.set(player.userId, Date.now());
+      this.rooms.set(id, room);
+    }
     return room;
+  }
+
+  /** Seated players currently away, for the snapshot. */
+  private awayList(room: Room) {
+    return [...room.away].map(([playerId, since]) => ({
+      playerId,
+      since: new Date(since).toISOString(),
+      claimableAt: new Date(since + ABANDON_CLAIM_DELAY_MS).toISOString(),
+    }));
   }
 
   /** Recounts distinct watching users; true when the number changed. */
@@ -425,10 +500,12 @@ export class GameRealtimeService
       gameId: view.id,
       moves: this.presenter.moves(state).moves,
       spectatorCount: room.spectatorCount,
+      away: view.status === 'ACTIVE' ? this.awayList(room) : [],
     };
     this.broadcast(room, 'GAME_STATE', room.snapshot);
     if (view.status === 'FINISHED' && !room.ended) {
       room.ended = true;
+      room.away.clear();
       this.broadcast(room, 'GAME_ENDED', {
         gameId: view.id,
         result: view.result,
@@ -463,9 +540,12 @@ export class GameRealtimeService
   }
   private leave(connectionId: string, id: string): void {
     const room = this.rooms.get(id);
+    const leaving = room?.clients.get(connectionId);
+    const seated = !!room && !room.spectators.has(connectionId);
     room?.clients.delete(connectionId);
     if (room?.spectators.delete(connectionId) && this.count(room, id))
       this.broadcast(room, 'GAME_STATE', room.snapshot);
+    if (room && leaving && seated) this.departed(room, id, leaving.userId);
     if (room?.clients.size === 0) {
       this.rooms.delete(id);
       this.spectators.set(id, 0);
@@ -474,6 +554,27 @@ export class GameRealtimeService
     memberships?.delete(id);
     if (memberships?.size === 0) this.memberships.delete(connectionId);
   }
+  /** A seated player closed their last connection to an active game. */
+  private departed(room: Room, id: string, userId: string): void {
+    const status = (room.snapshot as { status?: string } | null)?.status;
+    if (room.ended || status !== 'ACTIVE') return;
+    const stillHere = [...room.clients].some(
+      ([connection, client]) =>
+        client.userId === userId && !room.spectators.has(connection),
+    );
+    if (stillHere || room.away.has(userId)) return;
+    const since = Date.now();
+    room.away.set(userId, since);
+    if (room.snapshot)
+      room.snapshot = { ...room.snapshot, away: this.awayList(room) };
+    this.broadcast(room, 'OPPONENT_DISCONNECTED', {
+      gameId: id,
+      playerId: userId,
+      since: new Date(since).toISOString(),
+      claimableAt: new Date(since + ABANDON_CLAIM_DELAY_MS).toISOString(),
+    });
+  }
+
   private async inGame(id: string, action: () => Promise<void>): Promise<void> {
     const queue = this.queues.get(id) ?? { tail: Promise.resolve(), depth: 0 };
     if (queue.depth >= 64) throw new HttpException('The game is busy.', 429);

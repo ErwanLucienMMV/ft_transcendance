@@ -1,0 +1,81 @@
+<article class="legal-page" aria-labelledby="rules-title">
+  <span class="eyebrow">Help</span>
+  <h2 id="rules-title">How games end</h2>
+  <p>
+    Games follow the FIDE Laws of Chess. The server checks every move and decides every result: what
+    your browser shows is only a view of the game.
+  </p>
+
+  <h3>Winning</h3>
+  <ul>
+    <li><strong>Checkmate:</strong> the king is attacked and has no legal way out.</li>
+    <li><strong>Resignation:</strong> a player gives up with the <em>Resign</em> button.</li>
+    <li>
+      <strong>Time:</strong> a player whose clock reaches zero loses, unless the opponent has no way
+      left to checkmate (a lone king, or a king and a single bishop or knight against a lone king):
+      the game is then drawn.
+    </li>
+    <li>
+      <strong>Abandonment:</strong> when your opponent leaves the game, you are told at once. If
+      they have not come back after one minute, you can claim the win, or keep waiting.
+    </li>
+  </ul>
+
+  <h3>Draws</h3>
+  <ul>
+    <li><strong>Stalemate:</strong> the player to move has no legal move and is not in check.</li>
+    <li>
+      <strong>Insufficient material:</strong> neither side can checkmate any more, for example king
+      against king.
+    </li>
+    <li>
+      <strong>Agreement:</strong> a player offers a draw and the opponent accepts it. After a
+      refused offer, the same player plays two more moves before offering again.
+    </li>
+    <li>
+      <strong>Claim:</strong> the player to move can claim a draw when the same position appeared
+      three times, or after fifty moves by each side without a capture or a pawn move. A
+      <em>Claim draw</em> button appears in the game when it applies.
+    </li>
+    <li>
+      <strong>Automatic:</strong> without any claim, the game is drawn when the same position
+      appears five times, or after seventy-five moves by each side without a capture or a pawn move.
+    </li>
+  </ul>
+
+  <h3>Aborted games</h3>
+  <p>
+    Before both players have played their first move, either player can abort the game. Between two
+    people, a player who does not play their first move within 30 seconds aborts it too. An aborted
+    game has no result, changes no rating and does not appear in the history.
+  </p>
+
+  <h3>Rated and casual games</h3>
+  <ul>
+    <li>
+      <strong>Find an opponent</strong> always gives a rated game against a player of similar Elo.
+      The colours are drawn at random.
+    </li>
+    <li>
+      <strong>Play a friend</strong> gives a casual game, unless you tick <em>Rated game</em> before
+      creating it. An invitation nobody accepts is removed after 24 hours, and you can cancel it
+      from the <a routerLink="/play">Play</a> page.
+    </li>
+    <li><strong>Games against the computer</strong> are never rated.</li>
+  </ul>
+  <p>
+    A rated game changes both Elo ratings: you gain more for beating a stronger player than a weaker
+    one. A player plays one game against another person at a time.
+  </p>
+
+  <h3>Time controls</h3>
+  <p>
+    Each player has a clock. The first number is the time for the whole game in minutes, the second
+    the seconds added after each of your moves.
+  </p>
+  <ul>
+    @for (control of controls; track control.label) {
+      <li>{{ control.label }} ({{ control.category }})</li>
+    }
+  </ul>
+</article>

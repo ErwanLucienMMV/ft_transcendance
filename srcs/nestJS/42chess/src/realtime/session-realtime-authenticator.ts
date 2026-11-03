@@ -15,6 +15,8 @@ export class SessionRealtimeAuthenticator extends RealtimeAuthenticator {
       validate: async () => {
         await this.sessions.authenticate(token);
       },
+      watch: (ended: () => void) =>
+        this.sessions.onRevoked(principal.sessionId, ended),
     };
   }
 }

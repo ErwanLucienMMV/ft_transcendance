@@ -19,15 +19,37 @@ interface MessageConnection {
 @Injectable()
 export class PrivateMessageRealtime implements OnModuleDestroy {
   private readonly clients = new Map<string, MessageConnection>();
+  // Connections by user: a message reaches its two participants without
+  // scanning every open socket.
+  private readonly byUser = new Map<string, Set<string>>();
 
   constructor(private readonly messages: PrivateMessagesService) {}
 
   connect(id: string, client: MessageConnection): void {
+    this.disconnect(id);
     this.clients.set(id, client);
+    const ids = this.byUser.get(client.userId) ?? new Set<string>();
+    ids.add(id);
+    this.byUser.set(client.userId, ids);
   }
 
   disconnect(id: string): void {
+    const client = this.clients.get(id);
+    if (!client) return;
     this.clients.delete(id);
+    const ids = this.byUser.get(client.userId);
+    ids?.delete(id);
+    if (ids?.size === 0) this.byUser.delete(client.userId);
+  }
+
+  /** Open connections of these users. */
+  private connectionsOf(userIds: string[]): [string, MessageConnection][] {
+    return [...new Set(userIds)].flatMap((userId) =>
+      [...(this.byUser.get(userId) ?? [])].flatMap((id) => {
+        const client = this.clients.get(id);
+        return client ? [[id, client] as [string, MessageConnection]] : [];
+      }),
+    );
   }
 
   async send(senderId: string, data: Record<string, unknown>): Promise<void> {
@@ -45,8 +67,8 @@ export class PrivateMessageRealtime implements OnModuleDestroy {
     // recover via HTTP history; one failed socket cannot undo the saved message
     // or suppress delivery to the remaining valid sessions.
     await Promise.all(
-      Array.from(this.clients, ([id, client]) =>
-        this.deliver(id, client, saved),
+      this.connectionsOf([saved.senderId, saved.receiverId]).map(
+        ([id, client]) => this.deliver(id, client, saved),
       ),
     );
   }
@@ -86,5 +108,6 @@ export class PrivateMessageRealtime implements OnModuleDestroy {
 
   onModuleDestroy(): void {
     this.clients.clear();
+    this.byUser.clear();
   }
 }

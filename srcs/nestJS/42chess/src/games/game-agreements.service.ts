@@ -7,6 +7,9 @@ import { finishGame, participatingPlayer } from './game-actions.js';
 import type { GameState } from './game-state.js';
 import { GameClocksService } from './clock/game-clocks.service.js';
 
+/** Plies that must be played before the same side may offer a draw again. */
+export const DRAW_OFFER_COOLDOWN_PLIES = 4;
+
 @Injectable()
 export class GameAgreementsService {
   constructor(
@@ -27,7 +30,16 @@ export class GameAgreementsService {
           'DRAW_ALREADY_OFFERED',
           'A draw offer is already pending.',
         );
+      const plies = state.moves.length;
+      const key = color === 'WHITE' ? 'whiteDrawOfferPly' : 'blackDrawOfferPly';
+      const last = state.game[key];
+      if (last !== null && plies < last + DRAW_OFFER_COOLDOWN_PLIES)
+        throw new GameError(
+          'DRAW_OFFER_TOO_SOON',
+          'Play a few more moves before offering a draw again.',
+        );
       state.game.drawOffer = color;
+      state.game[key] = plies;
     });
   }
 

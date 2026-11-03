@@ -67,6 +67,10 @@ export class GameClockSync {
     }
     return clocks;
   }
+  /** Server time at a `performance.now()` reading, once a round trip measured the offset. */
+  serverTime(now: number): number | null {
+    return this.offset === null ? null : now + this.offset;
+  }
   reset(): void {
     this.offset = null;
     this.latest = -Infinity;

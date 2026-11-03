@@ -13,6 +13,7 @@ function item(id: string, overrides: Partial<GameHistoryItem> = {}): GameHistory
     opponent: { id: 'rival', username: 'rival', avatarUrl: null, elo: 1216, color: 'BLACK' },
     outcome: 'WIN',
     reason: 'CHECKMATE',
+    rated: true,
     timeControl: { initialTime: 600_000, increment: 0 },
     moveCount: 7,
     startedAt: '2026-10-27T10:00:00.000Z',
@@ -52,6 +53,7 @@ describe('Game history page', () => {
             outcome: 'DRAW',
             reason: 'DRAW_AGREEMENT',
             color: 'BLACK',
+            rated: false,
             moveCount: 0,
             opponent: {
               id: 'seat',
@@ -65,6 +67,7 @@ describe('Game history page', () => {
           item('g1', {
             outcome: 'LOSS',
             reason: 'TIMEOUT',
+            rated: false,
             timeControl: { initialTime: 420_000, increment: 3000 },
           }),
           item('g0'),
@@ -89,8 +92,10 @@ describe('Game history page', () => {
     ]);
     expect(rows[0].textContent).toContain('vs Computer · Easy');
     expect(rows[0].textContent).toContain('Black · by agreement · 10 + 0 · 0 moves');
-    expect(rows[1].textContent).toContain('White · on time · 7 + 3 · 4 moves');
+    // A computer game is never rated, so only a casual game between people says so.
+    expect(rows[1].textContent).toContain('White · on time · 7 + 3 · Casual · 4 moves');
     expect(rows[2].textContent).toContain('vs rival (1216)');
+    expect(rows[2].textContent).toContain('White · by checkmate · 10 + 0 · 4 moves');
     expect(rows[2].querySelector('time')?.getAttribute('datetime')).toBe(
       '2026-10-27T10:05:00.000Z',
     );

@@ -102,6 +102,11 @@ export const routes: Routes = [
       import('./features/auth/oauth-callback-page').then((m) => m.OAuthCallbackPage),
   },
   {
+    path: 'rules',
+    title: 'How games end | 42 Chess',
+    loadComponent: () => import('./features/help/rules-page').then((m) => m.RulesPage),
+  },
+  {
     path: 'privacy',
     title: 'Privacy Policy | 42 Chess',
     loadComponent: () => import('./features/legal/privacy-page').then((m) => m.PrivacyPage),

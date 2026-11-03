@@ -55,6 +55,20 @@ describe('Revocable access sessions', () => {
     expect(a.user).toEqual({ id: user.id, username: 'alice', elo: 1200 });
     expect(JSON.stringify(a)).not.toContain(refresh);
   });
+  it('tells the watchers of a session as soon as it is revoked', async () => {
+    const id = randomUUID();
+    const watcher = vi.fn();
+    const other = vi.fn();
+    const unwatch = service.onRevoked(id, watcher);
+    service.onRevoked(randomUUID(), other);
+    rows.update.mockResolvedValue({ affected: 1 });
+    await service.revoke(id, user.id);
+    expect(watcher).toHaveBeenCalledTimes(1);
+    expect(other).not.toHaveBeenCalled();
+    unwatch();
+    await service.revoke(id, user.id);
+    expect(watcher).toHaveBeenCalledTimes(1);
+  });
   it('falls back to seven days when a test module configures no session lifetime', () => {
     const partial = new SessionService(
       jwt,

@@ -25,7 +25,9 @@ export class GameHistoryService {
       .createQueryBuilder('seat')
       .innerJoin(Game, 'game', 'game.id = seat.gameId')
       .where('seat.userId = :userId', { userId })
-      .andWhere(`game.status = 'FINISHED'`);
+      .andWhere(`game.status = 'FINISHED'`)
+      // An aborted game did not take place: it is not part of the history.
+      .andWhere('game.result IS NOT NULL');
     const [total, rows] = await Promise.all([
       finished.clone().getCount(),
       finished
@@ -69,6 +71,7 @@ export class GameHistoryService {
         opponent: playerRef(seat),
         outcome: outcome(game.result, color),
         reason: game.endReason,
+        rated: game.rated,
         timeControl: {
           initialTime: game.initialTime,
           increment: game.increment,

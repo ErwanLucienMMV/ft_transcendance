@@ -106,6 +106,7 @@ export function gameFixture(bot: BotEngine = new NativeBotAdapter()) {
         initialTime: 300000,
         increment: 2000,
         initialFen,
+        rated: true,
       });
       return service.join(black, state.game.id);
     },

@@ -29,19 +29,33 @@ export interface GameResult {
   winner: PlayerColor | null;
   reason: string | null;
 }
+/** A seated player with no open connection to the game, and when the game becomes claimable. */
+export interface AwayPlayer {
+  playerId: string;
+  since: string;
+  claimableAt: string;
+}
 export interface GameSnapshot {
   id: string;
   gameId: string;
   status: 'WAITING' | 'ACTIVE' | 'FINISHED';
   whitePlayer: GamePlayer | null;
   blackPlayer: GamePlayer | null;
+  /** Only rated games change Elo. */
+  rated?: boolean;
   timeControl: { initialTime: number; increment: number };
+  /** Position the game started from; the standard one when absent. */
+  initialFen?: string;
   board: { fen: string; turn: PlayerColor; halfmoveClock: number; fullmoveNumber: number };
   clocks: { white: number; black: number } | null;
   serverTime?: string | null;
   clockStatus?: 'WAITING' | 'RUNNING' | 'STOPPED' | 'EXPIRED';
   result: GameResult | null;
   drawOffer: { playerId: string } | null;
+  /** Number of plies from which each side may offer a draw again. */
+  drawOfferAllowedFrom?: { white: number; black: number };
+  /** Seated players who left the game, sent with every realtime snapshot. */
+  away?: AwayPlayer[];
   startedAt: string | null;
   endedAt: string | null;
   createdAt: string;
@@ -72,6 +86,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   BOT_DRAW_UNSUPPORTED: 'The bot does not accept draw offers.',
   BOT_UNAVAILABLE: 'The bot is unavailable right now.',
   TOO_MANY_REQUESTS: 'Too many actions at once. Slow down a little.',
+  DRAW_OFFER_TOO_SOON: 'Play a few more moves before offering a draw again.',
+  DRAW_NOT_CLAIMABLE: 'The position does not allow a draw claim yet.',
+  ABORT_TOO_LATE: 'Both players have moved: the game can no longer be aborted.',
+  OPPONENT_STILL_HERE: 'Your opponent has not been away long enough to claim the game.',
+  CLAIM_NOT_ALLOWED: 'This game cannot be claimed.',
+  ACTIVE_GAME_EXISTS: 'One of the players is already in another game.',
 };
 const SQUARE = /^[a-h][1-8]$/;
 
@@ -91,6 +111,8 @@ export class GameRealtime {
   readonly displayClocks = signal<{ white: number; black: number } | null>(null);
   /** True once a SYNC_CLOCK round trip measured the server offset, so the projection can run. */
   readonly clockSynced = signal(false);
+  /** Server time minus this device's time, measured by SYNC_CLOCK; 0 until then. */
+  readonly serverSkew = signal(0);
   private readonly clock = new GameClockSync();
   private syncRequest: { id: number; sent: number } | null = null;
   private requestSequence = 0;
@@ -180,6 +202,18 @@ export class GameRealtime {
   declineDraw(): boolean {
     return this.command('DECLINE_DRAW');
   }
+  /** Threefold repetition or the fifty-move rule; the server checks which applies. */
+  claimDraw(): boolean {
+    return this.command('CLAIM_DRAW');
+  }
+  /** Ends the game without a result, before both players have moved. */
+  abort(): boolean {
+    return this.command('ABORT_GAME');
+  }
+  /** Wins a game the opponent left a minute ago or more. */
+  claimVictory(): boolean {
+    return this.command('CLAIM_VICTORY');
+  }
   /** Reconnects after the transport gave up; the watched game is joined again once connected. */
   reconnect(): void {
     this.transport.connect();
@@ -225,8 +259,10 @@ export class GameRealtime {
     if (packet.event === 'ERROR') {
       // The chat answers its own errors.
       if (packet.data['event'] === 'SEND_GAME_MESSAGE') return;
-      // Errors carry no game id; one game is watched at a time, so they belong to it.
+      // Most errors carry no game id; one game is watched at a time, so they belong to it.
       if (!this.watched()) return;
+      if (typeof packet.data['gameId'] === 'string' && packet.data['gameId'] !== this.watched())
+        return;
       const code = typeof packet.data['code'] === 'string' ? packet.data['code'] : 'REALTIME_ERROR';
       this.pending.set(false);
       this.error.set({
@@ -276,8 +312,11 @@ export class GameRealtime {
               Number(packet.data['processingMs']),
               Number(packet.data['sampleAgeMs']),
             )
-          )
+          ) {
             this.clockSynced.set(true);
+            const server = this.clock.serverTime(performance.now());
+            if (server !== null) this.serverSkew.set(server - Date.now());
+          }
           this.displayClocks.set(this.clock.project(performance.now()));
         }
         break;
@@ -316,11 +355,41 @@ export class GameRealtime {
         }
         break;
       }
+      case 'OPPONENT_DISCONNECTED': {
+        const { playerId, since, claimableAt } = packet.data;
+        if (
+          typeof playerId === 'string' &&
+          typeof since === 'string' &&
+          typeof claimableAt === 'string'
+        )
+          this.game.update((game) =>
+            game
+              ? {
+                  ...game,
+                  away: [
+                    ...(game.away ?? []).filter((entry) => entry.playerId !== playerId),
+                    { playerId, since, claimableAt },
+                  ],
+                }
+              : null,
+          );
+        break;
+      }
+      case 'OPPONENT_RECONNECTED': {
+        const playerId = packet.data['playerId'];
+        if (typeof playerId === 'string')
+          this.game.update((game) =>
+            game
+              ? { ...game, away: (game.away ?? []).filter((entry) => entry.playerId !== playerId) }
+              : null,
+          );
+        break;
+      }
       case 'GAME_ENDED': {
         const result = packet.data['result'] as GameResult | null;
         if (result && typeof result === 'object') {
           this.game.update((game) =>
-            game ? { ...game, status: 'FINISHED', result, drawOffer: null } : null,
+            game ? { ...game, status: 'FINISHED', result, drawOffer: null, away: [] } : null,
           );
         }
         break;

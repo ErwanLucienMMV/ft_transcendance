@@ -31,6 +31,18 @@ Both routes need a session (`authGuard`) and render in the browser only, like `/
    `DRAW_DECLINED`). Draw buttons are hidden in bot games, which the server refuses.
 6. `GAME_ENDED` or a `FINISHED` snapshot shows the result from the viewer's side
    ("You won by checkmate") and links to a new game.
+7. Before both players have moved, **Abort game** replaces **Resign**, and a notice says how
+   long the side to move has left to play a first move (30 s between two people).
+8. When the opponent leaves the game for more than 3 seconds, a banner says so with the time
+   left before the win can be claimed; after one minute it offers **Claim the win**. It
+   disappears when the opponent comes back (`OPPONENT_DISCONNECTED`, `OPPONENT_RECONNECTED`).
+9. **Claim draw** appears on my turn after a threefold repetition or fifty moves without a
+   capture or pawn move; the server confirms the claim with the engine. **Offer draw** is
+   hidden for a few moves after a refused offer.
+10. The panel shows whether the game is rated or casual. `/play` has a **Rated game** option
+    for games against a friend, lists the open invitations with a **Cancel** button, and
+    suggests the bot after one minute of matchmaking search. `/rules` explains every way a
+    game ends.
 
 ## Clocks
 

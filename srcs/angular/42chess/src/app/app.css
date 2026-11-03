@@ -177,6 +177,10 @@ main {
   display: flex;
   gap: 20px;
 }
+/* Help and legal links sit together on the right of the footer. */
+.footer-links[aria-label='Help'] {
+  margin-left: auto;
+}
 .footer-links a {
   color: var(--muted);
   text-decoration: none;

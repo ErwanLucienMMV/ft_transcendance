@@ -54,6 +54,7 @@ describe('SCRUM-242 authoritative IN_GAME presence', () => {
     const { game } = await games.create(users[0].id, {
       initialTime: 300000,
       color: 'WHITE',
+      rated: true,
     });
     owned.push(game.id);
     await games.join(opponent.id, game.id);
@@ -130,11 +131,17 @@ describe('SCRUM-242 authoritative IN_GAME presence', () => {
     }
   });
   it('keeps IN_GAME until every active game for the account has finished', async () => {
-    const first = await active(),
-      second = await active(users[2]);
+    // One game against a person at a time: the other one is against the bot.
+    const first = await active();
+    const { game: second } = await games.createBot(
+      users[0].id,
+      { initialTime: 300000, color: 'WHITE' },
+      'EASY',
+    );
+    owned.push(second.id);
     await games.resign(users[1].id, first);
     expect(presence.get(users[0].id).status).toBe('IN_GAME');
-    await games.resign(users[2].id, second);
+    await games.resign(users[0].id, second.id);
     expect(presence.get(users[0].id).status).toBe('ONLINE');
   });
 });
