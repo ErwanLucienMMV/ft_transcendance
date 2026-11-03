@@ -16,6 +16,8 @@ import {
   timeCategory,
   timeControlLabel,
 } from '../game/games-api';
+import { tr, trCount } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 /** Without a live connection (signed out), the list is reloaded this often. */
 export const LIVE_REFRESH_MS = 15_000;
@@ -28,18 +30,12 @@ export const LIVE_SLOW_REFRESH_MS = 60_000;
 export const LIVE_EVENT_DELAY_MS = 300;
 
 type Filter = 'All' | TimeCategory;
-export const LIVE_FILTERS: readonly SegmentOption<Filter>[] = [
-  { value: 'All', label: 'All' },
-  { value: 'Bullet', label: 'Bullet' },
-  { value: 'Blitz', label: 'Blitz' },
-  { value: 'Rapid', label: 'Rapid' },
-  { value: 'Classical', label: 'Classical' },
-];
+export const LIVE_FILTERS: readonly Filter[] = ['All', 'Bullet', 'Blitz', 'Rapid', 'Classical'];
 
 /** Games in progress; a signed-in user opens one as a spectator, a player opens their own seat. */
 @Component({
   selector: 'app-live-page',
-  imports: [Alert, EmptyState, RouterLink, Segmented],
+  imports: [TranslocoDirective, Alert, EmptyState, RouterLink, Segmented],
   templateUrl: './live-page.html',
   styleUrl: './live-page.css',
 })
@@ -50,7 +46,12 @@ export class LivePage {
   readonly games = signal<LiveGame[] | null>(null);
   readonly loading = signal(false);
   readonly failed = signal(false);
-  readonly filters = LIVE_FILTERS;
+  readonly filters = computed<SegmentOption<Filter>[]>(() =>
+    LIVE_FILTERS.map((value) => ({
+      value,
+      label: value === 'All' ? tr('live.all') : tr(`play.categories.${value}`),
+    })),
+  );
   readonly filter = signal<Filter>('All');
   readonly shown = computed(() => {
     const games = this.games() ?? [];
@@ -62,6 +63,12 @@ export class LivePage {
   readonly timeControlLabel = timeControlLabel;
   readonly category = timeCategory;
   readonly name = playerLabel;
+  elsewhere(count: number): string {
+    return trCount('live.elsewhere', count);
+  }
+  spectators(count: number): string {
+    return trCount('live.spectators', count);
+  }
   private loadedAt = 0;
   /** An announcement that arrived during a reload asks for one more. */
   private stale = false;

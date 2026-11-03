@@ -8,56 +8,63 @@ import {
   OAuthService,
 } from '../../core/auth/oauth.service';
 import { authFeedback } from './auth-feedback';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { tr } from '../../core/i18n/i18n';
 
 @Component({
   selector: 'app-oauth-accounts',
+  imports: [TranslocoDirective],
   template: `
-    <section class="card settings-section" aria-labelledby="sign-in-methods-title">
-      <h2 id="sign-in-methods-title" class="section-title">Sign-in methods</h2>
-      <p class="muted">Link an account to sign in with one click.</p>
-      @if (oauth.providers().length || linked().length) {
-        <ul class="methods">
-          @for (provider of allProviders; track provider) {
-            @if (linked().includes(provider)) {
-              <li>
-                <span
-                  ><strong>{{ labels[provider] }}</strong>
-                  <span class="badge on">Linked</span></span
-                >
-                <button
-                  type="button"
-                  class="secondary small"
-                  [disabled]="pending()"
-                  (click)="unlink(provider)"
-                >
-                  Unlink {{ labels[provider] }}
-                </button>
-              </li>
-            } @else if (oauth.providers().includes(provider)) {
-              <li>
-                <span
-                  ><strong>{{ labels[provider] }}</strong>
-                  <span class="badge">Not linked</span></span
-                >
-                <button
-                  type="button"
-                  class="secondary small"
-                  [disabled]="pending()"
-                  (click)="link(provider)"
-                >
-                  Link {{ labels[provider] }}
-                </button>
-              </li>
+    <ng-container *transloco="let t">
+      <section class="card settings-section" aria-labelledby="sign-in-methods-title">
+        <h2 id="sign-in-methods-title" class="section-title">
+          {{ t('settings.methods.title') }}
+        </h2>
+        <p class="muted">{{ t('settings.methods.help') }}</p>
+        @if (oauth.providers().length || linked().length) {
+          <ul class="methods">
+            @for (provider of allProviders; track provider) {
+              @if (linked().includes(provider)) {
+                <li>
+                  <span
+                    ><strong>{{ labels[provider] }}</strong>
+                    <span class="badge on">{{ t('settings.methods.linked') }}</span></span
+                  >
+                  <button
+                    type="button"
+                    class="secondary small"
+                    [disabled]="pending()"
+                    (click)="unlink(provider)"
+                  >
+                    {{ t('settings.methods.unlink', { provider: labels[provider] }) }}
+                  </button>
+                </li>
+              } @else if (oauth.providers().includes(provider)) {
+                <li>
+                  <span
+                    ><strong>{{ labels[provider] }}</strong>
+                    <span class="badge">{{ t('settings.methods.notLinked') }}</span></span
+                  >
+                  <button
+                    type="button"
+                    class="secondary small"
+                    [disabled]="pending()"
+                    (click)="link(provider)"
+                  >
+                    {{ t('settings.methods.link', { provider: labels[provider] }) }}
+                  </button>
+                </li>
+              }
             }
-          }
-        </ul>
-      } @else {
-        <p class="muted">No external sign-in is available on this server.</p>
-      }
-      @if (error()) {
-        <p class="field-error" role="alert">{{ error() }}</p>
-      }
-    </section>
+          </ul>
+        } @else {
+          <p class="muted">{{ t('settings.methods.none') }}</p>
+        }
+        @if (error()) {
+          <p class="field-error" role="alert">{{ error() }}</p>
+        }
+      </section>
+    </ng-container>
   `,
 })
 export class OAuthAccounts implements OnInit {
@@ -92,7 +99,7 @@ export class OAuthAccounts implements OnInit {
         .subscribe({ error: (error) => this.error.set(authFeedback(error)) });
     } catch {
       this.pending.set(false);
-      this.error.set('This provider is currently unavailable.');
+      this.error.set(tr('settings.methods.unavailable'));
     }
   }
   unlink(provider: OAuthProvider) {

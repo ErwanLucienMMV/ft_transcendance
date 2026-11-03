@@ -10,24 +10,9 @@ import { formatClock } from '../game/game-clock';
 import { ProgressionApi } from '../progression/progression-api';
 import { DailyPuzzle, PuzzleAttempt, PuzzleReward, PuzzlesApi, PuzzleTurn } from './puzzles-api';
 import { Alert } from '../../shared/ui/alert';
-
-const THEMES: Record<string, string> = {
-  CHECK: 'Check',
-  CHECKMATE: 'Checkmate',
-  FORK: 'Fork',
-  PIN: 'Pin',
-  SKEWER: 'Skewer',
-  DISCOVERED_ATTACK: 'Discovered attack',
-  MATE_IN_ONE: 'Mate in one',
-  MATE_IN_TWO: 'Mate in two',
-};
-const ERRORS: Record<string, string> = {
-  PUZZLE_CATALOG_EMPTY: 'No puzzle is available today.',
-  PUZZLE_ENGINE_UNAVAILABLE: 'The puzzle checker is unavailable. Your progress is kept; try again.',
-  LEGACY_PUZZLE_ATTEMPT: 'This attempt can no longer be resumed. Start again.',
-  PUZZLE_ATTEMPT_FAILED: 'This attempt is over. Start a new one to practise.',
-  PUZZLE_NOT_FOUND: 'This puzzle is not available. Play the daily puzzle or one from the archive.',
-};
+import { CountKey, tr, TranslationKey, trCount, trIfExists } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { errorText } from '../../core/api/error-text';
 
 /** A UCI move as the board takes it. */
 export function boardMove(uci: string): BoardMove {
@@ -44,7 +29,7 @@ export function boardMove(uci: string): BoardMove {
  */
 @Component({
   selector: 'app-puzzle-page',
-  imports: [Alert, ChessBoard, RouterLink],
+  imports: [TranslocoDirective, Alert, ChessBoard, RouterLink],
   templateUrl: './puzzle-page.html',
   styleUrl: './puzzle-page.css',
 })
@@ -112,16 +97,23 @@ export class PuzzlePage {
       !this.solution() &&
       !this.sending(),
   );
-  readonly themes = computed(() => (this.daily()?.themes ?? []).map((t) => THEMES[t] ?? t));
+  readonly themes = computed(() =>
+    (this.daily()?.themes ?? []).map(
+      (theme) => trIfExists(`puzzle.themes.${theme}` as TranslationKey) ?? theme,
+    ),
+  );
   readonly prompt = computed(() => {
-    if (this.solved()) return 'Puzzle solved!';
-    if (this.attempt()?.revealed) return 'Solution shown.';
-    if (this.failed()) return 'Out of tries.';
-    if (this.sending()) return 'Checking your move…';
-    if (this.feedback() === 'incorrect') return 'Not the best move. Try again.';
-    if (this.feedback() === 'correct') return 'Correct! Keep going.';
-    return `Find the best move for ${this.color() === 'WHITE' ? 'White' : 'Black'}.`;
+    if (this.solved()) return tr('puzzle.solved');
+    if (this.attempt()?.revealed) return tr('puzzle.shown');
+    if (this.failed()) return tr('puzzle.out');
+    if (this.sending()) return tr('puzzle.checking');
+    if (this.feedback() === 'incorrect') return tr('puzzle.notBest');
+    if (this.feedback() === 'correct') return tr('puzzle.correct');
+    return tr('puzzle.find', { side: tr(`puzzle.sides.${this.color()}`) });
   });
+  readonly heading = computed(() =>
+    this.daily() ? this.prompt() : tr(this.isToday() ? 'puzzle.today' : 'puzzle.puzzle'),
+  );
   readonly mistakes = computed(() => this.attempt()?.mistakes ?? 0);
   readonly mistakesLeft = computed(() => this.attempt()?.mistakesLeft ?? 3);
   readonly time = computed(() => formatClock(this.attempt()?.duration ?? 0));
@@ -174,7 +166,7 @@ export class PuzzlePage {
             this.reload();
             return;
           }
-          this.error.set(this.message(error, 'Your move could not be checked.'));
+          this.error.set(this.message(error, tr('puzzle.errors.check')));
         },
       });
   }
@@ -201,7 +193,7 @@ export class PuzzlePage {
         },
         error: (error: unknown) => {
           this.busy.set(false);
-          this.error.set(this.message(error, 'No hint is available right now.'));
+          this.error.set(this.message(error, tr('puzzle.errors.hint')));
         },
       });
   }
@@ -232,7 +224,7 @@ export class PuzzlePage {
         },
         error: (error: unknown) => {
           this.busy.set(false);
-          this.error.set(this.message(error, 'The solution could not be loaded.'));
+          this.error.set(this.message(error, tr('puzzle.errors.solution')));
         },
       });
   }
@@ -256,7 +248,7 @@ export class PuzzlePage {
       },
       error: (error: unknown) => {
         this.busy.set(false);
-        this.error.set(this.message(error, 'A new attempt could not be started.'));
+        this.error.set(this.message(error, tr('puzzle.errors.restart')));
       },
     });
   }
@@ -290,7 +282,7 @@ export class PuzzlePage {
       },
       error: (error: unknown) => {
         this.loading.set(false);
-        this.error.set(this.message(error, 'The puzzle could not be loaded.'));
+        this.error.set(this.message(error, tr('puzzle.errors.load')));
       },
     });
   }
@@ -325,12 +317,10 @@ export class PuzzlePage {
         this.attempt.set(fresh);
         this.feedback.set(null);
         this.error.set(
-          fresh.failed
-            ? ERRORS['PUZZLE_ATTEMPT_FAILED']
-            : 'Your progress was updated from another tab.',
+          fresh.failed ? tr('puzzle.errors.PUZZLE_ATTEMPT_FAILED') : tr('puzzle.otherTab'),
         );
       },
-      error: (error: unknown) => this.error.set(this.message(error, 'Reload the page.')),
+      error: (error: unknown) => this.error.set(this.message(error, tr('puzzle.errors.reload'))),
     });
   }
 
@@ -352,8 +342,13 @@ export class PuzzlePage {
     }
   }
 
+  count(key: CountKey, value: number): string {
+    return trCount(key, value);
+  }
+
   private message(error: unknown, fallback: string): string {
     if (!(error instanceof ApiError)) return fallback;
-    return ERRORS[error.code] ?? (error.statusCode < 500 ? error.message : fallback);
+    const own = trIfExists(`puzzle.errors.${error.code}` as TranslationKey);
+    return own ?? (error.statusCode < 500 ? errorText(error, fallback) : fallback);
   }
 }

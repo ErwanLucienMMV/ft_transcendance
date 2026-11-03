@@ -1,6 +1,6 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Preferences, THEME_OPTIONS } from '../../core/preferences/preferences';
+import { Preferences, themeOptions } from '../../core/preferences/preferences';
 import { CapturedPieces } from '../../shared/chess/captured-pieces';
 import { ChessBoard } from '../../shared/chess/chess-board';
 import type { MoveRow } from '../../shared/chess/game-text';
@@ -17,6 +17,8 @@ import { Segmented } from '../../shared/ui/segmented';
 import { Spinner } from '../../shared/ui/spinner';
 import { Toasts } from '../../shared/ui/toasts';
 import { UserAvatar } from '../../shared/user-avatar';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { tr, TranslationKey } from '../../core/i18n/i18n';
 
 /** Colour tokens of styles.css, grouped as the guide shows them. */
 export const PALETTE: readonly { group: string; tokens: readonly string[] }[] = [
@@ -58,6 +60,7 @@ const SAMPLE_MOVES = ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', 'Ng5', 'd5', 'exd5
 @Component({
   selector: 'app-design-page',
   imports: [
+    TranslocoDirective,
     Alert,
     Badge,
     CapturedPieces,
@@ -80,18 +83,11 @@ const SAMPLE_MOVES = ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', 'Ng5', 'd5', 'exd5
 export class DesignPage {
   readonly preferences = inject(Preferences);
   private readonly toasts = inject(Toasts);
-  readonly themes = THEME_OPTIONS;
+  readonly themes = computed(themeOptions);
   readonly palette = PALETTE;
-  readonly sections = [
-    { id: 'colours', label: 'Colours' },
-    { id: 'type', label: 'Type' },
-    { id: 'icons', label: 'Icons' },
-    { id: 'actions', label: 'Buttons and fields' },
-    { id: 'feedback', label: 'Feedback' },
-    { id: 'navigation', label: 'Choices and pages' },
-    { id: 'chess', label: 'Chess' },
-    { id: 'players', label: 'Players' },
-  ];
+  readonly sections = (
+    ['colours', 'type', 'icons', 'actions', 'feedback', 'navigation', 'chess', 'players'] as const
+  ).map((id) => ({ id, label: `design.sections.${id}` as const satisfies TranslationKey }));
   readonly icons = Object.keys(ICONS) as IconName[];
   readonly tones: readonly Tone[] = ['error', 'warning', 'success', 'info'];
   readonly badgeTones: readonly BadgeTone[] = ['neutral', 'accent', 'success', 'warning', 'danger'];
@@ -105,21 +101,18 @@ export class DesignPage {
   readonly ply = signal(SAMPLE_MOVES.length);
   readonly page = signal(2);
   readonly speed = signal<'blitz' | 'rapid' | 'classical'>('rapid');
-  readonly speeds = [
-    { value: 'blitz' as const, label: 'Blitz' },
-    { value: 'rapid' as const, label: 'Rapid' },
-    { value: 'classical' as const, label: 'Classical' },
-  ];
+  readonly speeds = computed(() => [
+    { value: 'blitz' as const, label: tr('play.categories.Blitz') },
+    { value: 'rapid' as const, label: tr('play.categories.Rapid') },
+    { value: 'classical' as const, label: tr('play.categories.Classical') },
+  ]);
   readonly progress = { xp: 240, level: 3, levelXp: 200, nextLevelXp: 350 };
   readonly answer = signal<string | null>(null);
 
   toast(tone: Tone): void {
-    const text = {
-      error: 'Your move was not sent. Try again.',
-      warning: 'Your connection is unstable.',
-      success: 'Settings saved.',
-      info: 'Bob is now online.',
-    }[tone];
-    this.toasts.show(text, { tone, key: 'design-' + tone });
+    this.toasts.show(tr(`design.tones.${tone}.toast`, { name: 'Bob' }), {
+      tone,
+      key: 'design-' + tone,
+    });
   }
 }

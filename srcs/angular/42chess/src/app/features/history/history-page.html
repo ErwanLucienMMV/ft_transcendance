@@ -1,41 +1,47 @@
-<section class="history-page page narrow" aria-labelledby="history-title">
-  <header class="page-head">
-    <div>
-      <span class="eyebrow">Your games</span>
-      <h1 id="history-title">Game history</h1>
-      <p>Every finished game, newest first. Open one to replay it.</p>
-    </div>
-  </header>
+<ng-container *transloco="let t">
+  <section class="history-page page narrow" aria-labelledby="history-title">
+    <header class="page-head">
+      <div>
+        <span class="eyebrow">{{ t('history.eyebrow') }}</span>
+        <h1 id="history-title">{{ t('history.title') }}</h1>
+        <p>{{ t('history.intro') }}</p>
+      </div>
+    </header>
 
-  @if (failed()) {
-    <app-alert>
-      <p>Your games could not be loaded.</p>
-      <button type="button" class="button secondary" (click)="retry()">Try again</button>
-    </app-alert>
-  } @else if (result(); as list) {
-    @if (list.total === 0) {
-      <app-empty-state piece="pawn" heading="No finished games yet.">
-        <p>Your games appear here once they end, ready to replay.</p>
-        <a class="button" routerLink="/play">Play a game</a>
-      </app-empty-state>
-    } @else {
-      <ol class="games rows" [attr.aria-busy]="loading()">
-        @for (item of list.items; track item.id) {
-          <li>
-            <a class="game" [routerLink]="['/replay', item.id]">
-              <span class="outcome" [attr.data-outcome]="item.outcome">{{ outcome(item) }}</span>
-              <span class="who">
-                <strong>vs {{ opponent(item) }}</strong>
-                <small>{{ details(item) }}</small>
-              </span>
-              <time [attr.datetime]="item.endedAt">{{ item.endedAt | date: 'medium' }}</time>
-            </a>
-          </li>
-        }
-      </ol>
-      <app-pager [page]="page()" [pages]="pages()" (pageChange)="go($event)" />
+    @if (failed()) {
+      <app-alert>
+        <p>{{ t('history.failed') }}</p>
+        <button type="button" class="button secondary" (click)="retry()">
+          {{ t('common.tryAgain') }}
+        </button>
+      </app-alert>
+    } @else if (result(); as list) {
+      @if (list.total === 0) {
+        <app-empty-state piece="pawn" [heading]="t('history.none')">
+          <p>{{ t('history.noneHelp') }}</p>
+          <a class="button" routerLink="/play">{{ t('history.play') }}</a>
+        </app-empty-state>
+      } @else {
+        <ol class="games rows" [attr.aria-busy]="loading()">
+          @for (item of list.items; track item.id) {
+            <li>
+              <a class="game" [routerLink]="['/replay', item.id]">
+                <span class="outcome" [attr.data-outcome]="item.outcome">{{ outcome(item) }}</span>
+                <span class="who">
+                  <strong>{{ t('history.versus', { name: opponent(item) }) }}</strong>
+                  <small>{{ details(item) }}</small>
+                </span>
+                <time [attr.datetime]="item.endedAt">{{ item.endedAt | localDate: 'medium' }}</time>
+              </a>
+            </li>
+          }
+        </ol>
+        <app-pager [page]="page()" [pages]="pages()" (pageChange)="go($event)" />
+      }
+    } @else if (loading()) {
+      <app-empty-state [loading]="true"
+        ><p>{{ t('history.loading') }}</p></app-empty-state
+      >
     }
-  } @else if (loading()) {
-    <app-empty-state [loading]="true"><p>Loading your games…</p></app-empty-state>
-  }
-</section>
+  </section>
+</ng-container>

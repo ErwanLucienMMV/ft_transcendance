@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
@@ -7,82 +6,90 @@ import { BlockedPlayer, UsersApi } from '../social/users-api';
 import { AccountApi } from './account-api';
 import { settingsError } from './settings-text';
 import { Spinner } from '../../shared/ui/spinner';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { LocalDatePipe } from '../../shared/ui/local-date';
+import { tr } from '../../core/i18n/i18n';
 
 /** Who may reach the player, and the players they blocked. */
 @Component({
   selector: 'app-privacy-settings',
-  imports: [Spinner, DatePipe, RouterLink, UserAvatar],
+  imports: [TranslocoDirective, Spinner, LocalDatePipe, RouterLink, UserAvatar],
   template: `
-    <section id="privacy" class="card settings-section" aria-labelledby="privacy-settings-title">
-      <h2 id="privacy-settings-title" class="section-title">Privacy</h2>
-      <div class="subsection">
-        <h3>Messages and challenges</h3>
-        <label class="switch">
-          <input
-            type="checkbox"
-            [checked]="friendsOnly()"
-            [disabled]="friendsOnly() === null || saving()"
-            (change)="setFriendsOnly($event)"
-          />
-          <span>Only my friends can message or challenge me</span>
-        </label>
-        <p class="muted">
-          Other players can still send you a friend request, and you can still write to anyone.
-        </p>
-        @if (preferenceMessage(); as message) {
-          <p
-            [class]="message.ok ? 'saved' : 'field-error'"
-            [attr.role]="message.ok ? 'status' : 'alert'"
-          >
-            {{ message.text }}
-          </p>
-        }
-      </div>
-
-      <div class="subsection">
-        <h3>Blocked players</h3>
-        <p class="muted">
-          A blocked player cannot message you, challenge you or send you a friend request. They are
-          not told. Block someone from their profile or from your conversation.
-        </p>
-        @if (blockedFailed()) {
-          <p class="field-error" role="alert">Your blocked players could not be loaded.</p>
-          <div class="row">
-            <button type="button" class="secondary" (click)="loadBlocked()">Try again</button>
-          </div>
-        } @else if (blocked(); as players) {
-          @if (players.length === 0) {
-            <p>You have not blocked anyone.</p>
-          } @else {
-            <ul class="methods" aria-label="Blocked players">
-              @for (player of players; track player.id) {
-                <li>
-                  <a class="blocked-player" [routerLink]="['/players', player.id]">
-                    <app-avatar [username]="player.username" [url]="player.avatarUrl" />
-                    <strong>{{ player.username }}</strong>
-                    <small class="muted">since {{ player.blockedAt | date: 'mediumDate' }}</small>
-                  </a>
-                  <button
-                    type="button"
-                    class="secondary small"
-                    [attr.aria-label]="'Unblock ' + player.username"
-                    [disabled]="unblocking() === player.id"
-                    (click)="unblock(player)"
-                  >
-                    Unblock
-                  </button>
-                </li>
-              }
-            </ul>
+    <ng-container *transloco="let t">
+      <section id="privacy" class="card settings-section" aria-labelledby="privacy-settings-title">
+        <h2 id="privacy-settings-title" class="section-title">
+          {{ t('settings.privacy.title') }}
+        </h2>
+        <div class="subsection">
+          <h3>{{ t('settings.privacy.messages') }}</h3>
+          <label class="switch">
+            <input
+              type="checkbox"
+              [checked]="friendsOnly()"
+              [disabled]="friendsOnly() === null || saving()"
+              (change)="setFriendsOnly($event)"
+            />
+            <span>{{ t('settings.privacy.friendsOnly') }}</span>
+          </label>
+          <p class="muted">{{ t('settings.privacy.friendsOnlyHelp') }}</p>
+          @if (preferenceMessage(); as message) {
+            <p
+              [class]="message.ok ? 'saved' : 'field-error'"
+              [attr.role]="message.ok ? 'status' : 'alert'"
+            >
+              {{ message.text }}
+            </p>
           }
-        } @else {
-          <app-spinner label="Loading…" [showLabel]="true" />
-        }
-        @if (unblockError(); as message) {
-          <p class="field-error" role="alert">{{ message }}</p>
-        }
-      </div>
-    </section>
+        </div>
+
+        <div class="subsection">
+          <h3>{{ t('settings.privacy.blocked') }}</h3>
+          <p class="muted">{{ t('settings.privacy.blockedHelp') }}</p>
+          @if (blockedFailed()) {
+            <p class="field-error" role="alert">{{ t('settings.privacy.blockedFailed') }}</p>
+            <div class="row">
+              <button type="button" class="secondary" (click)="loadBlocked()">
+                {{ t('common.tryAgain') }}
+              </button>
+            </div>
+          } @else if (blocked(); as players) {
+            @if (players.length === 0) {
+              <p>{{ t('settings.privacy.noneBlocked') }}</p>
+            } @else {
+              <ul class="methods" [attr.aria-label]="t('settings.privacy.blocked')">
+                @for (player of players; track player.id) {
+                  <li>
+                    <a class="blocked-player" [routerLink]="['/players', player.id]">
+                      <app-avatar [username]="player.username" [url]="player.avatarUrl" />
+                      <strong>{{ player.username }}</strong>
+                      <small class="muted">{{
+                        t('settings.privacy.since', { date: player.blockedAt | localDate })
+                      }}</small>
+                    </a>
+                    <button
+                      type="button"
+                      class="secondary small"
+                      [attr.aria-label]="
+                        t('settings.privacy.unblockName', { name: player.username })
+                      "
+                      [disabled]="unblocking() === player.id"
+                      (click)="unblock(player)"
+                    >
+                      {{ t('settings.privacy.unblock') }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          } @else {
+            <app-spinner [showLabel]="true" />
+          }
+          @if (unblockError(); as message) {
+            <p class="field-error" role="alert">{{ message }}</p>
+          }
+        </div>
+      </section>
+    </ng-container>
   `,
 })
 export class PrivacySettings {
@@ -107,7 +114,7 @@ export class PrivacySettings {
         error: () =>
           this.preferenceMessage.set({
             ok: false,
-            text: 'Your privacy settings could not be loaded. Reload the page to try again.',
+            text: tr('settings.privacy.loadFailed'),
           }),
       });
     this.loadBlocked();
@@ -129,8 +136,8 @@ export class PrivacySettings {
           this.preferenceMessage.set({
             ok: true,
             text: saved
-              ? 'Only your friends can message or challenge you now.'
-              : 'Every player can message or challenge you now.',
+              ? tr('settings.privacy.nowFriendsOnly')
+              : tr('settings.privacy.nowEveryone'),
           });
         },
         error: (error: unknown) => {
@@ -138,7 +145,7 @@ export class PrivacySettings {
           input.checked = !wanted;
           this.preferenceMessage.set({
             ok: false,
-            text: settingsError(error, 'Your choice could not be saved. Try again.'),
+            text: settingsError(error, tr('settings.privacy.choiceFailed')),
           });
         },
       });
@@ -170,7 +177,7 @@ export class PrivacySettings {
         error: (error: unknown) => {
           this.unblocking.set(null);
           this.unblockError.set(
-            settingsError(error, `${player.username} could not be unblocked. Try again.`),
+            settingsError(error, tr('settings.privacy.unblockFailed', { name: player.username })),
           );
         },
       });

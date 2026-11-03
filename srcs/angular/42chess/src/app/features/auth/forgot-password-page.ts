@@ -7,50 +7,52 @@ import { AuthFrame } from '../../shared/auth-frame';
 import { AccountApi } from '../settings/account-api';
 import { settingsError } from '../settings/settings-text';
 import { AUTH_FIELD_LIMITS } from './auth-form.models';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { tr } from '../../core/i18n/i18n';
 
 /** Asks for a reset link by email. The answer is the same whether the account exists or not. */
 @Component({
   selector: 'app-forgot-password-page',
-  imports: [AuthFrame, ReactiveFormsModule, RouterLink],
+  imports: [TranslocoDirective, AuthFrame, ReactiveFormsModule, RouterLink],
   template: `
-    <app-auth-frame>
-      <h1>Forgot your password?</h1>
-      <p class="auth-intro">
-        Enter the email address of your account. We will send you a link to choose a new password.
-      </p>
-      @if (sent()) {
-        <p role="status">
-          If an account with a password uses this address, a link is on its way. It works for 30
-          minutes. Check your spam folder if nothing arrives.
+    <ng-container *transloco="let t">
+      <app-auth-frame>
+        <h1>{{ t('auth.forgot.title') }}</h1>
+        <p class="auth-intro">{{ t('auth.forgot.intro') }}</p>
+        @if (sent()) {
+          <p role="status">{{ t('auth.forgot.sent') }}</p>
+        } @else {
+          <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()">
+            <div class="form-field">
+              <label for="forgot-email">{{ t('auth.forgot.email') }}</label>
+              <input
+                id="forgot-email"
+                type="email"
+                formControlName="email"
+                autocomplete="email"
+                [placeholder]="t('auth.register.emailPlaceholder')"
+                [maxLength]="limits.emailMax"
+                [attr.aria-invalid]="invalid()"
+                [attr.aria-describedby]="invalid() ? 'forgot-email-error' : null"
+              />
+              @if (invalid()) {
+                <p id="forgot-email-error">{{ t('auth.forgot.emailError') }}</p>
+              }
+            </div>
+            <button type="submit" [disabled]="pending()">
+              {{ pending() ? t('common.sending') : t('auth.forgot.submit') }}
+            </button>
+          </form>
+        }
+        @if (error()) {
+          <p role="alert">{{ error() }}</p>
+        }
+        <p class="auth-switch">
+          {{ t('auth.forgot.remembered') }}
+          <a routerLink="/login">{{ t('auth.forgot.back') }}</a>
         </p>
-      } @else {
-        <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()">
-          <div class="form-field">
-            <label for="forgot-email">Email address</label>
-            <input
-              id="forgot-email"
-              type="email"
-              formControlName="email"
-              autocomplete="email"
-              placeholder="you@example.com"
-              [maxLength]="limits.emailMax"
-              [attr.aria-invalid]="invalid()"
-              [attr.aria-describedby]="invalid() ? 'forgot-email-error' : null"
-            />
-            @if (invalid()) {
-              <p id="forgot-email-error">Enter a valid email address.</p>
-            }
-          </div>
-          <button type="submit" [disabled]="pending()">
-            {{ pending() ? 'Sending…' : 'Send the link' }}
-          </button>
-        </form>
-      }
-      @if (error()) {
-        <p role="alert">{{ error() }}</p>
-      }
-      <p class="auth-switch">Remembered it? <a routerLink="/login">Back to sign in</a></p>
-    </app-auth-frame>
+      </app-auth-frame>
+    </ng-container>
   `,
 })
 export class ForgotPasswordPage {
@@ -85,8 +87,7 @@ export class ForgotPasswordPage {
       )
       .subscribe({
         next: () => this.sent.set(true),
-        error: (error: unknown) =>
-          this.error.set(settingsError(error, 'The link could not be sent. Try again.')),
+        error: (error: unknown) => this.error.set(settingsError(error, tr('auth.forgot.failed'))),
       });
   }
 }

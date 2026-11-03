@@ -1,13 +1,19 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ProgressionApi, ProgressionRules } from './progression-api';
+import {
+  achievementDescription,
+  achievementName,
+  ProgressionApi,
+  ProgressionRules,
+} from './progression-api';
 import { Alert } from '../../shared/ui/alert';
 import { EmptyState } from '../../shared/ui/empty-state';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 /** How rating, XP, levels, the puzzle streak and achievements work, with the server's numbers. */
 @Component({
   selector: 'app-rules-page',
-  imports: [EmptyState, Alert, RouterLink],
+  imports: [TranslocoDirective, EmptyState, Alert, RouterLink],
   templateUrl: './rules-page.html',
   styleUrl: './rules-page.css',
 })
@@ -22,6 +28,14 @@ export class RulesPage {
         next: (rules) => this.rules.set(rules),
         error: () => this.failed.set(true),
       });
+  }
+
+  name(achievement: { code: string; name: string }): string {
+    return achievementName(achievement.code, achievement.name);
+  }
+
+  description(achievement: { code: string; description: string }): string {
+    return achievementDescription(achievement.code, achievement.description);
   }
 
   half(value: number, divisor: number): number {

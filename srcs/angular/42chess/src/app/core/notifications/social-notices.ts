@@ -6,6 +6,12 @@ import { timeControlLabel } from '../../features/game/games-api';
 import { UserAvatar } from '../../shared/user-avatar';
 import { AuthSession } from '../auth/auth-session';
 import { RealtimeService, ServerEvent } from '../realtime/realtime.service';
+import { tr } from '../i18n/i18n';
+import { TranslocoPipe } from '@jsverse/transloco';
+import {
+  achievementDescription,
+  achievementName,
+} from '../../features/progression/progression-api';
 
 /** A challenge stays as long as a waiting game usually does; a request note, less. */
 export const CHALLENGE_NOTICE_MS = 60_000;
@@ -34,17 +40,24 @@ export function noticeFor({ event, data }: ServerEvent, selfId?: string): Notice
   if (event === 'ACHIEVEMENT_UNLOCKED') {
     if (typeof data['code'] !== 'string' || typeof data['name'] !== 'string' || !selfId)
       return null;
-    const xp = typeof data['xp'] === 'number' && data['xp'] > 0 ? ` +${data['xp']} XP.` : '';
+    const xp =
+      typeof data['xp'] === 'number' && data['xp'] > 0 ? tr('notices.xp', { xp: data['xp'] }) : '';
+    const code = data['code'];
+    const name = achievementName(code, data['name']);
+    const description = achievementDescription(
+      code,
+      typeof data['description'] === 'string' ? data['description'] : '',
+    );
     return {
       id: `achievement:${data['code']}`,
       kind: 'achievement',
       username: null,
       avatarUrl: null,
-      title: 'Achievement unlocked',
-      text: `${data['name']}: ${typeof data['description'] === 'string' ? data['description'] : ''}${xp}`,
+      title: tr('notices.achievement'),
+      text: tr('notices.achievementText', { name, description }) + xp,
       link: ['/players', selfId],
       fragment: 'achievements',
-      action: 'See your achievements',
+      action: tr('notices.seeAchievements'),
     };
   }
   if (event === 'LEVEL_UP') {
@@ -54,11 +67,11 @@ export function noticeFor({ event, data }: ServerEvent, selfId?: string): Notice
       kind: 'level',
       username: null,
       avatarUrl: null,
-      title: 'Level up',
-      text: `You reached level ${data['level']}.`,
+      title: tr('notices.levelUp'),
+      text: tr('notices.level', { level: data['level'] }),
       link: ['/players', selfId],
       fragment: 'progression',
-      action: 'See your progress',
+      action: tr('notices.seeProgress'),
     };
   }
   if (event === 'CHALLENGE_RECEIVED') {
@@ -79,9 +92,12 @@ export function noticeFor({ event, data }: ServerEvent, selfId?: string): Notice
       kind: 'challenge',
       username: from['username'],
       avatarUrl: typeof from['avatarUrl'] === 'string' ? from['avatarUrl'] : null,
-      text: `${from['username']} challenges you to a ${control}${data['rated'] === true ? ' rated' : ''} game.`,
+      text: tr(data['rated'] === true ? 'notices.ratedChallenge' : 'notices.challenge', {
+        name: from['username'],
+        control,
+      }),
       link: ['/game', data['gameId']],
-      action: 'Open the game',
+      action: tr('notices.openGame'),
     };
   }
   if (event === 'FRIEND_REQUEST_RECEIVED') {
@@ -94,9 +110,9 @@ export function noticeFor({ event, data }: ServerEvent, selfId?: string): Notice
       kind: 'friend-request',
       username: sender['username'],
       avatarUrl: typeof sender['avatarUrl'] === 'string' ? sender['avatarUrl'] : null,
-      text: `${sender['username']} wants to be your friend.`,
+      text: tr('notices.friendRequest', { name: sender['username'] }),
       link: ['/friends'],
-      action: 'See the request',
+      action: tr('notices.seeRequest'),
     };
   }
   return null;
@@ -109,7 +125,7 @@ export function noticeFor({ event, data }: ServerEvent, selfId?: string): Notice
  */
 @Component({
   selector: 'app-social-notices',
-  imports: [RouterLink, UserAvatar],
+  imports: [TranslocoPipe, RouterLink, UserAvatar],
   template: `
     <div class="notices" aria-live="polite">
       @for (notice of notices(); track notice.id) {
@@ -140,10 +156,10 @@ export function noticeFor({ event, data }: ServerEvent, selfId?: string): Notice
             <button
               type="button"
               class="ghost small"
-              [attr.aria-label]="'Dismiss: ' + notice.text"
+              [attr.aria-label]="'notices.dismiss' | transloco: { text: notice.text }"
               (click)="dismiss(notice.id)"
             >
-              Dismiss
+              {{ 'common.dismiss' | transloco }}
             </button>
           </div>
         </div>

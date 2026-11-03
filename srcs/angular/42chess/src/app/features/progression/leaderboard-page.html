@@ -1,81 +1,82 @@
-<section class="leaderboard-page page narrow" aria-labelledby="leaderboard-title">
-  <header class="page-head">
-    <div>
-      <span class="eyebrow">Players</span>
-      <h1 id="leaderboard-title">Leaderboard</h1>
-      <p>
-        Every player with a rated game, best rating first. Equal ratings share a rank.
-        <a routerLink="/progression">How ratings, XP and levels work</a>
-      </p>
-    </div>
-    @if (myRank(); as rank) {
-      <div class="my-rank" role="status">
-        <span>Your rank</span>
-        <strong>#{{ rank }}</strong>
-        @if (!meShown()) {
-          <button type="button" class="button secondary small" (click)="showMine()">
-            Show my rank
-          </button>
-        }
+<ng-container *transloco="let t">
+  <section class="leaderboard-page page narrow" aria-labelledby="leaderboard-title">
+    <header class="page-head">
+      <div>
+        <span class="eyebrow">{{ t('progression.leaderboard.eyebrow') }}</span>
+        <h1 id="leaderboard-title">{{ t('progression.leaderboard.title') }}</h1>
+        <p>
+          {{ t('progression.leaderboard.intro') }}
+          <a routerLink="/progression">{{ t('progression.leaderboard.howLink') }}</a>
+        </p>
       </div>
-    }
-  </header>
-
-  @if (failed()) {
-    <app-alert>
-      <p>The leaderboard could not be loaded.</p>
-      <button type="button" class="button secondary" (click)="retry()">Try again</button>
-    </app-alert>
-  } @else if (rows(); as list) {
-    @if (total() === 0) {
-      <app-empty-state heading="No ranked player yet.">
-        <p>Finish a rated game to appear here.</p>
-        <a class="button" routerLink="/play">Play a rated game</a>
-      </app-empty-state>
-    } @else {
-      <table class="board" [attr.aria-busy]="loading()">
-        <caption class="sr-only">
-          Leaderboard, page
-          {{
-            page()
-          }}
-          of
-          {{
-            pages()
-          }}
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">Rank</th>
-            <th scope="col">Player</th>
-            <th scope="col">Rating</th>
-            <th scope="col" class="wide">Won · Drawn · Lost</th>
-            <th scope="col">Level</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of list; track row.id) {
-            <tr [class.me]="mine(row)" [attr.aria-current]="mine(row) ? 'true' : null">
-              <td class="rank">{{ row.rank }}</td>
-              <th scope="row">
-                <a class="player" [routerLink]="['/players', row.id]">
-                  <app-avatar class="avatar" [username]="row.username" [url]="row.avatarUrl" />
-                  <span>{{ row.username }}</span>
-                  @if (mine(row)) {
-                    <small>you</small>
-                  }
-                </a>
-              </th>
-              <td class="elo">{{ row.elo }}</td>
-              <td class="wide">{{ row.gamesWon }} · {{ row.gamesDraw }} · {{ row.gamesLost }}</td>
-              <td>{{ row.level }}</td>
-            </tr>
+      @if (myRank(); as rank) {
+        <div class="my-rank" role="status">
+          <span>{{ t('progression.leaderboard.yourRank') }}</span>
+          <strong>#{{ rank }}</strong>
+          @if (!meShown()) {
+            <button type="button" class="button secondary small" (click)="showMine()">
+              {{ t('progression.leaderboard.showMine') }}
+            </button>
           }
-        </tbody>
-      </table>
-      <app-pager [page]="page()" [pages]="pages()" (pageChange)="go($event)" />
+        </div>
+      }
+    </header>
+
+    @if (failed()) {
+      <app-alert>
+        <p>{{ t('progression.leaderboard.failed') }}</p>
+        <button type="button" class="button secondary" (click)="retry()">
+          {{ t('common.tryAgain') }}
+        </button>
+      </app-alert>
+    } @else if (rows(); as list) {
+      @if (total() === 0) {
+        <app-empty-state [heading]="t('progression.leaderboard.none')">
+          <p>{{ t('progression.leaderboard.noneHelp') }}</p>
+          <a class="button" routerLink="/play">{{ t('progression.leaderboard.play') }}</a>
+        </app-empty-state>
+      } @else {
+        <table class="board" [attr.aria-busy]="loading()">
+          <caption class="sr-only">
+            {{
+              t('progression.leaderboard.caption', { page: page(), pages: pages() })
+            }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ t('progression.leaderboard.rank') }}</th>
+              <th scope="col">{{ t('progression.leaderboard.player') }}</th>
+              <th scope="col">{{ t('progression.leaderboard.rating') }}</th>
+              <th scope="col" class="wide">{{ t('progression.leaderboard.record') }}</th>
+              <th scope="col">{{ t('progression.leaderboard.level') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of list; track row.id) {
+              <tr [class.me]="mine(row)" [attr.aria-current]="mine(row) ? 'true' : null">
+                <td class="rank">{{ row.rank }}</td>
+                <th scope="row">
+                  <a class="player" [routerLink]="['/players', row.id]">
+                    <app-avatar class="avatar" [username]="row.username" [url]="row.avatarUrl" />
+                    <span>{{ row.username }}</span>
+                    @if (mine(row)) {
+                      <small>{{ t('progression.leaderboard.you') }}</small>
+                    }
+                  </a>
+                </th>
+                <td class="elo">{{ row.elo }}</td>
+                <td class="wide">{{ row.gamesWon }} · {{ row.gamesDraw }} · {{ row.gamesLost }}</td>
+                <td>{{ row.level }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <app-pager [page]="page()" [pages]="pages()" (pageChange)="go($event)" />
+      }
+    } @else if (loading()) {
+      <app-empty-state [loading]="true"
+        ><p>{{ t('progression.leaderboard.loading') }}</p></app-empty-state
+      >
     }
-  } @else if (loading()) {
-    <app-empty-state [loading]="true"><p>Loading the leaderboard…</p></app-empty-state>
-  }
-</section>
+  </section>
+</ng-container>

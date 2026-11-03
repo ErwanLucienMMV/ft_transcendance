@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import {
   afterNextRender,
   Component,
@@ -20,6 +19,9 @@ import { ApiClient } from '../../core/api/api-client';
 import { AuthSession } from '../../core/auth/auth-session';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { MESSAGE_MAX_LENGTH, messageLength } from '../chat/messages-api';
+import { tr, trCount } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { LocalDatePipe } from '../../shared/ui/local-date';
 
 /** Spec §21: the body of GAME_MESSAGE and of the history. */
 export interface GameMessage {
@@ -91,7 +93,7 @@ export class GameChatApi {
  */
 @Component({
   selector: 'app-game-chat',
-  imports: [DatePipe],
+  imports: [LocalDatePipe, TranslocoDirective],
   templateUrl: './game-chat.html',
   styleUrl: './game-chat.css',
 })
@@ -172,8 +174,12 @@ export class GameChat {
       )
       .subscribe(() => {
         this.settle();
-        this.sendError.set('Your message was not sent. Try again.');
+        this.sendError.set(tr('game.chat.notSent'));
       });
+  }
+
+  hiddenText(count: number): string {
+    return trCount('game.chat.hidden', count);
   }
 
   mine(message: GameMessage): boolean {
@@ -211,14 +217,14 @@ export class GameChat {
     if (!this.open() || this.pending() !== null || this.blank() || this.tooLong()) return;
     this.sendError.set(null);
     if (!this.realtime.send('SEND_GAME_MESSAGE', { gameId: this.gameId(), content })) {
-      this.sendError.set('You are offline. Your message was not sent; try again in a moment.');
+      this.sendError.set(tr('game.chat.offline'));
       return;
     }
     this.pending.set(content);
     clearTimeout(this.confirmTimer);
     this.confirmTimer = setTimeout(() => {
       this.settle();
-      this.sendError.set('Your message could not be confirmed. Check the chat above.');
+      this.sendError.set(tr('game.chat.unconfirmed'));
       this.load(this.gameId());
     }, GAME_CHAT_CONFIRM_MS);
   }

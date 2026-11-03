@@ -1,118 +1,126 @@
-<section class="replay-page page board-layout" aria-labelledby="replay-title">
-  <div class="board-column">
-    @if (game(); as current) {
-      <div class="seat">
-        {{ name(orientation() === 'WHITE' ? current.blackPlayer : current.whitePlayer) }}
-      </div>
-      <app-chess-board
-        [fen]="fen()"
-        [orientation]="orientation()"
-        [lastMove]="lastMove()"
-        [result]="atEnd() ? current.result : null"
-      />
-      <div class="seat">
-        {{ name(orientation() === 'WHITE' ? current.whitePlayer : current.blackPlayer) }}
-      </div>
-      <div class="controls" role="group" aria-label="Replay controls">
-        <button
-          type="button"
-          class="secondary small"
-          aria-label="First position"
-          title="First position (Home)"
-          [disabled]="ply() === 0"
-          (click)="step(-moves().length)"
-        >
-          <app-icon name="first" />
-        </button>
-        <button
-          type="button"
-          class="secondary small"
-          aria-label="Previous move"
-          title="Previous move (←)"
-          [disabled]="ply() === 0"
-          (click)="step(-1)"
-        >
-          <app-icon name="chevron-left" />
-        </button>
-        <button
-          type="button"
-          class="secondary small"
-          data-autoplay
-          [attr.aria-label]="playing() ? 'Pause' : 'Play the game'"
-          [attr.aria-pressed]="playing()"
-          [disabled]="!moves().length"
-          (click)="togglePlay()"
-        >
-          <app-icon [name]="playing() ? 'pause' : 'play'" />
-        </button>
-        <button
-          type="button"
-          class="secondary small"
-          aria-label="Next move"
-          title="Next move (→)"
-          [disabled]="atEnd()"
-          (click)="step(1)"
-        >
-          <app-icon name="chevron-right" />
-        </button>
-        <button
-          type="button"
-          class="secondary small"
-          aria-label="Last position"
-          title="Last position (End)"
-          [disabled]="atEnd()"
-          (click)="step(moves().length)"
-        >
-          <app-icon name="last" />
-        </button>
-        <span class="position" aria-live="polite">Move {{ ply() }} / {{ moves().length }}</span>
-        <button type="button" class="ghost small flip" (click)="flipped.set(!flipped())">
-          <app-icon name="flip" />Flip board
-        </button>
-      </div>
-      <p class="keys muted">Arrow keys step through the game.</p>
-    } @else if (loading()) {
-      <app-empty-state [loading]="true"><p>Loading the game…</p></app-empty-state>
-    }
-  </div>
-
-  <div class="replay-panel side-panel">
-    <span class="eyebrow">Replay</span>
-    <h1 id="replay-title">{{ headline() }}</h1>
-
-    @if (error(); as message) {
-      <app-alert
-        ><p>{{ message }}</p></app-alert
-      >
-      <a class="button secondary" routerLink="/history">Back to my games</a>
-    }
-
-    @if (game(); as current) {
-      @if (!finished()) {
-        <p role="status">This game is still in progress.</p>
-        <a class="button" [routerLink]="['/game', current.id]">Open the live game</a>
-      }
-      <section class="move-list panel-section" aria-labelledby="replay-moves-title">
-        <h2 id="replay-moves-title">Moves</h2>
-        <app-move-list
-          [rows]="rows()"
-          [current]="ply()"
-          [navigable]="true"
-          empty="No moves were played."
-          (selected)="playing.set(false); goTo($event)"
+<ng-container *transloco="let t">
+  <section class="replay-page page board-layout" aria-labelledby="replay-title">
+    <div class="board-column">
+      @if (game(); as current) {
+        <div class="seat">
+          {{ name(orientation() === 'WHITE' ? current.blackPlayer : current.whitePlayer) }}
+        </div>
+        <app-chess-board
+          [fen]="fen()"
+          [orientation]="orientation()"
+          [lastMove]="lastMove()"
+          [result]="atEnd() ? current.result : null"
         />
-      </section>
-      <div class="actions panel-actions">
-        <a class="button secondary" routerLink="/history">Back to my games</a>
-        <a class="button secondary" routerLink="/board" [queryParams]="analysisLink()"
-          ><app-icon name="board" />Analyse this position</a
-        >
-        @if (moves().length) {
-          <button type="button" class="ghost" (click)="downloadPgn()">
-            <app-icon name="download" />Download PGN
+        <div class="seat">
+          {{ name(orientation() === 'WHITE' ? current.whitePlayer : current.blackPlayer) }}
+        </div>
+        <div class="controls" role="group" [attr.aria-label]="t('history.replay.controls')">
+          <button
+            type="button"
+            class="secondary small"
+            [attr.aria-label]="t('history.replay.first')"
+            [title]="t('history.replay.firstKey')"
+            [disabled]="ply() === 0"
+            (click)="step(-moves().length)"
+          >
+            <app-icon name="first" />
           </button>
+          <button
+            type="button"
+            class="secondary small"
+            [attr.aria-label]="t('history.replay.previous')"
+            [title]="t('history.replay.previousKey')"
+            [disabled]="ply() === 0"
+            (click)="step(-1)"
+          >
+            <app-icon name="chevron-left" />
+          </button>
+          <button
+            type="button"
+            class="secondary small"
+            data-autoplay
+            [attr.aria-label]="playing() ? t('history.replay.pause') : t('history.replay.play')"
+            [attr.aria-pressed]="playing()"
+            [disabled]="!moves().length"
+            (click)="togglePlay()"
+          >
+            <app-icon [name]="playing() ? 'pause' : 'play'" />
+          </button>
+          <button
+            type="button"
+            class="secondary small"
+            [attr.aria-label]="t('history.replay.next')"
+            [title]="t('history.replay.nextKey')"
+            [disabled]="atEnd()"
+            (click)="step(1)"
+          >
+            <app-icon name="chevron-right" />
+          </button>
+          <button
+            type="button"
+            class="secondary small"
+            [attr.aria-label]="t('history.replay.last')"
+            [title]="t('history.replay.lastKey')"
+            [disabled]="atEnd()"
+            (click)="step(moves().length)"
+          >
+            <app-icon name="last" />
+          </button>
+          <span class="position" aria-live="polite">{{
+            t('history.replay.position', { ply: ply(), total: moves().length })
+          }}</span>
+          <button type="button" class="ghost small flip" (click)="flipped.set(!flipped())">
+            <app-icon name="flip" />{{ t('history.replay.flip') }}
+          </button>
+        </div>
+        <p class="keys muted">{{ t('history.replay.keys') }}</p>
+      } @else if (loading()) {
+        <app-empty-state [loading]="true"
+          ><p>{{ t('history.replay.loading') }}</p></app-empty-state
+        >
+      }
+    </div>
+
+    <div class="replay-panel side-panel">
+      <span class="eyebrow">{{ t('history.replay.eyebrow') }}</span>
+      <h1 id="replay-title">{{ headline() }}</h1>
+
+      @if (error(); as message) {
+        <app-alert
+          ><p>{{ message }}</p></app-alert
+        >
+        <a class="button secondary" routerLink="/history">{{ t('history.replay.back') }}</a>
+      }
+
+      @if (game(); as current) {
+        @if (!finished()) {
+          <p role="status">{{ t('history.replay.inProgress') }}</p>
+          <a class="button" [routerLink]="['/game', current.id]">{{
+            t('history.replay.openLive')
+          }}</a>
         }
-      </div>
-    }
-  </div>
-</section>
+        <section class="move-list panel-section" aria-labelledby="replay-moves-title">
+          <h2 id="replay-moves-title">{{ t('history.replay.moves') }}</h2>
+          <app-move-list
+            [rows]="rows()"
+            [current]="ply()"
+            [navigable]="true"
+            [empty]="t('history.replay.noMoves')"
+            (selected)="playing.set(false); goTo($event)"
+          />
+        </section>
+        <div class="actions panel-actions">
+          <a class="button secondary" routerLink="/history">{{ t('history.replay.back') }}</a>
+          <a class="button secondary" routerLink="/board" [queryParams]="analysisLink()"
+            ><app-icon name="board" />{{ t('history.replay.analyse') }}</a
+          >
+          @if (moves().length) {
+            <button type="button" class="ghost" (click)="downloadPgn()">
+              <app-icon name="download" />{{ t('history.replay.download') }}
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </section>
+</ng-container>

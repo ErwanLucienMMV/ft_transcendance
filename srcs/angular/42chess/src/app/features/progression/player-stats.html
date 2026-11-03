@@ -1,121 +1,123 @@
-<dl class="stats">
-  <div>
-    <dt>Rating</dt>
-    <dd>{{ elo() }}</dd>
-  </div>
-  <div>
-    <dt>Rank</dt>
-    <dd>
-      @if (stats(); as s) {
-        @if (s.rank !== null) {
-          <a routerLink="/leaderboard" [queryParams]="{ rank: s.rank }">#{{ s.rank }}</a>
-          <small> of {{ s.rankedPlayers }}</small>
-        } @else {
-          <small>Unranked</small>
-        }
-      } @else {
-        –
-      }
-    </dd>
-  </div>
-  <div>
-    <dt>Level</dt>
-    <dd>{{ stats()?.progression?.level ?? '–' }}</dd>
-  </div>
-  <div>
-    <dt>Puzzle streak</dt>
-    <dd>
-      {{ stats()?.puzzles?.streak ?? '–' }}
-      @if (stats(); as s) {
-        <small
-          >{{ s.puzzles.streak === 1 ? 'day' : 'days' }}, best {{ s.puzzles.bestStreak }}</small
-        >
-      }
-    </dd>
-  </div>
-</dl>
-
-@if (failed()) {
-  <p class="muted" role="status">Some statistics could not be loaded.</p>
-}
-
-@if (stats(); as s) {
-  <div class="stat-columns">
-    <section aria-labelledby="results-title">
-      <h2 id="results-title" class="section-title">Results</h2>
-      <table class="results">
-        <thead>
-          <tr>
-            <th scope="col">Games</th>
-            <th scope="col">Played</th>
-            <th scope="col">Won</th>
-            <th scope="col">Drawn</th>
-            <th scope="col">Lost</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of rows(); track row.label) {
-            <tr>
-              <th scope="row">{{ row.label }}</th>
-              <td>{{ row.results.played }}</td>
-              <td>{{ row.results.won }}</td>
-              <td>{{ row.results.drawn }}</td>
-              <td>{{ row.results.lost }}</td>
-            </tr>
+<ng-container *transloco="let t">
+  <dl class="stats">
+    <div>
+      <dt>{{ t('progression.stats.rating') }}</dt>
+      <dd>{{ elo() }}</dd>
+    </div>
+    <div>
+      <dt>{{ t('progression.stats.rank') }}</dt>
+      <dd>
+        @if (stats(); as s) {
+          @if (s.rank !== null) {
+            <a routerLink="/leaderboard" [queryParams]="{ rank: s.rank }">#{{ s.rank }}</a>
+            <small>{{ t('progression.stats.of', { total: s.rankedPlayers }) }}</small>
+          } @else {
+            <small>{{ t('progression.stats.unranked') }}</small>
           }
-        </tbody>
-      </table>
-      <p class="muted small">
-        Only rated games change the rating. {{ s.puzzles.solved }}
-        {{ s.puzzles.solved === 1 ? 'puzzle' : 'puzzles' }} solved on the first try.
-      </p>
-    </section>
-    <section id="progression" aria-labelledby="level-title">
-      <h2 id="level-title" class="section-title">Progression</h2>
-      <app-level-bar [progress]="s.progression" />
-      <p class="muted small">
-        Games, puzzles and achievements earn XP.
-        <a routerLink="/progression">How progression works</a>
-      </p>
-    </section>
-  </div>
-}
+        } @else {
+          –
+        }
+      </dd>
+    </div>
+    <div>
+      <dt>{{ t('progression.stats.level') }}</dt>
+      <dd>{{ stats()?.progression?.level ?? '–' }}</dd>
+    </div>
+    <div>
+      <dt>{{ t('progression.stats.streak') }}</dt>
+      <dd>
+        {{ stats()?.puzzles?.streak ?? '–' }}
+        @if (stats(); as s) {
+          <small>{{ days(s.puzzles.streak, s.puzzles.bestStreak) }}</small>
+        }
+      </dd>
+    </div>
+  </dl>
 
-@if (achievements(); as list) {
-  <section id="achievements" class="achievements" aria-labelledby="achievements-title">
-    <h2 id="achievements-title" class="section-title">
-      Achievements <small>{{ unlocked() }} of {{ list.length }} unlocked</small>
-    </h2>
-    <ul>
-      @for (achievement of list; track achievement.code) {
-        <li [class.unlocked]="achievement.unlockedAt">
-          <span class="badge" aria-hidden="true">{{ achievement.unlockedAt ? '★' : '☆' }}</span>
-          <div>
-            <strong>{{ achievement.name }}</strong>
-            <p>{{ achievement.description }}</p>
-            @if (achievement.unlockedAt; as at) {
-              <small
-                >Unlocked {{ at | date: 'mediumDate' }}
-                @if (achievement.xp) {
-                  · +{{ achievement.xp }} XP
-                }
-              </small>
-            } @else {
-              <div
-                class="meter"
-                role="progressbar"
-                [attr.aria-label]="achievement.name + ' progress'"
-                aria-valuemin="0"
-                [attr.aria-valuemax]="achievement.goal"
-                [attr.aria-valuenow]="achievement.progress"
-              >
-                <span [style.width.%]="percent(achievement)"></span>
-              </div>
-              <small>{{ achievement.progress }} / {{ achievement.goal }}</small>
+  @if (failed()) {
+    <p class="muted" role="status">{{ t('progression.stats.failed') }}</p>
+  }
+
+  @if (stats(); as s) {
+    <div class="stat-columns">
+      <section aria-labelledby="results-title">
+        <h2 id="results-title" class="section-title">{{ t('progression.stats.results') }}</h2>
+        <table class="results">
+          <thead>
+            <tr>
+              <th scope="col">{{ t('progression.stats.games') }}</th>
+              <th scope="col">{{ t('progression.stats.played') }}</th>
+              <th scope="col">{{ t('progression.stats.won') }}</th>
+              <th scope="col">{{ t('progression.stats.drawn') }}</th>
+              <th scope="col">{{ t('progression.stats.lost') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.label) {
+              <tr>
+                <th scope="row">{{ t(row.label) }}</th>
+                <td>{{ row.results.played }}</td>
+                <td>{{ row.results.won }}</td>
+                <td>{{ row.results.drawn }}</td>
+                <td>{{ row.results.lost }}</td>
+              </tr>
             }
-          </div>
-        </li>
-      }
-    </ul>
-  </section>
-}
+          </tbody>
+        </table>
+        <p class="muted small">
+          {{ t('progression.stats.ratedOnly') }} {{ solved(s.puzzles.solved) }}
+        </p>
+      </section>
+      <section id="progression" aria-labelledby="level-title">
+        <h2 id="level-title" class="section-title">{{ t('progression.stats.progression') }}</h2>
+        <app-level-bar [progress]="s.progression" />
+        <p class="muted small">
+          {{ t('progression.stats.earn') }}
+          <a routerLink="/progression">{{ t('progression.stats.how') }}</a>
+        </p>
+      </section>
+    </div>
+  }
+
+  @if (achievements(); as list) {
+    <section id="achievements" class="achievements" aria-labelledby="achievements-title">
+      <h2 id="achievements-title" class="section-title">
+        {{ t('progression.stats.achievements') }}
+        <small>{{
+          t('progression.stats.unlockedCount', { count: unlocked(), total: list.length })
+        }}</small>
+      </h2>
+      <ul>
+        @for (achievement of list; track achievement.code) {
+          <li [class.unlocked]="achievement.unlockedAt">
+            <span class="badge" aria-hidden="true">{{ achievement.unlockedAt ? '★' : '☆' }}</span>
+            <div>
+              <strong>{{ name(achievement) }}</strong>
+              <p>{{ description(achievement) }}</p>
+              @if (achievement.unlockedAt; as at) {
+                <small
+                  >{{ t('progression.stats.unlocked', { date: at | localDate: 'mediumDate' }) }}
+                  @if (achievement.xp) {
+                    · +{{ achievement.xp }} XP
+                  }
+                </small>
+              } @else {
+                <div
+                  class="meter"
+                  role="progressbar"
+                  [attr.aria-label]="t('progression.stats.progress', { name: name(achievement) })"
+                  aria-valuemin="0"
+                  [attr.aria-valuemax]="achievement.goal"
+                  [attr.aria-valuenow]="achievement.progress"
+                >
+                  <span [style.width.%]="percent(achievement)"></span>
+                </div>
+                <small>{{ achievement.progress }} / {{ achievement.goal }}</small>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+</ng-container>

@@ -156,7 +156,7 @@ describe('Social notices', () => {
       notice.getAttribute('data-kind'),
     );
     expect(kinds).toEqual(['challenge', 'achievement', 'achievement']);
-    expect(element.textContent).toContain('GAMES_10');
+    expect(element.textContent).toContain('Regular');
     expect(element.textContent).toContain('bob challenges you');
   });
 

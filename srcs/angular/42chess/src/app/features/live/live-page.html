@@ -1,86 +1,84 @@
-<section class="live-page page" aria-labelledby="live-title">
-  <header class="page-head">
-    <div>
-      <span class="eyebrow">Spectate</span>
-      <h1 id="live-title">Live games</h1>
-      <p>Games being played right now. Open one to follow it move by move.</p>
-    </div>
-    <button type="button" class="secondary" [disabled]="loading()" (click)="refresh()">
-      Refresh
-    </button>
-  </header>
+<ng-container *transloco="let t">
+  <section class="live-page page" aria-labelledby="live-title">
+    <header class="page-head">
+      <div>
+        <span class="eyebrow">{{ t('live.eyebrow') }}</span>
+        <h1 id="live-title">{{ t('live.title') }}</h1>
+        <p>{{ t('live.intro') }}</p>
+      </div>
+      <button type="button" class="secondary" [disabled]="loading()" (click)="refresh()">
+        {{ t('live.refresh') }}
+      </button>
+    </header>
 
-  @if (failed()) {
-    <app-alert>
-      <p>The live games could not be loaded. Try again in a moment.</p>
-    </app-alert>
-  }
-
-  @if (games(); as list) {
-    @if (list.length) {
-      <app-segmented
-        class="filter"
-        label="Time control"
-        [options]="filters"
-        [value]="filter()"
-        (valueChange)="filter.set($event)"
-      />
+    @if (failed()) {
+      <app-alert>
+        <p>{{ t('live.failed') }}</p>
+      </app-alert>
     }
-    @if (list.length === 0) {
-      <app-empty-state piece="queen" heading="No game is being played right now.">
-        <p>Start one and it shows up here for everyone to watch.</p>
-        <a class="button" routerLink="/play">Start a game</a>
-      </app-empty-state>
-    } @else if (shown().length === 0) {
-      <app-empty-state
-        piece="knight"
-        [heading]="'No ' + filter().toLowerCase() + ' game right now.'"
-      >
-        <p>
-          {{ list.length }} {{ list.length === 1 ? 'game is' : 'games are' }} being played in other
-          time controls.
-        </p>
-        <button type="button" class="button secondary" (click)="filter.set('All')">
-          Show all games
-        </button>
-      </app-empty-state>
-    } @else {
-      <ul class="games rows" [attr.aria-busy]="loading()">
-        @for (game of shown(); track game.id) {
-          <li class="game">
-            <span class="players">
-              <span class="side"
-                ><i class="white" aria-hidden="true"></i
-                ><strong>{{ name(game.whitePlayer) }}</strong></span
-              >
-              <span class="versus">vs</span>
-              <span class="side"
-                ><i class="black" aria-hidden="true"></i
-                ><strong>{{ name(game.blackPlayer) }}</strong></span
-              >
-            </span>
-            <span class="meta">
-              {{ timeControlLabel(game.timeControl) }} · {{ category(game.timeControl) }} ·
-              <span data-spectators>
-                {{ game.spectatorCount }}
-                {{ game.spectatorCount === 1 ? 'spectator' : 'spectators' }}
+
+    @if (games(); as list) {
+      @if (list.length) {
+        <app-segmented
+          class="filter"
+          [label]="t('live.filter')"
+          [options]="filters()"
+          [value]="filter()"
+          (valueChange)="filter.set($event)"
+        />
+      }
+      @if (list.length === 0) {
+        <app-empty-state piece="queen" [heading]="t('live.none')">
+          <p>{{ t('live.noneHelp') }}</p>
+          <a class="button" routerLink="/play">{{ t('live.start') }}</a>
+        </app-empty-state>
+      } @else if (shown().length === 0) {
+        <app-empty-state piece="knight" [heading]="t('live.noneIn.' + filter())">
+          <p>{{ elsewhere(list.length) }}</p>
+          <button type="button" class="button secondary" (click)="filter.set('All')">
+            {{ t('live.showAll') }}
+          </button>
+        </app-empty-state>
+      } @else {
+        <ul class="games rows" [attr.aria-busy]="loading()">
+          @for (game of shown(); track game.id) {
+            <li class="game">
+              <span class="players">
+                <span class="side"
+                  ><i class="white" aria-hidden="true"></i
+                  ><strong>{{ name(game.whitePlayer) }}</strong></span
+                >
+                <span class="versus">{{ t('live.versus') }}</span>
+                <span class="side"
+                  ><i class="black" aria-hidden="true"></i
+                  ><strong>{{ name(game.blackPlayer) }}</strong></span
+                >
               </span>
-            </span>
-            @if (mine(game)) {
-              <a class="button small" [routerLink]="['/game', game.id]">Back to your game</a>
-            } @else {
-              <a
-                class="button secondary small"
-                [routerLink]="['/game', game.id]"
-                [queryParams]="{ watch: 1 }"
-                >Watch</a
-              >
-            }
-          </li>
-        }
-      </ul>
+              <span class="meta">
+                {{ timeControlLabel(game.timeControl) }} ·
+                {{ t('play.categories.' + category(game.timeControl)) }} ·
+                <span data-spectators>
+                  {{ spectators(game.spectatorCount) }}
+                </span>
+              </span>
+              @if (mine(game)) {
+                <a class="button small" [routerLink]="['/game', game.id]">{{ t('live.back') }}</a>
+              } @else {
+                <a
+                  class="button secondary small"
+                  [routerLink]="['/game', game.id]"
+                  [queryParams]="{ watch: 1 }"
+                  >{{ t('live.watch') }}</a
+                >
+              }
+            </li>
+          }
+        </ul>
+      }
+    } @else if (!failed()) {
+      <app-empty-state [loading]="true"
+        ><p>{{ t('live.loading') }}</p></app-empty-state
+      >
     }
-  } @else if (!failed()) {
-    <app-empty-state [loading]="true"><p>Loading the live games…</p></app-empty-state>
-  }
-</section>
+  </section>
+</ng-container>

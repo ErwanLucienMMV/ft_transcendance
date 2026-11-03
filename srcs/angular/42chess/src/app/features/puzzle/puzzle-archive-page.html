@@ -1,43 +1,49 @@
-<section class="archive-page page narrow" aria-labelledby="archive-title">
-  <header class="page-head">
-    <div>
-      <span class="eyebrow">Puzzles</span>
-      <h1 id="archive-title">Earlier puzzles</h1>
-      <p>
-        Every daily puzzle since the first one. A puzzle from the archive earns XP on your first
-        attempt, but no streak. <a routerLink="/puzzle">Today's puzzle</a>
-      </p>
-    </div>
-  </header>
+<ng-container *transloco="let t">
+  <section class="archive-page page narrow" aria-labelledby="archive-title">
+    <header class="page-head">
+      <div>
+        <span class="eyebrow">{{ t('puzzle.archive.eyebrow') }}</span>
+        <h1 id="archive-title">{{ t('puzzle.archive.title') }}</h1>
+        <p>
+          {{ t('puzzle.archive.intro') }}
+          <a routerLink="/puzzle">{{ t('puzzle.archive.today') }}</a>
+        </p>
+      </div>
+    </header>
 
-  @if (failed()) {
-    <app-alert>
-      <p>The archive could not be loaded.</p>
-      <button type="button" class="button secondary" (click)="retry()">Try again</button>
-    </app-alert>
-  } @else if (items(); as list) {
-    @if (total() === 0) {
-      <app-empty-state heading="No earlier puzzle yet.">
-        <p>Each day's puzzle joins the archive the next day.</p>
-        <a class="button" routerLink="/puzzle">Play today's puzzle</a>
-      </app-empty-state>
-    } @else {
-      <ol class="puzzles rows" [attr.aria-busy]="loading()">
-        @for (item of list; track item.date) {
-          <li>
-            <a [routerLink]="['/puzzle', item.id]">
-              <time [attr.datetime]="item.date">{{ item.date }}</time>
-              <span class="rating">{{ item.rating }}</span>
-              <span class="status" [attr.data-status]="item.status ?? 'NEW'">{{
-                status(item)
-              }}</span>
-            </a>
-          </li>
-        }
-      </ol>
-      <app-pager [page]="page()" [pages]="pages()" (pageChange)="go($event)" />
+    @if (failed()) {
+      <app-alert>
+        <p>{{ t('puzzle.archive.failed') }}</p>
+        <button type="button" class="button secondary" (click)="retry()">
+          {{ t('common.tryAgain') }}
+        </button>
+      </app-alert>
+    } @else if (items(); as list) {
+      @if (total() === 0) {
+        <app-empty-state [heading]="t('puzzle.archive.none')">
+          <p>{{ t('puzzle.archive.noneHelp') }}</p>
+          <a class="button" routerLink="/puzzle">{{ t('puzzle.archive.play') }}</a>
+        </app-empty-state>
+      } @else {
+        <ol class="puzzles rows" [attr.aria-busy]="loading()">
+          @for (item of list; track item.date) {
+            <li>
+              <a [routerLink]="['/puzzle', item.id]">
+                <time [attr.datetime]="item.date">{{ item.date }}</time>
+                <span class="rating">{{ item.rating }}</span>
+                <span class="status" [attr.data-status]="item.status ?? 'NEW'">{{
+                  status(item)
+                }}</span>
+              </a>
+            </li>
+          }
+        </ol>
+        <app-pager [page]="page()" [pages]="pages()" (pageChange)="go($event)" />
+      }
+    } @else if (loading()) {
+      <app-empty-state [loading]="true"
+        ><p>{{ t('puzzle.archive.loading') }}</p></app-empty-state
+      >
     }
-  } @else if (loading()) {
-    <app-empty-state [loading]="true"><p>Loading the archive…</p></app-empty-state>
-  }
-</section>
+  </section>
+</ng-container>

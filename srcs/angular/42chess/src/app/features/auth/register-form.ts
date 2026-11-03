@@ -1,6 +1,7 @@
 import { Component, inject, input, output } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { AUTH_FIELD_LIMITS, backendLengthValidator, RegisterCredentials } from './auth-form.models';
+import { TranslocoDirective } from '@jsverse/transloco';
 
 const passwordsMatch: ValidatorFn = (group) =>
   group.get('password')?.value === group.get('confirmPassword')?.value
@@ -9,7 +10,7 @@ const passwordsMatch: ValidatorFn = (group) =>
 
 @Component({
   selector: 'app-register-form',
-  imports: [ReactiveFormsModule],
+  imports: [TranslocoDirective, ReactiveFormsModule],
   templateUrl: './register-form.html',
 })
 export class RegisterForm {

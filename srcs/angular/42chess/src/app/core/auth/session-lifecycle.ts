@@ -7,7 +7,7 @@ import { AuthUser } from './auth-session';
 
 /** Saved per account (PATCH /users/me merges the keys it is given). */
 export interface UserPreferences {
-  language: 'en' | 'fr';
+  language: 'en' | 'fr' | 'es';
   theme: 'light' | 'dark' | 'system';
   soundEnabled: boolean;
   /** Only friends can message or challenge this player. */

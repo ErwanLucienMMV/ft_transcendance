@@ -1,28 +1,27 @@
-<app-auth-frame>
-  <h1>Two-factor authentication</h1>
-  <p class="auth-intro">
-    Enter the six-digit code from your authenticator to keep your next move yours. Lost your phone?
-    Enter one of your recovery codes instead.
-  </p>
-  <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()">
-    <label for="totp-code">Authenticator code or recovery code</label>
-    <input
-      id="totp-code"
-      formControlName="code"
-      autocomplete="one-time-code"
-      maxlength="11"
-      spellcheck="false"
-      required
-    />
-    @if (form.invalid && form.touched) {
-      <p role="alert">Enter the six-digit code, or a recovery code such as abcde-12345.</p>
+<ng-container *transloco="let t">
+  <app-auth-frame>
+    <h1>{{ t('auth.twoFactor.title') }}</h1>
+    <p class="auth-intro">{{ t('auth.twoFactor.intro') }}</p>
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate [attr.aria-busy]="pending()">
+      <label for="totp-code">{{ t('auth.twoFactor.label') }}</label>
+      <input
+        id="totp-code"
+        formControlName="code"
+        autocomplete="one-time-code"
+        maxlength="11"
+        spellcheck="false"
+        required
+      />
+      @if (form.invalid && form.touched) {
+        <p role="alert">{{ t('auth.twoFactor.error') }}</p>
+      }
+      <button type="submit" [disabled]="pending()">{{ t('auth.twoFactor.submit') }}</button>
+    </form>
+    @if (error()) {
+      <p role="alert">{{ error() }}</p>
     }
-    <button type="submit" [disabled]="pending()">Verify code</button>
-  </form>
-  @if (error()) {
-    <p role="alert">{{ error() }}</p>
-  }
-  <p class="auth-switch">
-    <a routerLink="/login" (click)="auth.cancelChallenge()">Start sign-in again</a>
-  </p>
-</app-auth-frame>
+    <p class="auth-switch">
+      <a routerLink="/login" (click)="auth.cancelChallenge()">{{ t('auth.twoFactor.restart') }}</a>
+    </p>
+  </app-auth-frame>
+</ng-container>

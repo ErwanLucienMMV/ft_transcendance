@@ -16,7 +16,8 @@ export interface TimeControl {
 }
 export interface TimeControlChoice extends TimeControl {
   label: string;
-  category: string;
+  /** A key of `play.categories`. */
+  category: TimeCategory;
 }
 export const TIME_CONTROLS: readonly TimeControlChoice[] = [
   { label: '3 + 2', category: 'Blitz', initialTime: 180_000, increment: 2_000 },
@@ -47,26 +48,15 @@ export function timeControlLabel({ initialTime, increment }: TimeControl): strin
 
 export interface BotChoice {
   difficulty: BotDifficulty;
-  label: string;
-  description: string;
 }
-/** Search limits and styles come from docs/bot.md; the backend owns the real settings. */
+/**
+ * Search limits and styles come from docs/bot.md; the backend owns the real settings. Names
+ * and descriptions are in `chess.bots` and `play.levels`.
+ */
 export const BOT_LEVELS: readonly BotChoice[] = [
-  {
-    difficulty: 'EASY',
-    label: 'Easy',
-    description: 'Looks one move ahead and sometimes slips. Good to learn.',
-  },
-  {
-    difficulty: 'MEDIUM',
-    label: 'Medium',
-    description: 'Looks three moves ahead and varies its play.',
-  },
-  {
-    difficulty: 'HARD',
-    label: 'Hard',
-    description: 'Looks five moves ahead and spots short mates.',
-  },
+  { difficulty: 'EASY' },
+  { difficulty: 'MEDIUM' },
+  { difficulty: 'HARD' },
 ];
 
 /** A REST game view has no move list; the realtime snapshot adds it. */

@@ -4,20 +4,24 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { OAuthService } from '../../core/auth/oauth.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { AuthFrame } from '../../shared/auth-frame';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { tr } from '../../core/i18n/i18n';
 
 @Component({
   selector: 'app-oauth-callback-page',
-  imports: [AuthFrame, RouterLink],
+  imports: [TranslocoDirective, AuthFrame, RouterLink],
   template: `
-    <app-auth-frame>
-      <h1>Completing sign-in</h1>
-      @if (error()) {
-        <p role="alert">{{ error() }}</p>
-        <a class="button secondary" routerLink="/login">Return to sign in</a>
-      } @else {
-        <p role="status">Checking your sign-in…</p>
-      }
-    </app-auth-frame>
+    <ng-container *transloco="let t">
+      <app-auth-frame>
+        <h1>{{ t('auth.oauth.title') }}</h1>
+        @if (error()) {
+          <p role="alert">{{ error() }}</p>
+          <a class="button secondary" routerLink="/login">{{ t('auth.oauth.back') }}</a>
+        } @else {
+          <p role="status">{{ t('auth.oauth.checking') }}</p>
+        }
+      </app-auth-frame>
+    </ng-container>
   `,
 })
 export class OAuthCallbackPage implements OnInit {
@@ -31,9 +35,7 @@ export class OAuthCallbackPage implements OnInit {
     const error = this.route.snapshot.queryParamMap.get('error');
     if (error) {
       this.error.set(
-        error === 'existing-account'
-          ? 'An account already uses this email. Sign in normally, then link this provider from your settings.'
-          : 'External sign-in was cancelled or expired. Please try again.',
+        tr(error === 'existing-account' ? 'auth.oauth.existing' : 'auth.oauth.cancelled'),
       );
       return;
     }
@@ -50,8 +52,7 @@ export class OAuthCallbackPage implements OnInit {
                 : '/session',
             { replaceUrl: true },
           ),
-        error: () =>
-          this.error.set('This sign-in expired or could not be verified. Please start again.'),
+        error: () => this.error.set(tr('auth.oauth.failed')),
       });
   }
 }

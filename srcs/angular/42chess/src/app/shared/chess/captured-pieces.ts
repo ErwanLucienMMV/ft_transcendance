@@ -1,14 +1,15 @@
 import { Component, computed, input } from '@angular/core';
 import { material, parseFen, PieceType } from './chess-rules';
+import { tr } from '../../core/i18n/i18n';
 
-const NAMES: Record<PieceType, string> = {
+const NAMES = {
   p: 'pawn',
   n: 'knight',
   b: 'bishop',
   r: 'rook',
   q: 'queen',
   k: 'king',
-};
+} as const satisfies Record<PieceType, string>;
 
 /** The pieces one side has taken, and its material lead ("+2") when it has one. */
 @Component({
@@ -81,7 +82,11 @@ export class CapturedPieces {
   });
   readonly spoken = computed(() => {
     const list = this.taken();
-    const text = list.length ? `Captured: ${list.join(', ')}` : 'No captures';
-    return this.lead() > 0 ? `${text}. Ahead by ${this.lead()}.` : text;
+    const text = list.length
+      ? tr('chess.captured.list', {
+          pieces: list.map((name) => tr(`chess.pieces.${name}`)).join(', '),
+        })
+      : tr('chess.captured.none');
+    return this.lead() > 0 ? tr('chess.captured.ahead', { text, lead: this.lead() }) : text;
   });
 }

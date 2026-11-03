@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import type { ApiError } from '../api/api-error';
 import { errorText } from '../api/error-text';
+import { tr } from '../i18n/i18n';
 import { Toasts } from '../../shared/ui/toasts';
 
 /**
@@ -13,18 +14,15 @@ export class ErrorState {
 
   /** Says what failed (connection, server, a service) and where to check the service status. */
   reportHttp(error: ApiError): void {
-    this.toasts.error(
-      errorText(error, 'The server could not complete this request. Please try again.'),
-      {
-        key: 'http',
-        ...(error.statusCode === 0 || error.statusCode >= 500
-          ? { link: { label: 'Service status', path: '/status' } }
-          : {}),
-      },
-    );
+    this.toasts.error(errorText(error, tr('errors.request')), {
+      key: 'http',
+      ...(error.statusCode === 0 || error.statusCode >= 500
+        ? { link: { label: tr('common.serviceStatus'), path: '/status' } }
+        : {}),
+    });
   }
 
   reportUnexpected(): void {
-    this.toasts.error('Something went wrong. Please try again.', { key: 'unexpected' });
+    this.toasts.error(tr('errors.unexpected'), { key: 'unexpected' });
   }
 }

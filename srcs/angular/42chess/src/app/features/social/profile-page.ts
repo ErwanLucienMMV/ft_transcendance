@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -16,7 +15,7 @@ import { outcomeText, playerLabel } from '../../shared/chess/game-text';
 import { Challenges } from './challenge';
 import { GameHistoryItem, GamesApi } from '../game/games-api';
 import {
-  FRIEND_ERRORS,
+  friendErrors,
   FriendRequest,
   PresenceStatus,
   presenceChanges,
@@ -29,6 +28,9 @@ import { Alert } from '../../shared/ui/alert';
 import { EmptyState } from '../../shared/ui/empty-state';
 import { Spinner } from '../../shared/ui/spinner';
 import { isUuid } from '../../core/api/ids';
+import { tr } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { LocalDatePipe } from '../../shared/ui/local-date';
 
 /**
  * What the signed-in visitor can do about a friendship with this player: `sent` and
@@ -46,10 +48,11 @@ export const PROFILE_RECENT_GAMES = 5;
 @Component({
   selector: 'app-profile-page',
   imports: [
+    LocalDatePipe,
+    TranslocoDirective,
     Spinner,
     EmptyState,
     Alert,
-    DatePipe,
     EloChart,
     PlayerStatsPanel,
     PresenceBadge,
@@ -92,7 +95,7 @@ export class ProfilePage {
   readonly friendship = signal<Friendship>('unknown');
   /** The pending request between the visitor and this player, either way. */
   readonly request = signal<FriendRequest | null>(null);
-  readonly requestError = signal('The request could not be sent. Try again.');
+  readonly requestError = signal('');
   /** Set when a request turned out to answer theirs: you became friends at once. */
   readonly becameFriends = signal(false);
   readonly sending = signal(false);
@@ -112,7 +115,7 @@ export class ProfilePage {
         if (!isUuid(id)) {
           // A mistyped address: no request can find this player.
           this.reset();
-          this.error.set('This player does not exist.');
+          this.error.set(tr('social.profile.missing'));
           return;
         }
         this.load(id, mine);
@@ -157,7 +160,7 @@ export class ProfilePage {
     this.challenges.send(id).subscribe({
       error: (error: unknown) => {
         this.challenging.set(false);
-        this.challengeError.set(errorText(error, 'The challenge could not be sent. Try again.'));
+        this.challengeError.set(errorText(error, tr('social.friends.challengeFailed')));
       },
       complete: () => this.challenging.set(false),
     });
@@ -183,9 +186,7 @@ export class ProfilePage {
       error: (error: unknown) => {
         this.sending.set(false);
         const code = error instanceof ApiError ? error.code : '';
-        this.requestError.set(
-          errorText(error, 'The request could not be sent. Try again.', FRIEND_ERRORS),
-        );
+        this.requestError.set(errorText(error, tr('social.profile.requestFailed'), friendErrors()));
         this.friendship.set(
           code === 'ALREADY_FRIENDS'
             ? 'friends'
@@ -225,7 +226,7 @@ export class ProfilePage {
       },
       error: (error: unknown) => {
         this.sending.set(false);
-        this.blockError.set(errorText(error, 'This player could not be blocked. Try again.'));
+        this.blockError.set(errorText(error, tr('social.profile.blockFailed')));
       },
     });
   }
@@ -242,7 +243,7 @@ export class ProfilePage {
       },
       error: (error: unknown) => {
         this.sending.set(false);
-        this.blockError.set(errorText(error, 'This player could not be unblocked. Try again.'));
+        this.blockError.set(errorText(error, tr('social.profile.unblockFailed')));
       },
     });
   }
@@ -259,9 +260,9 @@ export class ProfilePage {
         this.sending.set(false);
         this.request.set(null);
         this.requestError.set(
-          errorText(error, 'This request is no longer pending.', {
-            FRIEND_REQUEST_NOT_FOUND: 'This request is no longer pending.',
-            FRIEND_REQUEST_FINALIZED: 'This request is no longer pending.',
+          errorText(error, tr('social.friends.notPending'), {
+            FRIEND_REQUEST_NOT_FOUND: tr('social.friends.notPending'),
+            FRIEND_REQUEST_FINALIZED: tr('social.friends.notPending'),
           }),
         );
         this.friendship.set('failed');
@@ -327,8 +328,8 @@ export class ProfilePage {
         const status = error instanceof ApiError ? error.statusCode : 0;
         this.error.set(
           status === 404 || status === 400
-            ? 'This player does not exist.'
-            : 'This profile could not be loaded. Try again later.',
+            ? tr('social.profile.missing')
+            : tr('social.profile.failed'),
         );
       },
     });

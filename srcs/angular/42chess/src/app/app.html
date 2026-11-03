@@ -1,111 +1,130 @@
-<a class="skip-link" href="#main-content">Skip to main content</a>
-<header class="site-header">
-  <div class="header-inner">
-    <a class="brand" routerLink="/" aria-label="42 Chess home">
-      <span class="brand-mark" aria-hidden="true"
-        ><svg viewBox="0 0 64 64"><use href="/chess-pieces.svg#knight" /></svg
-      ></span>
-      <span class="brand-name">42<span>chess</span></span>
-    </a>
-    <nav class="main-nav" aria-label="Main navigation">
-      <a routerLink="/play" routerLinkActive="active" ariaCurrentWhenActive="page">Play</a>
-      <a routerLink="/puzzle" routerLinkActive="active" ariaCurrentWhenActive="page">Puzzle</a>
-      <a routerLink="/live" routerLinkActive="active" ariaCurrentWhenActive="page">Live</a>
-      <a routerLink="/leaderboard" routerLinkActive="active" ariaCurrentWhenActive="page"
-        >Leaderboard</a
-      >
-      <a routerLink="/board" routerLinkActive="active" ariaCurrentWhenActive="page">Board</a>
-      @if (session.user()) {
-        <a routerLink="/history" routerLinkActive="active" ariaCurrentWhenActive="page">History</a>
-        <a routerLink="/friends" routerLinkActive="active" ariaCurrentWhenActive="page">Friends</a>
-        <a routerLink="/messages" routerLinkActive="active" ariaCurrentWhenActive="page"
-          >Messages
-          @if (unread.total(); as count) {
-            <app-badge tone="accent" class="nav-count" data-unread
-              >{{ count }}<span class="sr-only"> unread</span></app-badge
-            >
-          }
-        </a>
-      }
-    </nav>
-    <nav class="account" aria-label="Account">
-      @if (session.user(); as user) {
-        <a
-          class="account-link"
-          [routerLink]="['/players', user.id]"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-          [attr.aria-label]="'Your profile, ' + user.username"
-        >
-          <app-avatar class="avatar" [username]="user.username" [url]="user.avatarUrl" />
-          <span class="account-name">{{ user.username }}</span>
-          <span class="account-elo" aria-hidden="true">{{ user.elo }}</span>
-        </a>
-        <a
-          class="nav-settings"
-          routerLink="/settings"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-          aria-label="Settings"
-          title="Settings"
-          ><svg
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            stroke-linecap="round"
-            stroke-linejoin="round"
+<ng-container *transloco="let t">
+  <a class="skip-link" href="#main-content">{{ t('app.skip') }}</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" routerLink="/" [attr.aria-label]="t('app.home')">
+        <span class="brand-mark" aria-hidden="true"
+          ><svg viewBox="0 0 64 64"><use href="/chess-pieces.svg#knight" /></svg
+        ></span>
+        <span class="brand-name">42<span>chess</span></span>
+      </a>
+      <nav class="main-nav" [attr.aria-label]="t('app.mainNavigation')">
+        <a routerLink="/play" routerLinkActive="active" ariaCurrentWhenActive="page">{{
+          t('app.nav.play')
+        }}</a>
+        <a routerLink="/puzzle" routerLinkActive="active" ariaCurrentWhenActive="page">{{
+          t('app.nav.puzzle')
+        }}</a>
+        <a routerLink="/live" routerLinkActive="active" ariaCurrentWhenActive="page">{{
+          t('app.nav.live')
+        }}</a>
+        <a routerLink="/leaderboard" routerLinkActive="active" ariaCurrentWhenActive="page">{{
+          t('app.nav.leaderboard')
+        }}</a>
+        <a routerLink="/board" routerLinkActive="active" ariaCurrentWhenActive="page">{{
+          t('app.nav.board')
+        }}</a>
+        @if (session.user()) {
+          <a routerLink="/history" routerLinkActive="active" ariaCurrentWhenActive="page">{{
+            t('app.nav.history')
+          }}</a>
+          <a routerLink="/friends" routerLinkActive="active" ariaCurrentWhenActive="page">{{
+            t('app.nav.friends')
+          }}</a>
+          <a routerLink="/messages" routerLinkActive="active" ariaCurrentWhenActive="page"
+            >{{ t('app.nav.messages') }}
+            @if (unread.total(); as count) {
+              <app-badge tone="accent" class="nav-count" data-unread
+                >{{ count }}<span class="sr-only">{{ t('app.nav.unread') }}</span></app-badge
+              >
+            }
+          </a>
+        }
+      </nav>
+      <nav class="account" [attr.aria-label]="t('app.account')">
+        @if (session.user(); as user) {
+          <a
+            class="account-link"
+            [routerLink]="['/players', user.id]"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            [attr.aria-label]="t('app.yourProfile', { name: user.username })"
           >
-            <circle cx="12" cy="12" r="3" />
-            <path
-              d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"
-            /></svg
-        ></a>
-        <button class="nav-signout ghost small" type="button" (click)="signOut()">Sign out</button>
-      } @else {
-        <a
-          class="nav-login button ghost small"
-          routerLink="/login"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-          >Sign in</a
-        >
-        <a
-          class="nav-register button small"
-          routerLink="/register"
-          routerLinkActive="active"
-          ariaCurrentWhenActive="page"
-          >Create account</a
-        >
-      }
-    </nav>
-  </div>
-</header>
-<main id="main-content" tabindex="-1">
-  <router-outlet />
-</main>
-<app-toasts />
-@if (session.user()) {
-  <app-social-notices />
-}
-<footer class="site-footer">
-  <div class="footer-inner">
-    <span class="footer-brand"
-      >42 Chess <span aria-hidden="true">·</span> a ft_transcendence project</span
-    >
-    <nav class="footer-links" aria-label="Help">
-      <a routerLink="/rules">Game rules</a>
-      <a routerLink="/status">Service status</a>
-      <a routerLink="/design">Design system</a>
-    </nav>
-    <app-segmented
-      class="footer-theme"
-      label="Theme"
-      [options]="themes"
-      [value]="preferences.theme()"
-      (valueChange)="preferences.setTheme($event)"
-    />
-    <nav class="footer-links" aria-label="Legal">
-      <a routerLink="/privacy">Privacy Policy</a>
-      <a routerLink="/terms">Terms of Service</a>
-    </nav>
-  </div>
-</footer>
+            <app-avatar class="avatar" [username]="user.username" [url]="user.avatarUrl" />
+            <span class="account-name">{{ user.username }}</span>
+            <span class="account-elo" aria-hidden="true">{{ user.elo }}</span>
+          </a>
+          <a
+            class="nav-settings"
+            routerLink="/settings"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            [attr.aria-label]="t('app.settings')"
+            [title]="t('app.settings')"
+            ><svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"
+              /></svg
+          ></a>
+          <button class="nav-signout ghost small" type="button" (click)="signOut()">
+            {{ t('app.signOut') }}
+          </button>
+        } @else {
+          <a
+            class="nav-login button ghost small"
+            routerLink="/login"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            >{{ t('app.signIn') }}</a
+          >
+          <a
+            class="nav-register button small"
+            routerLink="/register"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            >{{ t('app.createAccount') }}</a
+          >
+        }
+      </nav>
+    </div>
+  </header>
+  <main id="main-content" tabindex="-1">
+    <router-outlet />
+  </main>
+  <app-toasts />
+  @if (session.user()) {
+    <app-social-notices />
+  }
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span class="footer-brand"
+        >42 Chess <span aria-hidden="true">·</span> {{ t('app.footerBrand') }}</span
+      >
+      <nav class="footer-links" [attr.aria-label]="t('app.help')">
+        <a routerLink="/rules">{{ t('app.gameRules') }}</a>
+        <a routerLink="/status">{{ t('app.serviceStatus') }}</a>
+        <a routerLink="/design">{{ t('app.designSystem') }}</a>
+      </nav>
+      <div class="footer-prefs">
+        <app-segmented
+          class="footer-theme"
+          [label]="t('app.theme')"
+          [options]="themes()"
+          [value]="preferences.theme()"
+          (valueChange)="preferences.setTheme($event)"
+        />
+        <app-language-select class="footer-language" />
+      </div>
+      <nav class="footer-links" [attr.aria-label]="t('app.legal')">
+        <a routerLink="/privacy">{{ t('app.privacy') }}</a>
+        <a routerLink="/terms">{{ t('app.terms') }}</a>
+      </nav>
+    </div>
+  </footer>
+</ng-container>

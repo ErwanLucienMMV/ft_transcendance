@@ -5,6 +5,7 @@ import { catchError, switchMap, throwError } from 'rxjs';
 import { API_BASE_URL, isApiUrl } from '../api/api-base-url';
 import { AuthSession } from './auth-session';
 import { SessionRefresh } from './session-refresh';
+import { tr } from '../i18n/i18n';
 
 /** 401s about what the user typed, not about the session: a new token would not change them. */
 const CREDENTIAL_ERRORS = new Set(['INVALID_PASSWORD', 'INVALID_2FA_CODE']);
@@ -40,8 +41,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       return refresh.renew().pipe(
         switchMap((renewed) => {
           if (renewed && renewed !== token) return send(renewed);
-          if (session.token() === token)
-            session.clear('Your session expired. Please sign in again.');
+          if (session.token() === token) session.clear(tr('auth.sessionExpired'));
           if (!session.token())
             void router.navigate(['/login'], {
               queryParams: { returnUrl: safeReturnUrl(router.url) },

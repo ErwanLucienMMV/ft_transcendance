@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter } from 'rxjs';
 import type { Tone } from './alert';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Icon, IconName } from './icon';
 
 export interface Toast {
@@ -82,7 +83,7 @@ export class Toasts {
  */
 @Component({
   selector: 'app-toasts',
-  imports: [Icon, RouterLink],
+  imports: [Icon, RouterLink, TranslocoPipe],
   template: `
     <div class="toasts">
       @for (toast of toasts.items(); track toast.id) {
@@ -101,7 +102,7 @@ export class Toasts {
           <button
             type="button"
             class="ghost small"
-            aria-label="Dismiss"
+            [attr.aria-label]="'common.dismiss' | transloco"
             (click)="toasts.dismiss(toast.id)"
           >
             <app-icon name="close" />

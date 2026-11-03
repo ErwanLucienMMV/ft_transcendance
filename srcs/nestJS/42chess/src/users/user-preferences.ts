@@ -1,5 +1,5 @@
 export interface UserPreferences {
-  language: 'en' | 'fr';
+  language: 'en' | 'fr' | 'es';
   theme: 'light' | 'dark' | 'system';
   soundEnabled: boolean;
   /** Only friends may send this player private messages and challenges. */

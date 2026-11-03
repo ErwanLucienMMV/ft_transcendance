@@ -1,4 +1,3 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -9,13 +8,16 @@ import { GameHistoryItem, GamesApi, Page, timeControlLabel } from '../game/games
 import { Alert } from '../../shared/ui/alert';
 import { EmptyState } from '../../shared/ui/empty-state';
 import { Pager } from '../../shared/ui/pager';
+import { tr, trCount } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { LocalDatePipe } from '../../shared/ui/local-date';
 
 export const HISTORY_PAGE_SIZE = 10;
 
 /** The signed-in player's finished games, newest first, ten per page (`?page=` keeps the place). */
 @Component({
   selector: 'app-history-page',
-  imports: [Pager, EmptyState, Alert, DatePipe, RouterLink],
+  imports: [LocalDatePipe, TranslocoDirective, Pager, EmptyState, Alert, RouterLink],
   templateUrl: './history-page.html',
   styleUrl: './history-page.css',
 })
@@ -60,12 +62,12 @@ export class HistoryPage {
     const reason = endReason(item.reason);
     const moves = Math.ceil(item.moveCount / 2);
     return [
-      `${item.color === 'WHITE' ? 'White' : 'Black'}`,
+      tr(item.color === 'WHITE' ? 'common.white' : 'common.black'),
       reason,
       timeControlLabel(item.timeControl),
       // Rated is the usual case: only casual games between people are marked.
-      item.rated || item.opponent.botDifficulty ? null : 'Casual',
-      `${moves} ${moves === 1 ? 'move' : 'moves'}`,
+      item.rated || item.opponent.botDifficulty ? null : tr('common.casual'),
+      trCount('history.moves', moves),
     ]
       .filter(Boolean)
       .join(' · ');

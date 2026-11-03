@@ -1,8 +1,17 @@
-import { DatePipe } from '@angular/common';
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LevelBar } from '../../shared/level-bar';
-import { AchievementProgress, PlayerStats, ProgressionApi, Results } from './progression-api';
+import {
+  achievementDescription,
+  achievementName,
+  AchievementProgress,
+  PlayerStats,
+  ProgressionApi,
+  Results,
+} from './progression-api';
+import { TranslationKey, trCount } from '../../core/i18n/i18n';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { LocalDatePipe } from '../../shared/ui/local-date';
 
 /**
  * Public statistics of a player: rating and rank, results against players and the computer,
@@ -10,7 +19,7 @@ import { AchievementProgress, PlayerStats, ProgressionApi, Results } from './pro
  */
 @Component({
   selector: 'app-player-stats',
-  imports: [DatePipe, LevelBar, RouterLink],
+  imports: [LocalDatePipe, TranslocoDirective, LevelBar, RouterLink],
   templateUrl: './player-stats.html',
   styleUrl: './player-stats.css',
 })
@@ -26,13 +35,13 @@ export class PlayerStatsPanel {
   readonly unlocked = computed(
     () => this.achievements()?.filter((achievement) => achievement.unlockedAt).length ?? 0,
   );
-  readonly rows = computed<{ label: string; results: Results }[]>(() => {
+  readonly rows = computed<{ label: TranslationKey; results: Results }[]>(() => {
     const stats = this.stats();
     if (!stats) return [];
     return [
-      { label: 'Rated', results: stats.rated },
-      { label: 'Casual', results: stats.casual },
-      { label: 'Computer', results: stats.bots },
+      { label: 'progression.stats.rated', results: stats.rated },
+      { label: 'progression.stats.casual', results: stats.casual },
+      { label: 'progression.stats.computer', results: stats.bots },
     ];
   });
 
@@ -41,6 +50,22 @@ export class PlayerStatsPanel {
       const id = this.userId();
       untracked(() => this.load(id));
     });
+  }
+
+  name(achievement: AchievementProgress): string {
+    return achievementName(achievement.code, achievement.name);
+  }
+
+  description(achievement: AchievementProgress): string {
+    return achievementDescription(achievement.code, achievement.description);
+  }
+
+  days(streak: number, best: number): string {
+    return trCount('progression.stats.days', streak, { best });
+  }
+
+  solved(count: number): string {
+    return trCount('progression.stats.puzzles', count);
   }
 
   percent(achievement: AchievementProgress): number {

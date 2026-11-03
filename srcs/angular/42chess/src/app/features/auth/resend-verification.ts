@@ -4,10 +4,12 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { authFeedback } from './auth-feedback';
+import { TranslocoDirective } from '@jsverse/transloco';
+import { tr } from '../../core/i18n/i18n';
 
 @Component({
   selector: 'app-resend-verification',
-  imports: [ReactiveFormsModule],
+  imports: [TranslocoDirective, ReactiveFormsModule],
   templateUrl: './resend-verification.html',
 })
 export class ResendVerification {
@@ -30,8 +32,7 @@ export class ResendVerification {
         finalize(() => this.pending.set(false)),
       )
       .subscribe({
-        next: () =>
-          this.message.set('If this account needs verification, a new link has been sent.'),
+        next: () => this.message.set(tr('auth.resend.sent')),
         error: (error) => this.message.set(authFeedback(error)),
       });
   }

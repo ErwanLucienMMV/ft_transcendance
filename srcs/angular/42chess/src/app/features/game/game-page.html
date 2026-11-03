@@ -1,273 +1,298 @@
-@if (invalid()) {
-  <section class="game-missing page narrow" role="alert">
-    <app-empty-state piece="king">
-      <h1>This game link is not valid.</h1>
-      <p>Check the link you received, or start a new game.</p>
-      <a class="button" routerLink="/play">Start a new game</a>
-    </app-empty-state>
-  </section>
-} @else {
-  <section class="game-page page board-layout" aria-labelledby="game-title">
-    <div class="board-column">
-      @if (connection(); as text) {
-        <div class="connection" role="status">
-          <span>{{ text }}</span>
-          @if (realtime.transport.state() === 'unavailable') {
-            <button type="button" class="secondary small" (click)="realtime.reconnect()">
-              Reconnect
-            </button>
-          }
-        </div>
-      }
-      @if (game(); as current) {
-        <div class="seat top" data-seat="top">
-          <span class="who">
-            @if (person(top().player); as player) {
-              <app-avatar
-                class="seat-avatar"
-                [username]="player.username"
-                [url]="player.avatarUrl"
-              />
+<ng-container *transloco="let t">
+  @if (invalid()) {
+    <section class="game-missing page narrow" role="alert">
+      <app-empty-state piece="king">
+        <h1>{{ t('game.invalid') }}</h1>
+        <p>{{ t('game.invalidHelp') }}</p>
+        <a class="button" routerLink="/play">{{ t('game.startNew') }}</a>
+      </app-empty-state>
+    </section>
+  } @else {
+    <section class="game-page page board-layout" aria-labelledby="game-title">
+      <div class="board-column">
+        @if (connection(); as text) {
+          <div class="connection" role="status">
+            <span>{{ text }}</span>
+            @if (realtime.transport.state() === 'unavailable') {
+              <button type="button" class="secondary small" (click)="realtime.reconnect()">
+                {{ t('game.reconnect') }}
+              </button>
             }
-            <span class="player">
-              <span class="player-name">
-                {{ name(top().player) }}
-                @if (top().eloChange; as change) {
-                  <span class="elo-change" [attr.data-sign]="change[0]">{{ change }}</span>
-                }
-                @if (botThinking()) {
-                  <span class="thinking" aria-hidden="true"><i></i><i></i><i></i></span>
-                }
-              </span>
-              <app-captured-pieces [fen]="fen()" [color]="top().color" />
-            </span>
-          </span>
-          <app-game-clock
-            [remaining]="top().remaining"
-            [running]="top().running"
-            [label]="top().color === 'WHITE' ? 'White' : 'Black'"
-          />
-        </div>
-        <app-chess-board
-          [fen]="fen()"
-          [orientation]="orientation()"
-          [lastMove]="lastMove()"
-          [interactive]="canPlay()"
-          [premoves]="premoves()"
-          [playerColor]="myColor()"
-          [result]="current.result"
-          (moved)="play($event)"
-        />
-        <p class="sr-only" aria-live="polite" data-announcement>{{ announcement() }}</p>
-        <div class="seat bottom" data-seat="bottom">
-          <span class="who">
-            @if (person(bottom().player); as player) {
-              <app-avatar
-                class="seat-avatar"
-                [username]="player.username"
-                [url]="player.avatarUrl"
-              />
-            }
-            <span class="player">
-              <span class="player-name">
-                {{ name(bottom().player) }}
-                @if (bottom().eloChange; as change) {
-                  <span class="elo-change" [attr.data-sign]="change[0]">{{ change }}</span>
-                }
-              </span>
-              <app-captured-pieces [fen]="fen()" [color]="bottom().color" />
-            </span>
-          </span>
-          <app-game-clock
-            [remaining]="bottom().remaining"
-            [running]="bottom().running"
-            [label]="bottom().color === 'WHITE' ? 'White' : 'Black'"
-          />
-        </div>
-      } @else if (!realtime.error()) {
-        <app-empty-state [loading]="true"><p>Loading the game…</p></app-empty-state>
-      }
-    </div>
-
-    <div class="game-panel side-panel">
-      <span class="eyebrow">{{ spectating() ? 'Spectating' : 'Live game' }}</span>
-      <h1 id="game-title" aria-live="polite">{{ headline() || 'Game' }}</h1>
-      @if (kind(); as text) {
-        <p class="game-kind" data-kind>{{ text }}</p>
-      }
-      @if (game() && spectators() > 0) {
-        <p class="watchers" data-watchers>
-          {{ spectators() }} {{ spectators() === 1 ? 'spectator' : 'spectators' }} watching
-        </p>
-      }
-      @if (spectating()) {
-        <div class="actions">
-          <button type="button" class="button secondary" (click)="stopWatching()">
-            Stop watching
-          </button>
-        </div>
-      }
-
-      @if (realtime.error(); as error) {
-        <p class="game-error alert" role="alert">{{ error.message }}</p>
-      }
-
-      @if (unconfirmed()) {
-        <div class="confirm-move" role="status" data-confirm-move>
-          <p>
-            Play <strong>{{ unconfirmedText() }}</strong
-            >?
-          </p>
-          <div class="actions">
-            <button type="button" (click)="confirmMove()">Confirm move</button>
-            <button type="button" class="button secondary" (click)="unconfirmed.set(null)">
-              Cancel
-            </button>
-          </div>
-        </div>
-      }
-
-      @if (game(); as current) {
-        @if (botFailed()) {
-          <div class="bot-failed" role="alert">
-            <p>The bot did not answer. Your move is kept; ask it to play again.</p>
-            @if (retryError(); as message) {
-              <p>{{ message }}</p>
-            }
-            <button type="button" [disabled]="retryingBot()" (click)="retryBot()">
-              {{ retryingBot() ? 'Asking the bot…' : 'Ask the bot to play' }}
-            </button>
           </div>
         }
-        @if (current.status === 'WAITING') {
-          <div class="invite">
-            <p>Send this link to your opponent. The game starts as soon as they open it.</p>
-            <input
-              readonly
-              aria-label="Game link"
-              [value]="link()"
-              (focus)="$any($event.target).select()"
+        @if (game(); as current) {
+          <div class="seat top" data-seat="top">
+            <span class="who">
+              @if (person(top().player); as player) {
+                <app-avatar
+                  class="seat-avatar"
+                  [username]="player.username"
+                  [url]="player.avatarUrl"
+                />
+              }
+              <span class="player">
+                <span class="player-name">
+                  {{ name(top().player) }}
+                  @if (top().eloChange; as change) {
+                    <span class="elo-change" [attr.data-sign]="change[0]">{{ change }}</span>
+                  }
+                  @if (botThinking()) {
+                    <span class="thinking" aria-hidden="true"><i></i><i></i><i></i></span>
+                  }
+                </span>
+                <app-captured-pieces [fen]="fen()" [color]="top().color" />
+              </span>
+            </span>
+            <app-game-clock
+              [remaining]="top().remaining"
+              [running]="top().running"
+              [label]="t('game.clockSides.' + top().color)"
             />
-            <button type="button" class="button secondary" (click)="copy()">
-              {{ copied() ? 'Link copied' : 'Copy link' }}
+          </div>
+          <app-chess-board
+            [fen]="fen()"
+            [orientation]="orientation()"
+            [lastMove]="lastMove()"
+            [interactive]="canPlay()"
+            [premoves]="premoves()"
+            [playerColor]="myColor()"
+            [result]="current.result"
+            (moved)="play($event)"
+          />
+          <p class="sr-only" aria-live="polite" data-announcement>{{ announcement() }}</p>
+          <div class="seat bottom" data-seat="bottom">
+            <span class="who">
+              @if (person(bottom().player); as player) {
+                <app-avatar
+                  class="seat-avatar"
+                  [username]="player.username"
+                  [url]="player.avatarUrl"
+                />
+              }
+              <span class="player">
+                <span class="player-name">
+                  {{ name(bottom().player) }}
+                  @if (bottom().eloChange; as change) {
+                    <span class="elo-change" [attr.data-sign]="change[0]">{{ change }}</span>
+                  }
+                </span>
+                <app-captured-pieces [fen]="fen()" [color]="bottom().color" />
+              </span>
+            </span>
+            <app-game-clock
+              [remaining]="bottom().remaining"
+              [running]="bottom().running"
+              [label]="t('game.clockSides.' + bottom().color)"
+            />
+          </div>
+        } @else if (!realtime.error()) {
+          <app-empty-state [loading]="true"
+            ><p>{{ t('game.loading') }}</p></app-empty-state
+          >
+        }
+      </div>
+
+      <div class="game-panel side-panel">
+        <span class="eyebrow">{{ spectating() ? t('game.spectating') : t('game.live') }}</span>
+        <h1 id="game-title" aria-live="polite">{{ headline() || t('game.game') }}</h1>
+        @if (kind(); as text) {
+          <p class="game-kind" data-kind>{{ text }}</p>
+        }
+        @if (game() && spectators() > 0) {
+          <p class="watchers" data-watchers>
+            {{ watchers() }}
+          </p>
+        }
+        @if (spectating()) {
+          <div class="actions">
+            <button type="button" class="button secondary" (click)="stopWatching()">
+              {{ t('game.stopWatching') }}
             </button>
           </div>
         }
 
-        @if (current.status === 'ACTIVE' && firstMoveLeft() !== null) {
-          <p class="notice" role="status" data-first-move>
-            {{ current.board.turn === 'WHITE' ? 'White' : 'Black' }} has
-            {{ format(firstMoveLeft()!, false) }} to play a first move, or the game is aborted
-            without rating.
-          </p>
+        @if (realtime.error(); as error) {
+          <p class="game-error alert" role="alert">{{ error.message }}</p>
         }
-        @if (opponentAway(); as away) {
-          <div class="away" role="alert" data-away>
-            @if (away.claimable) {
-              <p>Your opponent left the game. You can claim the win or keep waiting.</p>
-              <div class="actions">
-                <button type="button" (click)="realtime.claimVictory()">Claim the win</button>
-              </div>
-            } @else {
-              <p>
-                Your opponent disconnected. You can claim the win in
-                {{ format(away.left, false) }} if they do not come back.
-              </p>
-            }
+
+        @if (unconfirmed()) {
+          <div class="confirm-move" role="status" data-confirm-move>
+            <p>{{ t('game.confirmPrompt', { move: unconfirmedText() }) }}</p>
+            <div class="actions">
+              <button type="button" (click)="confirmMove()">{{ t('game.confirmMove') }}</button>
+              <button type="button" class="button secondary" (click)="unconfirmed.set(null)">
+                {{ t('common.cancel') }}
+              </button>
+            </div>
           </div>
         }
 
-        @if (current.status === 'ACTIVE' && myColor()) {
-          @if (drawOfferedByOpponent()) {
-            <div class="draw-offer" role="alert">
-              <p>Your opponent offers a draw.</p>
-              <div class="actions">
-                <button type="button" (click)="realtime.acceptDraw()">Accept draw</button>
-                <button type="button" class="button secondary" (click)="realtime.declineDraw()">
-                  Decline
-                </button>
-              </div>
-            </div>
-          } @else if (drawOfferedByMe()) {
-            <p role="status">Draw offered. Waiting for your opponent's answer.</p>
-          }
-          @if (drawDeclined()) {
-            <p role="status">Your draw offer was declined.</p>
-          }
-          @if (drawClaimable()) {
-            <div class="draw-offer" role="status" data-claim-draw>
-              <p>This position allows you to claim a draw.</p>
-              <div class="actions">
-                <button type="button" (click)="realtime.claimDraw()">Claim draw</button>
-              </div>
+        @if (game(); as current) {
+          @if (botFailed()) {
+            <div class="bot-failed" role="alert">
+              <p>{{ t('game.botFailed') }}</p>
+              @if (retryError(); as message) {
+                <p>{{ message }}</p>
+              }
+              <button type="button" [disabled]="retryingBot()" (click)="retryBot()">
+                {{ retryingBot() ? t('game.askingBot') : t('game.askBot') }}
+              </button>
             </div>
           }
-          <div class="actions">
-            @if (canOfferDraw()) {
-              <button type="button" class="button secondary" (click)="realtime.offerDraw()">
-                Offer draw
+          @if (current.status === 'WAITING') {
+            <div class="invite">
+              <p>{{ t('game.invite') }}</p>
+              <input
+                readonly
+                [attr.aria-label]="t('game.gameLink')"
+                [value]="link()"
+                (focus)="$any($event.target).select()"
+              />
+              <button type="button" class="button secondary" (click)="copy()">
+                {{ copied() ? t('game.copied') : t('game.copy') }}
               </button>
-            }
-            @if (canAbort()) {
-              <button type="button" class="button secondary" (click)="abort()">Abort game</button>
-            } @else if (confirmingResign()) {
-              <button type="button" class="danger" (click)="resign()">Confirm resignation</button>
-              <button type="button" class="button secondary" (click)="confirmingResign.set(false)">
-                Keep playing
-              </button>
-            } @else {
-              <button type="button" class="button secondary" (click)="resign()">Resign</button>
-            }
-          </div>
-        }
+            </div>
+          }
 
-        @if (current.status === 'FINISHED') {
-          @if (eloChange() !== null) {
-            <p class="rating-result" data-elo-change>
-              Your rating: <strong class="stat-value">{{ myRating() }}</strong>
-              <span
-                class="elo-change"
-                [attr.data-sign]="eloChange()! > 0 ? '+' : eloChange()! < 0 ? '-' : '0'"
-                >{{ eloChange()! > 0 ? '+' : '' }}{{ eloChange() }}</span
-              >
+          @if (current.status === 'ACTIVE' && firstMoveLeft() !== null) {
+            <p class="notice" role="status" data-first-move>
+              {{
+                t('game.firstMove', {
+                  side: t('game.sides.' + current.board.turn),
+                  time: format(firstMoveLeft()!, false),
+                })
+              }}
             </p>
           }
-          <div class="actions">
-            @if (opponent() && current.result?.reason !== 'ABORTED') {
-              <button type="button" data-rematch [disabled]="rematching()" (click)="rematch()">
-                <app-icon name="rematch" />{{ rematching() ? 'Starting…' : 'Rematch' }}
-              </button>
+          @if (opponentAway(); as away) {
+            <div class="away" role="alert" data-away>
+              @if (away.claimable) {
+                <p>{{ t('game.opponentLeft') }}</p>
+                <div class="actions">
+                  <button type="button" (click)="realtime.claimVictory()">
+                    {{ t('game.claimWin') }}
+                  </button>
+                </div>
+              } @else {
+                <p>{{ t('game.opponentAway', { time: format(away.left, false) }) }}</p>
+              }
+            </div>
+          }
+
+          @if (current.status === 'ACTIVE' && myColor()) {
+            @if (drawOfferedByOpponent()) {
+              <div class="draw-offer" role="alert">
+                <p>{{ t('game.drawOffered') }}</p>
+                <div class="actions">
+                  <button type="button" (click)="realtime.acceptDraw()">
+                    {{ t('game.acceptDraw') }}
+                  </button>
+                  <button type="button" class="button secondary" (click)="realtime.declineDraw()">
+                    {{ t('game.decline') }}
+                  </button>
+                </div>
+              </div>
+            } @else if (drawOfferedByMe()) {
+              <p role="status">{{ t('game.drawPending') }}</p>
             }
-            <a class="button" [class.secondary]="opponent()" routerLink="/play">New game</a>
-            <a class="button secondary" [routerLink]="['/replay', current.id]">Replay</a>
-            <a class="button secondary" routerLink="/board" [queryParams]="analysisLink()"
-              ><app-icon name="board" />Analysis board</a
-            >
-          </div>
-        }
-        @if (moves().length) {
-          <div class="actions pgn">
-            <button type="button" class="ghost small" (click)="downloadPgn()">
-              <app-icon name="download" />Download PGN
-            </button>
-            <button type="button" class="ghost small" (click)="copyPgn()">
-              <app-icon name="copy" />Copy PGN
-            </button>
-          </div>
-        }
-        <p class="rules-link"><a routerLink="/rules">How games end</a></p>
+            @if (drawDeclined()) {
+              <p role="status">{{ t('game.drawDeclined') }}</p>
+            }
+            @if (drawClaimable()) {
+              <div class="draw-offer" role="status" data-claim-draw>
+                <p>{{ t('game.drawClaimable') }}</p>
+                <div class="actions">
+                  <button type="button" (click)="realtime.claimDraw()">
+                    {{ t('game.claimDraw') }}
+                  </button>
+                </div>
+              </div>
+            }
+            <div class="actions">
+              @if (canOfferDraw()) {
+                <button type="button" class="button secondary" (click)="realtime.offerDraw()">
+                  {{ t('game.offerDraw') }}
+                </button>
+              }
+              @if (canAbort()) {
+                <button type="button" class="button secondary" (click)="abort()">
+                  {{ t('game.abort') }}
+                </button>
+              } @else if (confirmingResign()) {
+                <button type="button" class="danger" (click)="resign()">
+                  {{ t('game.confirmResign') }}
+                </button>
+                <button
+                  type="button"
+                  class="button secondary"
+                  (click)="confirmingResign.set(false)"
+                >
+                  {{ t('game.keepPlaying') }}
+                </button>
+              } @else {
+                <button type="button" class="button secondary" (click)="resign()">
+                  {{ t('game.resign') }}
+                </button>
+              }
+            </div>
+          }
 
-        <section class="move-list panel-section" aria-labelledby="moves-title">
-          <h2 id="moves-title">Moves</h2>
-          <app-move-list [rows]="rows()" />
-        </section>
+          @if (current.status === 'FINISHED') {
+            @if (eloChange() !== null) {
+              <p class="rating-result" data-elo-change>
+                {{ t('game.yourRating') }} <strong class="stat-value">{{ myRating() }}</strong>
+                <span
+                  class="elo-change"
+                  [attr.data-sign]="eloChange()! > 0 ? '+' : eloChange()! < 0 ? '-' : '0'"
+                  >{{ eloChange()! > 0 ? '+' : '' }}{{ eloChange() }}</span
+                >
+              </p>
+            }
+            <div class="actions">
+              @if (opponent() && current.result?.reason !== 'ABORTED') {
+                <button type="button" data-rematch [disabled]="rematching()" (click)="rematch()">
+                  <app-icon name="rematch" />{{
+                    rematching() ? t('play.starting') : t('game.rematch')
+                  }}
+                </button>
+              }
+              <a class="button" [class.secondary]="opponent()" routerLink="/play">{{
+                t('game.newGame')
+              }}</a>
+              <a class="button secondary" [routerLink]="['/replay', current.id]">{{
+                t('game.replay')
+              }}</a>
+              <a class="button secondary" routerLink="/board" [queryParams]="analysisLink()"
+                ><app-icon name="board" />{{ t('game.analysis') }}</a
+              >
+            </div>
+          }
+          @if (moves().length) {
+            <div class="actions pgn">
+              <button type="button" class="ghost small" (click)="downloadPgn()">
+                <app-icon name="download" />{{ t('game.downloadPgn') }}
+              </button>
+              <button type="button" class="ghost small" (click)="copyPgn()">
+                <app-icon name="copy" />{{ t('game.copyPgn') }}
+              </button>
+            </div>
+          }
+          <p class="rules-link">
+            <a routerLink="/rules">{{ t('game.rulesLink') }}</a>
+          </p>
 
-        <app-game-chat
-          [gameId]="current.id"
-          [open]="current.status !== 'FINISHED'"
-          [players]="[current.whitePlayer?.id ?? '', current.blackPlayer?.id ?? '']"
-        />
-      }
-    </div>
-  </section>
-}
+          <section class="move-list panel-section" aria-labelledby="moves-title">
+            <h2 id="moves-title">{{ t('game.moves') }}</h2>
+            <app-move-list [rows]="rows()" />
+          </section>
+
+          <app-game-chat
+            [gameId]="current.id"
+            [open]="current.status !== 'FINISHED'"
+            [players]="[current.whitePlayer?.id ?? '', current.blackPlayer?.id ?? '']"
+          />
+        }
+      </div>
+    </section>
+  }
+</ng-container>

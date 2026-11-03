@@ -1,4 +1,5 @@
 import { Component, computed, input, output } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Icon, IconName } from './icon';
 
 export type Tone = 'error' | 'warning' | 'success' | 'info';
@@ -15,7 +16,7 @@ const TONE_ICONS: Record<Tone, IconName> = {
  */
 @Component({
   selector: 'app-alert',
-  imports: [Icon],
+  imports: [Icon, TranslocoPipe],
   template: `
     <app-icon class="alert-icon" [name]="icon()" />
     <div class="alert-body">
@@ -28,7 +29,7 @@ const TONE_ICONS: Record<Tone, IconName> = {
       <button
         type="button"
         class="ghost small dismiss"
-        aria-label="Dismiss"
+        [attr.aria-label]="'common.dismiss' | transloco"
         (click)="dismissed.emit()"
       >
         <app-icon name="close" />
