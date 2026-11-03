@@ -40,6 +40,7 @@ describe('SCRUM-99 persisted preferences', () => {
       language: 'en',
       theme: 'system',
       soundEnabled: true,
+      messagesFromFriendsOnly: false,
     });
   });
   it('preserves unspecified preferences across sequential and concurrent patches', async () => {
@@ -52,12 +53,22 @@ describe('SCRUM-99 persisted preferences', () => {
     expect(
       (await source.getRepository(User).findOneByOrFail({ id: user.id }))
         .preferences,
-    ).toEqual({ language: 'fr', theme: 'dark', soundEnabled: false });
+    ).toEqual({
+      language: 'fr',
+      theme: 'dark',
+      soundEnabled: false,
+      messagesFromFriendsOnly: false,
+    });
     expect((await patch({}).expect(200)).body.preferences).toEqual({
       language: 'fr',
       theme: 'dark',
       soundEnabled: false,
+      messagesFromFriendsOnly: false,
     });
+    expect(
+      (await patch({ messagesFromFriendsOnly: true }).expect(200)).body
+        .preferences.messagesFromFriendsOnly,
+    ).toBe(true);
   });
   it.each([
     null,
@@ -68,6 +79,7 @@ describe('SCRUM-99 persisted preferences', () => {
     { language: 'xx' },
     { soundEnabled: 'false' },
     { soundEnabled: null },
+    { messagesFromFriendsOnly: 'yes' },
     { elo: 9999 },
     { theme: 'light', extra: true },
   ])('rejects malformed preferences atomically: %j', async (preferences) => {

@@ -74,7 +74,8 @@ describe('Upgrade from the previous private-message schema', () => {
         // This is the same automatic-migration path used by Nest startup.
         await upgraded.initialize();
         expect(await upgraded.query(snapshot())).toEqual(before);
-        // Later migrations may add columns; every value that existed is kept.
+        // Later migrations may add columns and preference keys (with their defaults);
+        // every value that existed is kept.
         const columns = Object.keys(usersBefore[0] as object);
         expect(
           (
@@ -85,7 +86,15 @@ describe('Upgrade from the previous private-message schema', () => {
           ).map((row) =>
             Object.fromEntries(columns.map((column) => [column, row[column]])),
           ),
-        ).toEqual(usersBefore);
+        ).toEqual(
+          (usersBefore as { preferences: object }[]).map((row) => ({
+            ...row,
+            preferences: {
+              ...row.preferences,
+              messagesFromFriendsOnly: false,
+            },
+          })),
+        );
         const historyAfter = await upgraded.query(
           'SELECT * FROM typeorm_migrations ORDER BY id',
         );

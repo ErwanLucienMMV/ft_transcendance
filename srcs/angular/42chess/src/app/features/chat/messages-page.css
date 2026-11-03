@@ -150,6 +150,34 @@
 .peer h3 a:hover {
   color: var(--accent);
 }
+.peer-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.receipt {
+  justify-self: end;
+  font-size: 11px;
+  opacity: 0.7;
+}
+.receipt.read {
+  font-weight: 600;
+  opacity: 0.9;
+}
+.typing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.blocked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 .back {
   display: none;
   flex-basis: 100%;

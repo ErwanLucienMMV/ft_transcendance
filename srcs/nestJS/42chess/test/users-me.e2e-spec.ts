@@ -67,7 +67,12 @@ describe('SCRUM-95 current user (real JWT and PostgreSQL)', () => {
       gamesDraw: 0,
       gamesLost: 0,
       createdAt: stored.createdAt.toISOString(),
-      preferences: { language: 'en', theme: 'system', soundEnabled: true },
+      preferences: {
+        language: 'en',
+        theme: 'system',
+        soundEnabled: true,
+        messagesFromFriendsOnly: false,
+      },
     });
   });
   it('rejects missing, forged, expired and invalid-subject tokens', async () => {

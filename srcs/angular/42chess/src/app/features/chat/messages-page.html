@@ -73,7 +73,54 @@
             <a [routerLink]="['/players', player.id]">{{ player.username }}</a>
           </h3>
           <app-presence-badge [status]="status()" />
+          @if (blocked() === false) {
+            <span class="peer-actions">
+              <button
+                type="button"
+                class="button secondary small"
+                [disabled]="challenging()"
+                (click)="challengePeer()"
+              >
+                Challenge
+              </button>
+              @if (confirmingBlock()) {
+                <button
+                  type="button"
+                  class="button danger small"
+                  [disabled]="peerBusy()"
+                  (click)="block()"
+                >
+                  Block {{ player.username }}
+                </button>
+                <button
+                  type="button"
+                  class="button ghost small"
+                  (click)="confirmingBlock.set(false)"
+                >
+                  Cancel
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="button ghost small"
+                  [attr.aria-label]="'Block ' + player.username"
+                  (click)="confirmingBlock.set(true)"
+                >
+                  Block
+                </button>
+              }
+            </span>
+          }
         </header>
+        @if (confirmingBlock()) {
+          <p class="note" role="status">
+            Blocking ends your friendship, requests and open challenges with {{ player.username }}.
+            They are not told, but can no longer message or challenge you.
+          </p>
+        }
+        @if (peerActionError(); as message) {
+          <p class="error" role="alert">{{ message }}</p>
+        }
         @if (status() === 'OFFLINE') {
           <p class="note" role="status">
             {{ player.username }} is offline. They will find your messages when they come back.
@@ -117,46 +164,77 @@
                   <time [attr.datetime]="message.createdAt">{{
                     message.createdAt | date: 'short'
                   }}</time>
+                  @if (receipt()?.id === message.id) {
+                    <small class="receipt" [class.read]="message.readAt">
+                      @if (message.readAt; as readAt) {
+                        Read {{ readAt | date: 'shortTime' }}
+                      } @else {
+                        Sent
+                      }
+                    </small>
+                  }
                 </li>
               }
             </ol>
+            @if (peerTyping()) {
+              <p class="typing" role="status">
+                <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                {{ player.username }} is typing…
+              </p>
+            }
           </div>
         } @else {
           <p class="muted" role="status">Loading the conversation…</p>
         }
 
-        <form class="composer" (submit)="$event.preventDefault(); send()">
-          <label for="message-input" class="sr-only">Message {{ player.username }}</label>
-          <textarea
-            id="message-input"
-            rows="2"
-            [placeholder]="'Message ' + player.username"
-            [value]="draft()"
-            [readOnly]="pending() !== null"
-            [attr.aria-invalid]="tooLong()"
-            aria-describedby="message-count"
-            (input)="input($event)"
-            (keydown)="keydown($event)"
-          ></textarea>
-          <div class="row">
-            <span id="message-count" class="count" [class.over]="tooLong()"
-              >{{ length() }} / {{ maxLength }}</span
-            >
+        @if (blocked()) {
+          <div class="note blocked" role="status">
+            <p>You blocked {{ player.username }}. Unblock them to write again.</p>
             <button
-              type="submit"
-              class="button"
-              [disabled]="blank() || tooLong() || pending() !== null"
+              type="button"
+              class="button secondary small"
+              [disabled]="peerBusy()"
+              (click)="unblock()"
             >
-              {{ pending() !== null ? 'Sending…' : 'Send' }}
+              Unblock
             </button>
           </div>
-          @if (tooLong()) {
-            <p class="error" role="alert">A message can have at most {{ maxLength }} characters.</p>
-          }
-          @if (sendError(); as message) {
-            <p class="error" role="alert">{{ message }}</p>
-          }
-        </form>
+        } @else {
+          <form class="composer" (submit)="$event.preventDefault(); send()">
+            <label for="message-input" class="sr-only">Message {{ player.username }}</label>
+            <textarea
+              id="message-input"
+              rows="2"
+              [placeholder]="'Message ' + player.username"
+              [value]="draft()"
+              [readOnly]="pending() !== null"
+              [attr.aria-invalid]="tooLong()"
+              aria-describedby="message-count"
+              (input)="input($event)"
+              (keydown)="keydown($event)"
+            ></textarea>
+            <div class="row">
+              <span id="message-count" class="count" [class.over]="tooLong()"
+                >{{ length() }} / {{ maxLength }}</span
+              >
+              <button
+                type="submit"
+                class="button"
+                [disabled]="blank() || tooLong() || pending() !== null"
+              >
+                {{ pending() !== null ? 'Sending…' : 'Send' }}
+              </button>
+            </div>
+            @if (tooLong()) {
+              <p class="error" role="alert">
+                A message can have at most {{ maxLength }} characters.
+              </p>
+            }
+            @if (sendError(); as message) {
+              <p class="error" role="alert">{{ message }}</p>
+            }
+          </form>
+        }
       } @else {
         <h3 id="conversation-title" class="sr-only">Conversation</h3>
         <p class="muted" role="status">Loading the conversation…</p>

@@ -16,10 +16,12 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
+import { errorText } from '../../core/api/error-text';
 import { AuthSession } from '../../core/auth/auth-session';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { PresenceBadge } from '../../shared/presence-badge';
 import { UserAvatar } from '../../shared/user-avatar';
+import { Challenges } from '../social/challenge';
 import { PresenceStatus, presenceChanges, UsersApi } from '../social/users-api';
 import {
   challengedGame,
@@ -29,6 +31,11 @@ import {
   MessagesApi,
   PrivateMessage,
   privateMessages,
+  ReadReceipt,
+  readReceipts,
+  TYPING_INTERVAL_MS,
+  TYPING_SHOWN_MS,
+  typingHints,
 } from './messages-api';
 
 /** Closer to the end of the log than this counts as following the conversation. */
@@ -73,7 +80,9 @@ export class MessagesPage {
   private readonly users = inject(UsersApi);
   private readonly realtime = inject(RealtimeService);
   private readonly session = inject(AuthSession);
-  private readonly origin = inject(DOCUMENT).location.origin;
+  private readonly challenges = inject(Challenges);
+  private readonly document = inject(DOCUMENT);
+  private readonly origin = this.document.location.origin;
   private readonly injector = inject(Injector);
   readonly maxLength = MESSAGE_MAX_LENGTH;
   readonly me = computed(() => this.session.user()?.id ?? null);
@@ -89,8 +98,9 @@ export class MessagesPage {
   readonly listFailed = signal(false);
   private listRequest = 0;
   private listLoading = false;
-  /** Conversations opened on this page; there is no read receipt API to tell the server. */
-  private readonly seen = signal<ReadonlySet<string>>(new Set());
+  /** The conversation being marked read, so a burst of messages sends one request. */
+  private marking: string | null = null;
+  private markAgain = false;
 
   readonly peer = signal<Peer | null>(null);
   readonly peerError = signal<string | null>(null);
@@ -98,6 +108,15 @@ export class MessagesPage {
   readonly status = computed<PresenceStatus>(
     () => this.pushed() ?? (this.peer()?.online ? 'ONLINE' : 'OFFLINE'),
   );
+  /** Whether the visitor blocked this player; null until known. */
+  readonly blocked = signal<boolean | null>(null);
+  readonly confirmingBlock = signal(false);
+  readonly peerBusy = signal(false);
+  readonly peerActionError = signal<string | null>(null);
+  readonly challenging = signal(false);
+  readonly peerTyping = signal(false);
+  private typingTimer?: ReturnType<typeof setTimeout>;
+  private typingSent = 0;
 
   readonly thread = signal<PrivateMessage[] | null>(null);
   readonly total = signal(0);
@@ -110,6 +129,12 @@ export class MessagesPage {
   readonly refreshFailed = signal(false);
   readonly loadingOlder = signal(false);
   readonly hasOlder = computed(() => (this.thread()?.length ?? 0) < this.total());
+  /** "Read" or "Sent" under the last message this account sent, when it is the latest. */
+  readonly receipt = computed<{ id: string; readAt: string | null } | null>(() => {
+    const last = this.thread()?.at(-1);
+    if (!last || last.senderId !== this.me()) return null;
+    return { id: last.id, readAt: last.readAt ?? null };
+  });
 
   readonly draft = signal('');
   readonly length = computed(() => messageLength(this.draft()));
@@ -144,7 +169,10 @@ export class MessagesPage {
       });
     });
     const destroy = inject(DestroyRef);
-    destroy.onDestroy(() => clearTimeout(this.confirmTimer));
+    destroy.onDestroy(() => {
+      clearTimeout(this.confirmTimer);
+      clearTimeout(this.typingTimer);
+    });
     privateMessages(this.realtime)
       .pipe(takeUntilDestroyed(destroy))
       .subscribe((message) => this.receive(message));
@@ -153,16 +181,93 @@ export class MessagesPage {
       .subscribe(({ userId, status }) => {
         if (userId === this.peerId()) this.pushed.set(status);
       });
+    readReceipts(this.realtime)
+      .pipe(takeUntilDestroyed(destroy))
+      .subscribe((receipt) => this.read(receipt));
+    typingHints(this.realtime)
+      .pipe(takeUntilDestroyed(destroy))
+      .subscribe((userId) => {
+        if (userId !== this.peerId()) return;
+        this.peerTyping.set(true);
+        clearTimeout(this.typingTimer);
+        this.typingTimer = setTimeout(() => this.peerTyping.set(false), TYPING_SHOWN_MS);
+      });
     this.realtime.events
       .pipe(
         filter(({ event }) => event === 'ERROR' && this.pending() !== null),
         takeUntilDestroyed(destroy),
       )
-      .subscribe(({ data }) => this.failed(typeof data['code'] === 'string' ? data['code'] : ''));
+      .subscribe(({ data }) =>
+        this.failed(
+          typeof data['code'] === 'string' ? data['code'] : '',
+          typeof data['message'] === 'string' ? data['message'] : '',
+        ),
+      );
+    // Coming back to the tab reads what arrived while it was hidden.
+    const visible = () => {
+      const id = this.peerId();
+      if (this.document.visibilityState === 'visible' && id && this.thread()) this.markRead(id);
+    };
+    this.document.addEventListener('visibilitychange', visible);
+    destroy.onDestroy(() => this.document.removeEventListener('visibilitychange', visible));
   }
 
   unread(conversation: Conversation): number {
-    return this.seen().has(conversation.user.id) ? 0 : conversation.unreadCount;
+    return conversation.unreadCount;
+  }
+
+  challengePeer(): void {
+    const id = this.peerId();
+    if (!id || this.challenging()) return;
+    this.challenging.set(true);
+    this.peerActionError.set(null);
+    this.challenges.send(id).subscribe({
+      error: (error: unknown) => {
+        this.challenging.set(false);
+        this.peerActionError.set(
+          errorText(error, 'The challenge could not be sent. Check your connection and try again.'),
+        );
+      },
+      complete: () => this.challenging.set(false),
+    });
+  }
+
+  block(): void {
+    const id = this.peerId();
+    if (!id || this.peerBusy()) return;
+    this.peerBusy.set(true);
+    this.peerActionError.set(null);
+    this.users.block(id).subscribe({
+      next: () => {
+        this.peerBusy.set(false);
+        this.confirmingBlock.set(false);
+        this.blocked.set(true);
+        this.peerTyping.set(false);
+      },
+      error: (error: unknown) => {
+        this.peerBusy.set(false);
+        this.peerActionError.set(errorText(error, 'This player could not be blocked. Try again.'));
+      },
+    });
+  }
+
+  unblock(): void {
+    const id = this.peerId();
+    if (!id || this.peerBusy()) return;
+    this.peerBusy.set(true);
+    this.peerActionError.set(null);
+    this.users.unblock(id).subscribe({
+      next: () => {
+        this.peerBusy.set(false);
+        this.blocked.set(false);
+      },
+      error: (error: unknown) => {
+        this.peerBusy.set(false);
+        this.peerActionError.set(
+          errorText(error, 'This player could not be unblocked. Try again.'),
+        );
+      },
+    });
   }
 
   /** The game to join when this message is a challenge. */
@@ -224,6 +329,12 @@ export class MessagesPage {
   input(event: Event): void {
     this.draft.set((event.target as HTMLTextAreaElement).value);
     this.sendError.set(null);
+    const id = this.peerId();
+    const now = Date.now();
+    if (id && !this.blank() && !this.blocked() && now - this.typingSent >= TYPING_INTERVAL_MS) {
+      this.typingSent = now;
+      this.messages.typing(id);
+    }
   }
 
   /** Enter sends; Shift+Enter starts a new line. */
@@ -260,6 +371,12 @@ export class MessagesPage {
     this.peer.set(null);
     this.peerError.set(null);
     this.pushed.set(null);
+    this.blocked.set(null);
+    this.confirmingBlock.set(false);
+    this.peerActionError.set(null);
+    this.peerTyping.set(false);
+    clearTimeout(this.typingTimer);
+    this.typingSent = 0;
     this.thread.set(null);
     this.total.set(0);
     this.threadFailed.set(false);
@@ -275,7 +392,15 @@ export class MessagesPage {
       this.peerError.set('You cannot send messages to yourself.');
       return;
     }
-    this.seen.update((ids) => new Set(ids).add(id));
+    this.users.blocked().subscribe({
+      next: ({ users }) => {
+        if (id === this.peerId()) this.blocked.set(users.some((user) => user.id === id));
+      },
+      // Unknown: the conversation stays usable, and the server refuses what is not allowed.
+      error: () => {
+        if (id === this.peerId()) this.blocked.set(false);
+      },
+    });
     this.users.profile(id).subscribe({
       next: (profile) => {
         if (id !== this.peerId()) return;
@@ -335,6 +460,7 @@ export class MessagesPage {
         }
         this.total.set(page.total + later.length);
         if (follow) this.scrollToEnd();
+        this.markRead(id);
       },
       error: () => {
         if (id !== this.peerId() || request !== this.newestRequest) return;
@@ -353,19 +479,16 @@ export class MessagesPage {
     const open = peerId === this.peerId();
     const list = this.conversations();
     const known = list?.find((conversation) => conversation.user.id === peerId);
+    const incoming = message.senderId !== me;
     if (known && list) {
-      const incoming = message.senderId !== me;
       const updated: Conversation = {
         ...known,
         lastMessage: message,
-        unreadCount: known.unreadCount + (incoming && !open ? 1 : 0),
+        // An open, visible conversation is read at once.
+        unreadCount:
+          known.unreadCount +
+          (incoming && !(open && this.document.visibilityState !== 'hidden') ? 1 : 0),
       };
-      if (incoming && !open)
-        this.seen.update((ids) => {
-          const next = new Set(ids);
-          next.delete(peerId);
-          return next;
-        });
       this.conversations.set([updated, ...list.filter((item) => item !== known)]);
     } else if (list) {
       this.loadConversations();
@@ -377,6 +500,10 @@ export class MessagesPage {
       this.thread.update((thread) => merge(thread ?? [], [message]));
       if (this.thread()!.length > before) this.total.update((total) => total + 1);
       if (follow) this.scrollToEnd();
+      if (incoming) {
+        this.peerTyping.set(false);
+        this.markRead(peerId);
+      }
     }
     if (message.senderId === me && open && this.pending() === message.content) {
       clearTimeout(this.confirmTimer);
@@ -385,7 +512,7 @@ export class MessagesPage {
     }
   }
 
-  private failed(code: string): void {
+  private failed(code: string, message: string): void {
     clearTimeout(this.confirmTimer);
     this.pending.set(null);
     this.sendError.set(
@@ -393,7 +520,70 @@ export class MessagesPage {
         ? 'This player no longer exists. Your message was not sent.'
         : code === 'VALIDATION_ERROR'
           ? 'This message cannot be sent. Check its length and content.'
-          : 'Your message was not sent. Try again.',
+          : (code === 'USER_BLOCKED' || code === 'FRIENDS_ONLY') && message
+            ? `${message} Your message was not sent.`
+            : 'Your message was not sent. Try again.',
+    );
+  }
+
+  /**
+   * Tells the server this conversation is read, when it is open, visible and has unread
+   * messages. MESSAGES_READ then updates every tab, and the sender's.
+   */
+  private markRead(id: string): void {
+    if (id !== this.peerId()) return;
+    if (this.document.visibilityState === 'hidden') return;
+    if (this.marking === id) {
+      // A message arrived while the last request was on its way: mark again after it.
+      this.markAgain = true;
+      return;
+    }
+    const unreadListed =
+      this.conversations()?.find((conversation) => conversation.user.id === id)?.unreadCount ?? 0;
+    const unreadShown = (this.thread() ?? []).some(
+      (message) => message.senderId === id && !message.readAt,
+    );
+    if (!unreadListed && !unreadShown) return;
+    this.marking = id;
+    this.markAgain = false;
+    this.messages.markRead(id).subscribe({
+      next: () => {
+        this.marking = null;
+        this.clearUnread(id);
+        if (this.markAgain) {
+          this.markAgain = false;
+          this.markRead(id);
+        }
+      },
+      // Unread stays unread; the next message or visit tries again.
+      error: () => {
+        this.marking = null;
+        this.markAgain = false;
+      },
+    });
+  }
+
+  private clearUnread(peerId: string): void {
+    this.conversations.update(
+      (list) =>
+        list?.map((conversation) =>
+          conversation.user.id === peerId ? { ...conversation, unreadCount: 0 } : conversation,
+        ) ?? null,
+    );
+  }
+
+  private read(receipt: ReadReceipt): void {
+    const me = this.me();
+    if (!me) return;
+    const ids = new Set(receipt.messageIds);
+    if (receipt.readerId === me) this.clearUnread(receipt.senderId);
+    const peerId = receipt.readerId === me ? receipt.senderId : receipt.readerId;
+    if (peerId !== this.peerId() || (receipt.readerId !== me && receipt.senderId !== me)) return;
+    this.thread.update(
+      (list) =>
+        list?.map((message) =>
+          ids.has(message.id) && !message.readAt ? { ...message, readAt: receipt.readAt } : message,
+        ) ?? null,
     );
   }
 

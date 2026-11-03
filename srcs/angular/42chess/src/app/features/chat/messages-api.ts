@@ -10,13 +10,27 @@ export interface PrivateMessage {
   receiverId: string;
   content: string;
   createdAt: string;
+  /** When the receiver opened the conversation after it arrived; null until then. */
+  readAt?: string | null;
 }
 export interface Conversation {
   user: { id: string; username: string; avatarUrl?: string | null };
   lastMessage: PrivateMessage;
-  /** Incoming messages without a read time. Nothing marks them read yet. */
+  /** Incoming messages without a read time. */
   unreadCount: number;
 }
+/** MESSAGES_READ: `readerId` read these messages from `senderId`. */
+export interface ReadReceipt {
+  readerId: string;
+  senderId: string;
+  readAt: string;
+  messageIds: string[];
+}
+
+/** How often this page tells the other player "typing…", as the server allows. */
+export const TYPING_INTERVAL_MS = 2000;
+/** How long a "typing…" hint stays without a new one. */
+export const TYPING_SHOWN_MS = 4000;
 export interface MessagePage {
   messages: PrivateMessage[];
   total: number;
@@ -61,6 +75,28 @@ export function privateMessages(realtime: RealtimeService): Observable<PrivateMe
   );
 }
 
+/** Read receipts for either side: messages this account read elsewhere, or that were read. */
+export function readReceipts(realtime: RealtimeService): Observable<ReadReceipt> {
+  return realtime.events.pipe(
+    filter(
+      ({ event, data }) =>
+        event === 'MESSAGES_READ' &&
+        ['readerId', 'senderId', 'readAt'].every((key) => typeof data[key] === 'string') &&
+        Array.isArray(data['messageIds']) &&
+        (data['messageIds'] as unknown[]).every((id) => typeof id === 'string'),
+    ),
+    map(({ data }) => data as unknown as ReadReceipt),
+  );
+}
+
+/** The id of each player who is typing a message to this account. */
+export function typingHints(realtime: RealtimeService): Observable<string> {
+  return realtime.events.pipe(
+    filter(({ event, data }) => event === 'TYPING' && typeof data['userId'] === 'string'),
+    map(({ data }) => data['userId'] as string),
+  );
+}
+
 /** Conversation list and history over HTTP; sending goes through the signed-in socket. */
 @Injectable({ providedIn: 'root' })
 export class MessagesApi {
@@ -82,5 +118,15 @@ export class MessagesApi {
   /** False when the socket is not connected; the saved message comes back as PRIVATE_MESSAGE. */
   send(receiverId: string, content: string): boolean {
     return this.realtime.send('SEND_PRIVATE_MESSAGE', { receiverId, content });
+  }
+
+  /** Everything this player sent is read; both sides get MESSAGES_READ. */
+  markRead(userId: string): Observable<void> {
+    return this.api.post(`conversations/${encodeURIComponent(userId)}/read`, {});
+  }
+
+  /** A best-effort hint; the server drops it when too frequent or unwelcome. */
+  typing(receiverId: string): void {
+    this.realtime.send('TYPING', { receiverId });
   }
 }

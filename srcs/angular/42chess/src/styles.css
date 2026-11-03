@@ -167,10 +167,12 @@ button.small {
   border-radius: 8px;
 }
 /* Confirms an action that cannot be undone, such as resigning or removing a friend. */
+.button.danger,
 button.danger {
   background: var(--error);
   color: #2a0d0a;
 }
+.button.danger:hover,
 button.danger:hover {
   background: #ffcabf;
   color: #2a0d0a;
@@ -241,6 +243,80 @@ textarea:focus-visible {
   color: var(--error);
 }
 
+/* An on/off setting: a checkbox drawn as a switch, its text beside it. */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+.switch input {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 44px;
+  min-width: 44px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 999px;
+  cursor: inherit;
+}
+.switch input::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s ease;
+}
+.switch input:checked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.switch input:checked::before {
+  background: var(--accent);
+  transform: translateX(18px);
+}
+.switch input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.switch input:disabled {
+  opacity: 0.5;
+}
+
+/* Three pulsing dots: someone is typing. */
+.dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: blink 1.2s infinite ease-in-out;
+}
+.dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dots i {
+    animation: none;
+  }
+}
 /* ---------- Layout ---------- */
 .page {
   width: 100%;

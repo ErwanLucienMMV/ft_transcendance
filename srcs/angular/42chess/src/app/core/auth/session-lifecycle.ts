@@ -5,9 +5,19 @@ import { RealtimeService } from '../realtime/realtime.service';
 import { AuthService } from './auth.service';
 import { AuthUser } from './auth-session';
 
+/** Saved per account (PATCH /users/me merges the keys it is given). */
+export interface UserPreferences {
+  language: 'en' | 'fr';
+  theme: 'light' | 'dark' | 'system';
+  soundEnabled: boolean;
+  /** Only friends can message or challenge this player. */
+  messagesFromFriendsOnly: boolean;
+}
+
 export interface CurrentUser extends AuthUser {
   email?: string | null;
   avatarUrl: string | null;
+  preferences?: UserPreferences;
   gamesPlayed: number;
   gamesWon: number;
   gamesDraw: number;

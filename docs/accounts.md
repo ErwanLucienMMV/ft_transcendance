@@ -80,14 +80,15 @@ addresses, reveals nothing.
 
 - The export (`format: "42chess-account-export/1"`) holds the account, linked providers,
   sessions (without tokens), games with their moves, rating changes, friends, friend
-  requests, private and game messages and puzzle attempts. A notice email is sent.
+  requests, blocked players, private and game messages and puzzle attempts. A notice email
+  is sent.
 - Deletion needs the username typed again, the password if the account has one, and a
   code if 2FA is on. An account in a running game must finish it first
   (`409 ACTIVE_GAME_EXISTS`).
 - The row is anonymized rather than removed, so that finished games stay readable for
   the opponents: the username becomes `deleted_<16 hex>` (a reserved prefix), email,
   password, secrets and picture are cleared, and `deletedAt` is set (a database check
-  keeps those fields empty). Friendships, requests, private messages, game chat lines,
+  keeps those fields empty). Friendships, requests, blocks, private messages, game chat lines,
   puzzle attempts, provider links, waiting games and queue entries are deleted. Every
   session is revoked and the picture file removed. The front shows such players as
   "Deleted player". The name is free for a new account.

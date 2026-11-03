@@ -11,6 +11,8 @@ export interface PrivateMessageResponse {
   receiverId: UUID;
   content: string;
   createdAt: ISODateString;
+  /** When the receiver opened the conversation after it arrived. */
+  readAt: ISODateString | null;
 }
 export interface GameMessageResponse {
   id: UUID;
@@ -31,6 +33,7 @@ export function toPrivateMessage(row: Message): PrivateMessageResponse {
     receiverId: row.receiverId,
     content: row.content,
     createdAt: row.createdAt.toISOString(),
+    readAt: row.readAt ? new Date(row.readAt).toISOString() : null,
   };
 }
 export function toGameMessage(

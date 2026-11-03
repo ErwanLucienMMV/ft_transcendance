@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
+import { ContactRules } from '../social/contact-rules.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { isUUID } from 'class-validator';
 import { QueryFailedError, Repository } from 'typeorm';
@@ -36,6 +38,7 @@ export class PrivateMessagesService {
   constructor(
     @InjectRepository(Message) private readonly messages: Repository<Message>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @Optional() private readonly contacts?: ContactRules,
   ) {}
 
   /** Resolves an account, never a socket or chat-room membership. */
@@ -59,6 +62,7 @@ export class PrivateMessagesService {
         'Message content must contain 1 to 2000 characters.',
       );
     const recipientId = await this.peer(senderId, receiver);
+    await this.contacts?.check(senderId, recipientId, 'message');
     let saved: Message;
     try {
       saved = await this.messages.save(
@@ -79,6 +83,49 @@ export class PrivateMessagesService {
     }
     // save() has committed before the caller may announce this message.
     return toPrivateMessage(saved);
+  }
+
+  /**
+   * Marks every message from this peer as read now. Returns what changed, or null when
+   * nothing was unread.
+   */
+  async markRead(
+    readerId: string,
+    peerId: string,
+  ): Promise<{ readAt: string; messageIds: string[] } | null> {
+    const peer = await this.peer(readerId, peerId);
+    const [rows] = (await this.messages.query(
+      `UPDATE messages SET "readAt" = now()
+       WHERE "senderId" = $1 AND "recipientId" = $2 AND "readAt" IS NULL
+       RETURNING id, "readAt"`,
+      [peer, readerId],
+    )) as [{ id: string; readAt: Date }[], number];
+    if (!rows.length) return null;
+    return {
+      readAt: rows[0].readAt.toISOString(),
+      messageIds: rows.map((row) => row.id),
+    };
+  }
+
+  /** Whether either player blocked the other. */
+  async blockedBetween(first: string, second: string): Promise<boolean> {
+    const [row] = (await this.messages.query(
+      `SELECT EXISTS (SELECT 1 FROM user_blocks
+         WHERE ("blockerId" = $1 AND "blockedId" = $2) OR ("blockerId" = $2 AND "blockedId" = $1)
+       ) AS blocked`,
+      [first, second],
+    )) as { blocked: boolean }[];
+    return row.blocked;
+  }
+
+  /** Whether this player may write to that one: used before announcing typing. */
+  async mayWrite(senderId: string, receiverId: string): Promise<boolean> {
+    try {
+      await this.contacts?.check(senderId, receiverId, 'message');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async history(

@@ -7,13 +7,21 @@ import { SessionLifecycle } from '../../core/auth/session-lifecycle';
 import { OAuthAccounts } from '../auth/oauth-accounts';
 import { AccountApi, SecurityStatus } from './account-api';
 import { DataSettings } from './data-settings';
+import { PrivacySettings } from './privacy-settings';
 import { ProfileSettings } from './profile-settings';
 import { SecuritySettings } from './security-settings';
 
-/** Everything about the signed-in account: profile, security, sign-in methods and data. */
+/** Everything about the signed-in account: profile, privacy, security, sign-in and data. */
 @Component({
   selector: 'app-settings-page',
-  imports: [RouterLink, ProfileSettings, SecuritySettings, OAuthAccounts, DataSettings],
+  imports: [
+    RouterLink,
+    ProfileSettings,
+    PrivacySettings,
+    SecuritySettings,
+    OAuthAccounts,
+    DataSettings,
+  ],
   templateUrl: './settings-page.html',
   styleUrl: './settings-page.css',
 })

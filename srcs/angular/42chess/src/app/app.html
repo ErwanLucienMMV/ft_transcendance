@@ -84,6 +84,9 @@
   }
   <router-outlet />
 </main>
+@if (session.user()) {
+  <app-social-notices />
+}
 <footer class="site-footer">
   <div class="footer-inner">
     <span class="footer-brand"

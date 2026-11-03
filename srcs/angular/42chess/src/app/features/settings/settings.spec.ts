@@ -7,6 +7,7 @@ import { AuthSession } from '../../core/auth/auth-session';
 import { authInterceptor } from '../../core/auth/auth.interceptor';
 import { downloadName } from './account-api';
 import { DataSettings } from './data-settings';
+import { PrivacySettings } from './privacy-settings';
 import { avatarProblem, ProfileSettings } from './profile-settings';
 import { SecuritySettings } from './security-settings';
 
@@ -284,6 +285,72 @@ describe('Account settings', () => {
       fixture.detectChanges();
       expect(element.querySelector('[role="alert"]')?.textContent).toContain('current game');
       expect(session.authenticated()).toBe(true);
+    });
+  });
+  describe('privacy', () => {
+    const preferences = {
+      language: 'en',
+      theme: 'system',
+      soundEnabled: true,
+      messagesFromFriendsOnly: false,
+    };
+
+    function open() {
+      const fixture = TestBed.createComponent(PrivacySettings);
+      fixture.detectChanges();
+      http.expectOne('/api/v1/users/me').flush(own({ preferences }));
+      http.expectOne('/api/v1/blocks').flush({
+        users: [
+          { id: 'b1', username: 'bob', avatarUrl: null, blockedAt: '2026-11-01T10:00:00.000Z' },
+          { id: 'c1', username: 'carol', avatarUrl: null, blockedAt: '2026-11-02T10:00:00.000Z' },
+        ],
+      });
+      fixture.detectChanges();
+      return { fixture, element: fixture.nativeElement as HTMLElement };
+    }
+
+    it('lets only friends message or challenge, and says so', () => {
+      const { fixture, element } = open();
+      const toggle = element.querySelector<HTMLInputElement>('.switch input')!;
+      expect(toggle.checked).toBe(false);
+      toggle.checked = true;
+      toggle.dispatchEvent(new Event('change'));
+      const request = http.expectOne('/api/v1/users/me');
+      expect(request.request.method).toBe('PATCH');
+      expect(request.request.body).toEqual({ preferences: { messagesFromFriendsOnly: true } });
+      request.flush(own({ preferences: { ...preferences, messagesFromFriendsOnly: true } }));
+      fixture.detectChanges();
+      expect(element.querySelector('[role="status"]')?.textContent).toContain(
+        'Only your friends can message or challenge you now.',
+      );
+    });
+
+    it('puts the switch back when the choice cannot be saved', () => {
+      const { fixture, element } = open();
+      const toggle = element.querySelector<HTMLInputElement>('.switch input')!;
+      toggle.checked = true;
+      toggle.dispatchEvent(new Event('change'));
+      http
+        .expectOne('/api/v1/users/me')
+        .flush({ code: 'INTERNAL_SERVER_ERROR' }, { status: 500, statusText: 'Error' });
+      fixture.detectChanges();
+      expect(toggle.checked).toBe(false);
+      expect(element.querySelector('[role="alert"]')).not.toBeNull();
+    });
+
+    it('lists blocked players and unblocks one', () => {
+      const { fixture, element } = open();
+      const names = () =>
+        [...element.querySelectorAll('ul[aria-label="Blocked players"] strong')].map(
+          (name) => name.textContent,
+        );
+      expect(names()).toEqual(['bob', 'carol']);
+      element.querySelector<HTMLButtonElement>('button[aria-label="Unblock bob"]')!.click();
+      const request = http.expectOne('/api/v1/blocks/b1');
+      expect(request.request.method).toBe('DELETE');
+      request.flush(null);
+      fixture.detectChanges();
+      expect(names()).toEqual(['carol']);
     });
   });
 });

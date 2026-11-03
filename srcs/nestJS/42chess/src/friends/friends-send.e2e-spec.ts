@@ -226,22 +226,56 @@ describe('Send friend request HTTP (real PostgreSQL)', () => {
     }
   });
 
-  it('rejects duplicate and inverse pending requests', async () => {
+  it('rejects a duplicate pending request', async () => {
     const [actor, recipient] = await Promise.all([user(), user()]);
     await send(actor, recipient).expect(201);
-    for (const [sender, target] of [
-      [actor, recipient],
-      [recipient, actor],
-    ]) {
-      expect((await send(sender, target).expect(409)).body.code).toBe(
-        'FRIEND_REQUEST_PENDING',
-      );
-    }
+    expect((await send(actor, recipient).expect(409)).body.code).toBe(
+      'FRIEND_REQUEST_PENDING',
+    );
     expect(
       await source
         .getRepository(FriendRequest)
         .countBy({ senderId: actor.id, recipientId: recipient.id }),
     ).toBe(1);
+  });
+
+  it('accepts the other player pending request instead of crossing it', async () => {
+    const [actor, recipient] = await Promise.all([user(), user()]);
+    const first = (await send(actor, recipient).expect(201)).body;
+    const answer = (await send(recipient, actor).expect(201)).body;
+    expect(answer).toEqual({ ...first, status: 'ACCEPTED' });
+    const [userId, friendId] = [actor.id, recipient.id].sort();
+    expect(
+      await source.getRepository(Friendship).countBy({ userId, friendId }),
+    ).toBe(1);
+    expect(
+      await source
+        .getRepository(FriendRequest)
+        .countBy({ status: 'PENDING', senderId: actor.id }),
+    ).toBe(0);
+  });
+
+  it('holds a new request back for a few days after a decline', async () => {
+    const [actor, recipient] = await Promise.all([user(), user()]);
+    const requests = source.getRepository(FriendRequest);
+    const declined = await requests.save({
+      senderId: actor.id,
+      recipientId: recipient.id,
+      status: 'REJECTED',
+      resolvedAt: new Date(),
+    });
+    expect((await send(actor, recipient).expect(409)).body.code).toBe(
+      'FRIEND_REQUEST_DECLINED_RECENTLY',
+    );
+    // The player who declined can still ask.
+    const back = (await send(recipient, actor).expect(201)).body;
+    await requests.delete({ id: back.id });
+    await requests.update(declined.id, {
+      resolvedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+    });
+    expect((await send(actor, recipient).expect(201)).body.status).toBe(
+      'PENDING',
+    );
   });
 
   it('allows a fresh pending request after a previous rejected request', async () => {
@@ -256,7 +290,7 @@ describe('Send friend request HTTP (real PostgreSQL)', () => {
     );
   });
 
-  it('serializes simultaneous opposite sends into one pending request and conflicts', async () => {
+  it('serializes simultaneous opposite sends into one friendship', async () => {
     const [actor, recipient] = await Promise.all([user(), user()]);
     const responses = await Promise.all([
       send(actor, recipient),
@@ -264,19 +298,29 @@ describe('Send friend request HTTP (real PostgreSQL)', () => {
       send(actor, recipient),
       send(recipient, actor),
     ]);
+    // One request, its acceptance by the crossed send, then two refusals.
     expect(
       responses.map((response) => response.status).sort((a, b) => a - b),
-    ).toEqual([201, 409, 409, 409]);
-    for (const response of responses.filter(
-      (result) => result.status === 409,
-    )) {
-      expect(response.body.code).toBe('FRIEND_REQUEST_PENDING');
-    }
+    ).toEqual([201, 201, 409, 409]);
+    expect(
+      responses
+        .filter((response) => response.status === 201)
+        .map((response) => response.body.status as string)
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual(['ACCEPTED', 'PENDING']);
+    for (const response of responses.filter((result) => result.status === 409))
+      expect(['FRIEND_REQUEST_PENDING', 'ALREADY_FRIENDS']).toContain(
+        response.body.code,
+      );
+    const [userId, friendId] = [actor.id, recipient.id].sort();
+    expect(
+      await source.getRepository(Friendship).countBy({ userId, friendId }),
+    ).toBe(1);
     expect(
       await source.getRepository(FriendRequest).countBy([
         { senderId: actor.id, recipientId: recipient.id, status: 'PENDING' },
         { senderId: recipient.id, recipientId: actor.id, status: 'PENDING' },
       ]),
-    ).toBe(1);
+    ).toBe(0);
   });
 });

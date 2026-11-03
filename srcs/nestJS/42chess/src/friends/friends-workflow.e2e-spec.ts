@@ -52,9 +52,17 @@ describe('Friends lifecycle, permissions and races (SCRUM-232..237,446)', () => 
           .post('/v1/friends/requests')
           .auth(tokens.get(actor.id)!, { type: 'bearer' })
           .send({ recipientId: recipient.id }),
-      resolve: (id: string, action = 'reject') =>
+      // Declining (recipient) and withdrawing (sender) are both a DELETE.
+      resolve: (id: string, action: 'decline' | 'accept' = 'decline') =>
+        (action === 'accept'
+          ? request(app.getHttpServer()).post(
+              `/v1/friends/requests/${id}/accept`,
+            )
+          : request(app.getHttpServer()).delete(`/v1/friends/requests/${id}`)
+        ).auth(tokens.get(actor.id)!, { type: 'bearer' }),
+      sent: () =>
         request(app.getHttpServer())
-          .post(`/v1/friends/requests/${id}/${action}`)
+          .get('/v1/friends/requests/sent')
           .auth(tokens.get(actor.id)!, { type: 'bearer' }),
       remove: (friend: string) =>
         request(app.getHttpServer())
@@ -159,8 +167,18 @@ describe('Friends lifecycle, permissions and races (SCRUM-232..237,446)', () => 
         (row: { id: string }) => row.id,
       ),
     ).toEqual([sent.id]);
-    const rejected = await http(bob).resolve(sent.id).expect(200);
-    expect(rejected.body).toEqual({ ...sent, status: 'REJECTED' });
+    const rejected = await http(bob).resolve(sent.id).expect(204);
+    expect(rejected.text).toBe('');
+    expect(
+      (
+        await source
+          .getRepository(FriendRequest)
+          .findOneByOrFail({ id: sent.id })
+      ).status,
+    ).toBe('REJECTED');
+    expect((await http(alice).sent().expect(200)).body).toEqual({
+      requests: [],
+    });
     expect((await http(bob).incoming().expect(200)).body).toEqual({
       requests: [],
     });
@@ -217,7 +235,7 @@ describe('Friends lifecycle, permissions and races (SCRUM-232..237,446)', () => 
     }
   });
 
-  it('forbids sender and outsiders from rejecting and prevents forged identity from deleting another pair', async () => {
+  it('lets only the recipient answer, hides the request from outsiders and prevents forged identity from deleting another pair', async () => {
     const [sender, recipient, outsider] = await Promise.all([
       user(),
       user(),
@@ -226,13 +244,22 @@ describe('Friends lifecycle, permissions and races (SCRUM-232..237,446)', () => 
     const row = await pending(sender, recipient);
     for (const actor of [sender, outsider]) {
       const response = await http(actor)
-        .resolve(row.id)
+        .resolve(row.id, 'accept')
         .set('X-User-Id', recipient.id)
         .query({ userId: recipient.id })
         .send({ recipientId: recipient.id })
         .expect(403);
       expect(response.body.code).toBe('FRIEND_REQUEST_FORBIDDEN');
     }
+    expect(
+      (
+        await http(outsider)
+          .resolve(row.id)
+          .set('X-User-Id', recipient.id)
+          .query({ userId: recipient.id })
+          .expect(404)
+      ).body.code,
+    ).toBe('FRIEND_REQUEST_NOT_FOUND');
     expect(
       (
         await source
@@ -272,8 +299,20 @@ describe('Friends lifecycle, permissions and races (SCRUM-232..237,446)', () => 
       ).toBe('FRIEND_REQUEST_FINALIZED');
     }
     const row = await pending(sender, recipient);
-    await http(recipient).resolve(row.id.toUpperCase()).expect(200);
+    await http(recipient).resolve(row.id.toUpperCase()).expect(204);
     await http(recipient).resolve(row.id).expect(409);
+    // A withdrawn request is gone: a second withdrawal finds nothing.
+    const withdrawn = await pending(sender, recipient);
+    expect((await http(sender).sent().expect(200)).body.requests).toEqual([
+      expect.objectContaining({ id: withdrawn.id, status: 'PENDING' }),
+    ]);
+    await http(sender).resolve(withdrawn.id).expect(204);
+    expect(
+      await source.getRepository(FriendRequest).countBy({ id: withdrawn.id }),
+    ).toBe(0);
+    expect(
+      (await http(sender).resolve(withdrawn.id).expect(404)).body.code,
+    ).toBe('FRIEND_REQUEST_NOT_FOUND');
   });
 
   it('requires verified revocable sessions on all added endpoints', async () => {
@@ -302,7 +341,8 @@ describe('Friends lifecycle, permissions and races (SCRUM-232..237,446)', () => 
     ]) {
       for (const [method, path] of [
         ['get', '/v1/friends/requests'],
-        ['post', `/v1/friends/requests/${row.id}/reject`],
+        ['get', '/v1/friends/requests/sent'],
+        ['delete', `/v1/friends/requests/${row.id}`],
         ['delete', `/v1/friends/${sender.id}`],
       ] as const) {
         const call = request(app.getHttpServer())[method](path);
@@ -328,43 +368,50 @@ describe('Friends lifecycle, permissions and races (SCRUM-232..237,446)', () => 
       http(recipient).resolve(row.id, 'accept'),
       http(recipient).resolve(row.id),
     ]);
-    expect(
-      results.map((result) => result.status).sort((a, b) => a - b),
-    ).toEqual([200, 409, 409, 409]);
+    const winners = results.filter((result) => result.status !== 409);
+    expect(winners).toHaveLength(1);
+    expect([200, 204]).toContain(winners[0].status);
     const saved = await source
       .getRepository(FriendRequest)
       .findOneByOrFail({ id: row.id });
     expect(saved.status).toBe(
-      results.find((result) => result.status === 200)!.body.status,
+      winners[0].status === 200 ? 'ACCEPTED' : 'REJECTED',
     );
     expect(
       await source.getRepository(Friendship).countBy(pair(sender, recipient)),
     ).toBe(saved.status === 'ACCEPTED' ? 1 : 0);
   });
 
-  it('serializes rejection with opposite sends and leaves at most one new pending request', async () => {
+  it('serializes a decline with crossed sends into one consistent outcome', async () => {
     const [sender, recipient] = await Promise.all([user(), user()]);
     const row = await pending(sender, recipient);
-    const [rejected, ...sent] = await Promise.all([
+    const [declined, ...sent] = await Promise.all([
       http(recipient).resolve(row.id),
       http(sender).send(recipient),
       http(recipient).send(sender),
     ]);
-    expect(rejected.status).toBe(200);
+    // Either the decline wins, or the recipient's own request accepts it first.
+    expect([204, 409]).toContain(declined.status);
     expect(
       sent.every((result) => result.status === 201 || result.status === 409),
     ).toBe(true);
-    expect(
-      sent.filter((result) => result.status === 201).length,
-    ).toBeLessThanOrEqual(1);
-    const count = await source.getRepository(FriendRequest).countBy([
+    const saved = await source
+      .getRepository(FriendRequest)
+      .findOneByOrFail({ id: row.id });
+    expect(saved.status).toBe(
+      declined.status === 204 ? 'REJECTED' : 'ACCEPTED',
+    );
+    const friends = await source
+      .getRepository(Friendship)
+      .countBy(pair(sender, recipient));
+    const pendingCount = await source.getRepository(FriendRequest).countBy([
       { senderId: sender.id, recipientId: recipient.id, status: 'PENDING' },
       { senderId: recipient.id, recipientId: sender.id, status: 'PENDING' },
     ]);
-    expect(count).toBe(sent.filter((result) => result.status === 201).length);
-    expect(
-      await source.getRepository(Friendship).countBy(pair(sender, recipient)),
-    ).toBe(0);
+    expect(friends + pendingCount).toBeLessThanOrEqual(1);
+    expect(friends).toBe(
+      sent.some((result) => result.body?.status === 'ACCEPTED') ? 1 : 0,
+    );
   });
 
   it('serializes opposite removals with sends and never revives an accepted request', async () => {
@@ -378,25 +425,32 @@ describe('Friends lifecycle, permissions and races (SCRUM-232..237,446)', () => 
       http(recipient).send(sender),
       http(recipient).resolve(row.id, 'accept'),
     ]);
+    // A removal finds the friendship, or a later one formed by two crossed sends.
     expect(
-      results
-        .slice(0, 2)
-        .map((result) => result.status)
-        .sort((a, b) => a - b),
-    ).toEqual([204, 404]);
+      results.slice(0, 2).every((result) => [204, 404].includes(result.status)),
+    ).toBe(true);
+    expect(results.slice(0, 2).some((result) => result.status === 204)).toBe(
+      true,
+    );
     expect(
       results.slice(2, 4).every((result) => [201, 409].includes(result.status)),
     ).toBe(true);
     expect(results[4].status).toBe(409);
     expect(
-      await source.getRepository(Friendship).countBy(pair(sender, recipient)),
-    ).toBe(0);
-    expect(
-      await source.getRepository(FriendRequest).countBy([
-        { senderId: sender.id, recipientId: recipient.id, status: 'PENDING' },
-        { senderId: recipient.id, recipientId: sender.id, status: 'PENDING' },
-      ]),
-    ).toBeLessThanOrEqual(1);
+      (
+        await source
+          .getRepository(FriendRequest)
+          .findOneByOrFail({ id: row.id })
+      ).status,
+    ).toBe('ACCEPTED');
+    const friends = await source
+      .getRepository(Friendship)
+      .countBy(pair(sender, recipient));
+    const pendingCount = await source.getRepository(FriendRequest).countBy([
+      { senderId: sender.id, recipientId: recipient.id, status: 'PENDING' },
+      { senderId: recipient.id, recipientId: sender.id, status: 'PENDING' },
+    ]);
+    expect(friends + pendingCount).toBeLessThanOrEqual(1);
   });
 
   it('rolls back a failed rejection and releases the pair lock for a successful retry', async () => {
@@ -421,7 +475,7 @@ describe('Friends lifecycle, permissions and races (SCRUM-232..237,446)', () => 
       await source.query(`DROP TRIGGER IF EXISTS ${hook} ON friend_requests`);
       await source.query(`DROP FUNCTION ${hook}()`);
     }
-    await http(recipient).resolve(row.id).expect(200);
+    await http(recipient).resolve(row.id).expect(204);
     expect(
       await source.getRepository(Friendship).countBy(pair(sender, recipient)),
     ).toBe(0);

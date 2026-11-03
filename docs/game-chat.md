@@ -43,6 +43,10 @@ event: declining is not opening the link. Offline, the button says so and create
 while the creator is on the game (`409 OPPONENT_AWAY` otherwise), so an old link cannot start a
 clock against someone who left.
 
+Spectators' lines are marked, and a player can hide them: see [social.md](social.md). The
+conversation header of the messages page has its own **Challenge** button, and the invited
+player gets a `CHALLENGE_RECEIVED` notice on any page.
+
 ## Tests
 
 - Backend: `src/realtime/game-realtime.service.spec.ts` and `test/game-chat.e2e-spec.ts` (real

@@ -55,7 +55,7 @@ test('a friend is challenged by message, and players and a spectator chat until 
     .getByRole('link', { name: new RegExp(bobName) })
     .click();
   await expect(alice.getByRole('log')).toContainText('I challenge you to a game');
-  await alice.getByRole('link', { name: 'Open the game' }).click();
+  await alice.getByRole('log').getByRole('link', { name: 'Open the game' }).click();
   await expect(alice).toHaveURL(bob.url());
   await expect(bob.locator('#game-title')).not.toHaveText('Waiting for an opponent');
 

@@ -1,5 +1,13 @@
 <section class="game-chat panel-section" aria-labelledby="chat-title">
-  <h3 id="chat-title">Chat</h3>
+  <div class="chat-head">
+    <h3 id="chat-title">Chat</h3>
+    @if (seatedViewer()) {
+      <label class="switch small-switch">
+        <input type="checkbox" [checked]="hideSpectators()" (change)="toggleSpectators($event)" />
+        <span>Hide spectators</span>
+      </label>
+    }
+  </div>
   @if (loadFailed()) {
     <div class="error" role="alert">
       <p>Chat messages could not be loaded, so some may be missing.</p>
@@ -13,10 +21,20 @@
     @if (loaded() && messages().length === 0) {
       <p class="muted">No message yet.</p>
     }
+    @if (hidden(); as count) {
+      <p class="muted">
+        {{ count }} spectator {{ count === 1 ? 'message is' : 'messages are' }} hidden.
+      </p>
+    }
     <ol>
-      @for (message of messages(); track message.id) {
-        <li [class.mine]="mine(message)">
-          <strong>{{ message.sender.username }}</strong>
+      @for (message of visible(); track message.id) {
+        <li [class.mine]="mine(message)" [class.spectator]="spectator(message)">
+          <strong
+            >{{ message.sender.username }}
+            @if (spectator(message)) {
+              <small class="tag">spectator</small>
+            }
+          </strong>
           <p>{{ message.content }}</p>
           <time [attr.datetime]="message.createdAt">{{
             message.createdAt | date: 'shortTime'

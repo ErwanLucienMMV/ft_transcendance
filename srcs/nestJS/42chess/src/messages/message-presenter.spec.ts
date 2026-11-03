@@ -11,7 +11,7 @@ import { toMatchmakingEntry } from '../matchmaking/matchmaking.types.js';
 
 describe('spec public projections', () => {
   const createdAt = new Date('2026-01-01T00:00:00Z');
-  it('maps recipient to receiver and excludes read state, relations and other internal fields', () => {
+  it('maps recipient to receiver, exposes the read time and excludes relations and other internal fields', () => {
     const row = Object.assign(new Message(), {
       id: 'message',
       senderId: 'alice',
@@ -26,7 +26,12 @@ describe('spec public projections', () => {
       receiverId: 'bob',
       content: 'hello',
       createdAt: createdAt.toISOString(),
+      readAt: null,
     });
+    const readAt = new Date('2026-01-01T00:01:00Z');
+    expect(toPrivateMessage(Object.assign(row, { readAt })).readAt).toBe(
+      readAt.toISOString(),
+    );
   });
   it('projects only the public game-message sender and rejects a mismatched author', () => {
     const row = Object.assign(new GameMessage(), {

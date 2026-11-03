@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { catchError, map, of } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of } from 'rxjs';
 import { ApiError } from '../../core/api/api-error';
 import { errorText } from '../../core/api/error-text';
 import { AuthSession } from '../../core/auth/auth-session';
@@ -14,15 +14,22 @@ import { outcomeText, playerLabel } from '../../shared/chess/game-text';
 import { Challenges } from './challenge';
 import { GameHistoryItem, GamesApi } from '../game/games-api';
 import {
+  FRIEND_ERRORS,
+  FriendRequest,
   PresenceStatus,
   presenceChanges,
   PublicProfile,
   RatingChange,
+  socialEvents,
   UsersApi,
 } from './users-api';
 
-/** What the signed-in visitor can do about a friendship with this player. */
-export type Friendship = 'unknown' | 'none' | 'friends' | 'sent' | 'pending' | 'failed';
+/**
+ * What the signed-in visitor can do about a friendship with this player: `sent` and
+ * `received` are pending requests one way or the other, `pending` one the server reported.
+ */
+export type Friendship =
+  'unknown' | 'none' | 'friends' | 'sent' | 'received' | 'pending' | 'failed';
 
 export const PROFILE_RATING_CHANGES = 10;
 export const PROFILE_RECENT_GAMES = 5;
@@ -41,7 +48,7 @@ export class ProfilePage {
   private readonly session = inject(AuthSession);
   private readonly challenges = inject(Challenges);
   readonly challenging = signal(false);
-  readonly challengeFailed = signal(false);
+  readonly challengeError = signal<string | null>(null);
 
   readonly userId = toSignal(
     inject(ActivatedRoute).paramMap.pipe(map((params) => params.get('id') ?? '')),
@@ -66,8 +73,16 @@ export class ProfilePage {
     () => this.pushed() ?? (this.profile()?.online ? 'ONLINE' : 'OFFLINE'),
   );
   readonly friendship = signal<Friendship>('unknown');
+  /** The pending request between the visitor and this player, either way. */
+  readonly request = signal<FriendRequest | null>(null);
   readonly requestError = signal('The request could not be sent. Try again.');
+  /** Set when a request turned out to answer theirs: you became friends at once. */
+  readonly becameFriends = signal(false);
   readonly sending = signal(false);
+  /** Null until known, and for the visitor's own profile. */
+  readonly blocked = signal<boolean | null>(null);
+  readonly confirmingBlock = signal(false);
+  readonly blockError = signal<string | null>(null);
   readonly opponent = playerLabel;
   readonly outcome = outcomeText;
 
@@ -81,21 +96,45 @@ export class ProfilePage {
         this.loadFriendship(id, Boolean(visitor) && !mine);
       });
     });
-    presenceChanges(inject(RealtimeService))
-      .pipe(takeUntilDestroyed(inject(DestroyRef)))
+    const realtime = inject(RealtimeService);
+    const destroy = inject(DestroyRef);
+    presenceChanges(realtime)
+      .pipe(takeUntilDestroyed(destroy))
       .subscribe(({ userId, status }) => {
         if (userId === this.userId()) this.pushed.set(status);
+      });
+    // The other player, or another tab, may answer or withdraw while this page is open.
+    socialEvents(realtime)
+      .pipe(takeUntilDestroyed(destroy))
+      .subscribe((event) => {
+        const id = this.userId();
+        if (this.mine() || this.blocked()) return;
+        if (event.type === 'friend-added' && event.friend.id === id) {
+          this.request.set(null);
+          this.friendship.set('friends');
+        } else if (event.type === 'friend-removed' && event.userId === id) {
+          this.friendship.set('none');
+        } else if (event.type === 'request-removed' && event.requestId === this.request()?.id) {
+          this.request.set(null);
+          this.friendship.set('none');
+        } else if (event.type === 'request-received' && event.request.senderId === id) {
+          this.request.set(event.request);
+          this.friendship.set('received');
+        } else if (event.type === 'request-sent' && event.request.recipientId === id) {
+          this.request.set(event.request);
+          this.friendship.set('sent');
+        }
       });
   }
 
   challenge(id: string): void {
     if (this.challenging()) return;
     this.challenging.set(true);
-    this.challengeFailed.set(false);
+    this.challengeError.set(null);
     this.challenges.send(id).subscribe({
-      error: () => {
+      error: (error: unknown) => {
         this.challenging.set(false);
-        this.challengeFailed.set(true);
+        this.challengeError.set(errorText(error, 'The challenge could not be sent. Try again.'));
       },
       complete: () => this.challenging.set(false),
     });
@@ -105,15 +144,25 @@ export class ProfilePage {
     const id = this.userId();
     if (this.sending()) return;
     this.sending.set(true);
+    this.becameFriends.set(false);
     this.users.sendFriendRequest(id).subscribe({
-      next: () => {
+      next: (request) => {
         this.sending.set(false);
-        this.friendship.set('sent');
+        if (request.status === 'ACCEPTED') {
+          this.request.set(null);
+          this.becameFriends.set(true);
+          this.friendship.set('friends');
+        } else {
+          this.request.set(request);
+          this.friendship.set('sent');
+        }
       },
       error: (error: unknown) => {
         this.sending.set(false);
         const code = error instanceof ApiError ? error.code : '';
-        this.requestError.set(errorText(error, 'The request could not be sent. Try again.'));
+        this.requestError.set(
+          errorText(error, 'The request could not be sent. Try again.', FRIEND_ERRORS),
+        );
         this.friendship.set(
           code === 'ALREADY_FRIENDS'
             ? 'friends'
@@ -125,19 +174,116 @@ export class ProfilePage {
     });
   }
 
+  /** Withdraws the visitor's request, or declines theirs. */
+  dropRequest(): void {
+    const request = this.request();
+    if (!request || this.sending()) return;
+    this.answer(this.users.removeFriendRequest(request.id), 'none');
+  }
+
+  acceptRequest(): void {
+    const request = this.request();
+    if (!request || this.sending()) return;
+    this.answer(this.users.acceptFriendRequest(request.id), 'friends');
+  }
+
+  block(): void {
+    const id = this.userId();
+    if (this.sending()) return;
+    this.sending.set(true);
+    this.blockError.set(null);
+    this.users.block(id).subscribe({
+      next: () => {
+        this.sending.set(false);
+        this.confirmingBlock.set(false);
+        this.blocked.set(true);
+        this.request.set(null);
+        this.friendship.set('none');
+      },
+      error: (error: unknown) => {
+        this.sending.set(false);
+        this.blockError.set(errorText(error, 'This player could not be blocked. Try again.'));
+      },
+    });
+  }
+
+  unblock(): void {
+    const id = this.userId();
+    if (this.sending()) return;
+    this.sending.set(true);
+    this.blockError.set(null);
+    this.users.unblock(id).subscribe({
+      next: () => {
+        this.sending.set(false);
+        this.blocked.set(false);
+      },
+      error: (error: unknown) => {
+        this.sending.set(false);
+        this.blockError.set(errorText(error, 'This player could not be unblocked. Try again.'));
+      },
+    });
+  }
+
+  private answer(call: Observable<unknown>, after: Friendship): void {
+    this.sending.set(true);
+    call.subscribe({
+      next: () => {
+        this.sending.set(false);
+        this.request.set(null);
+        this.friendship.set(after);
+      },
+      error: (error: unknown) => {
+        this.sending.set(false);
+        this.request.set(null);
+        this.requestError.set(
+          errorText(error, 'This request is no longer pending.', {
+            FRIEND_REQUEST_NOT_FOUND: 'This request is no longer pending.',
+            FRIEND_REQUEST_FINALIZED: 'This request is no longer pending.',
+          }),
+        );
+        this.friendship.set('failed');
+        this.loadFriendship(this.userId(), true, true);
+      },
+    });
+  }
+
   signed(change: number): string {
     return change > 0 ? `+${change}` : `${change}`;
   }
 
-  /** Friends are read from the visitor's own list; there is no per-pair lookup. */
-  private loadFriendship(id: string, applies: boolean): void {
-    this.friendship.set('unknown');
+  /**
+   * Read from the visitor's own lists; there is no per-pair lookup. A list that fails to load
+   * counts as empty: the server still refuses what does not apply.
+   */
+  private loadFriendship(id: string, applies: boolean, keepFailure = false): void {
+    const failed = keepFailure && this.friendship() === 'failed';
+    if (!failed) this.friendship.set('unknown');
+    this.request.set(null);
+    this.becameFriends.set(false);
+    this.confirmingBlock.set(false);
+    this.blockError.set(null);
+    this.blocked.set(null);
     if (!applies) return;
-    this.users.friends().subscribe({
-      next: ({ friends }) =>
-        this.friendship.set(friends.some((friend) => friend.id === id) ? 'friends' : 'none'),
-      // Offer the request anyway: the server answers ALREADY_FRIENDS if it is one.
-      error: () => this.friendship.set('none'),
+    const empty = { requests: [] as FriendRequest[] };
+    forkJoin({
+      friends: this.users.friends().pipe(catchError(() => of({ friends: [] }))),
+      received: this.users.friendRequests().pipe(catchError(() => of(empty))),
+      sent: this.users.sentFriendRequests().pipe(catchError(() => of(empty))),
+      blocked: this.users.blocked().pipe(catchError(() => of({ users: [] }))),
+    }).subscribe(({ friends, received, sent, blocked }) => {
+      if (id !== this.userId()) return;
+      this.blocked.set(blocked.users.some((user) => user.id === id));
+      const theirs = received.requests.find((request) => request.senderId === id);
+      const ours = sent.requests.find((request) => request.recipientId === id);
+      this.request.set(theirs ?? ours ?? null);
+      const state: Friendship = friends.friends.some((friend) => friend.id === id)
+        ? 'friends'
+        : theirs
+          ? 'received'
+          : ours
+            ? 'sent'
+            : 'none';
+      if (!failed || state !== 'none') this.friendship.set(state);
     });
   }
 

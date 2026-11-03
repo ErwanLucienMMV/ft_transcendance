@@ -28,17 +28,17 @@ test('sends, accepts and removes a friend, with presence pushed live to the frie
     .click();
   await alice.getByRole('button', { name: 'Add friend' }).click();
   await expect(alice.getByRole('status')).toHaveText('Friend request sent.');
-  // The API lists incoming requests only, so after a reload the page cannot know the request
-  // was sent; the server refuses the duplicate with 409 and the page explains it.
+  // Bob is on another page: a notice tells him, with a link to his requests.
+  await expect(bob.getByText(`${aliceName} wants to be your friend.`)).toBeVisible();
+  // The profile reads the requests Alice sent, so a reload still knows, and offers to cancel.
   await alice.reload();
-  await alice.getByRole('button', { name: 'Add friend' }).click();
-  await expect(alice.getByRole('status')).toContainText('already pending');
-  const duplicate = errors.findIndex((message) => message.includes('409'));
-  expect(duplicate).toBeGreaterThanOrEqual(0);
-  errors.splice(duplicate, 1);
+  await expect(alice.getByRole('status')).toHaveText('Friend request sent.');
+  await expect(alice.getByRole('button', { name: 'Cancel request' })).toBeVisible();
 
   // Bob sees it in his inbox with Alice's name, and accepts.
-  await openFriends(bob);
+  await bob.getByRole('link', { name: 'See the request' }).click();
+  await expect(bob).toHaveURL(/\/friends$/);
+  await expect(bob.getByText(`${aliceName} wants to be your friend.`)).toHaveCount(0);
   const inbox = bob.getByRole('list', { name: 'Friend requests' });
   await expect(inbox.getByRole('listitem')).toHaveCount(1);
   await expect(inbox).toContainText(aliceName);

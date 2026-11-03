@@ -37,7 +37,7 @@ export interface Friend {
   elo: number;
   status: PresenceStatus;
 }
-/** The request DTO carries ids only; the page reads the sender's public profile. */
+/** The request DTO carries ids only; the page reads the other player's public profile. */
 export interface FriendRequest {
   id: string;
   senderId: string;
@@ -45,6 +45,37 @@ export interface FriendRequest {
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
   createdAt: string;
 }
+/** What the friends pages show of the other player of a request. */
+export interface RequestPlayer {
+  id: string;
+  username: string;
+  avatarUrl?: string | null;
+  elo: number;
+}
+export interface BlockedPlayer {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+  blockedAt: string;
+}
+
+/** Friendship changes pushed to every open tab of both players. */
+export type SocialEvent =
+  | { type: 'request-received'; request: FriendRequest; sender: RequestPlayer }
+  | { type: 'request-sent'; request: FriendRequest }
+  | { type: 'request-removed'; requestId: string }
+  | { type: 'friend-added'; requestId: string | null; friend: Friend }
+  | { type: 'friend-removed'; userId: string };
+
+/** Texts for the friend request codes; other codes keep the server's own sentence. */
+export const FRIEND_ERRORS: Record<string, string> = {
+  FRIEND_REQUEST_SELF: 'You cannot add yourself as a friend.',
+  FRIEND_REQUEST_FORBIDDEN: 'You cannot answer this friend request.',
+  ALREADY_FRIENDS: 'You are already friends with this player.',
+  FRIEND_REQUEST_PENDING: 'A friend request is already pending with this player.',
+  FRIEND_REQUEST_DECLINED_RECENTLY:
+    'This player declined your last request. You can ask again in a few days.',
+};
 
 /** The search accepts any username fragment, up to a full username. */
 export const SEARCH_MAX_LENGTH = AUTH_FIELD_LIMITS.usernameMax;
@@ -73,7 +104,59 @@ export function presenceChanges(
   );
 }
 
-/** Public profiles, player search, and the signed-in user's friends and friend requests. */
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const isRequest = (value: unknown): value is FriendRequest =>
+  isObject(value) &&
+  ['id', 'senderId', 'recipientId', 'status', 'createdAt'].every(
+    (key) => typeof value[key] === 'string',
+  );
+const isPlayer = (value: unknown): value is RequestPlayer =>
+  isObject(value) &&
+  typeof value['id'] === 'string' &&
+  typeof value['username'] === 'string' &&
+  typeof value['elo'] === 'number';
+
+/** FRIEND_* events of the signed-in socket, checked and typed; anything malformed is dropped. */
+export function socialEvents(realtime: RealtimeService): Observable<SocialEvent> {
+  return realtime.events.pipe(
+    map(({ event, data }): SocialEvent | null => {
+      switch (event) {
+        case 'FRIEND_REQUEST_RECEIVED':
+          return isRequest(data['request']) && isPlayer(data['sender'])
+            ? { type: 'request-received', request: data['request'], sender: data['sender'] }
+            : null;
+        case 'FRIEND_REQUEST_SENT':
+          return isRequest(data['request'])
+            ? { type: 'request-sent', request: data['request'] }
+            : null;
+        case 'FRIEND_REQUEST_REMOVED':
+          return typeof data['requestId'] === 'string'
+            ? { type: 'request-removed', requestId: data['requestId'] }
+            : null;
+        case 'FRIEND_ADDED': {
+          const friend = data['friend'];
+          return isPlayer(friend) && STATUSES.has((friend as Partial<Friend>).status)
+            ? {
+                type: 'friend-added',
+                requestId: typeof data['requestId'] === 'string' ? data['requestId'] : null,
+                friend: friend as Friend,
+              }
+            : null;
+        }
+        case 'FRIEND_REMOVED':
+          return typeof data['userId'] === 'string'
+            ? { type: 'friend-removed', userId: data['userId'] }
+            : null;
+        default:
+          return null;
+      }
+    }),
+    filter((event): event is SocialEvent => event !== null),
+  );
+}
+
+/** Public profiles, player search, and the signed-in user's friends, requests and blocks. */
 @Injectable({ providedIn: 'root' })
 export class UsersApi {
   private readonly api = inject(ApiClient);
@@ -103,6 +186,12 @@ export class UsersApi {
     return this.api.get('friends/requests');
   }
 
+  /** Pending requests the signed-in user sent, oldest first. */
+  sentFriendRequests(): Observable<{ requests: FriendRequest[] }> {
+    return this.api.get('friends/requests/sent');
+  }
+
+  /** Status ACCEPTED when the other player had already asked: you are friends at once. */
   sendFriendRequest(recipientId: string): Observable<FriendRequest> {
     return this.api.post('friends/requests', { recipientId });
   }
@@ -111,8 +200,23 @@ export class UsersApi {
     return this.api.post(`friends/requests/${encodeURIComponent(id)}/accept`, {});
   }
 
-  rejectFriendRequest(id: string): Observable<FriendRequest> {
-    return this.api.post(`friends/requests/${encodeURIComponent(id)}/reject`, {});
+  /** The recipient declines it; the sender withdraws it. */
+  removeFriendRequest(id: string): Observable<void> {
+    return this.api.delete(`friends/requests/${encodeURIComponent(id)}`);
+  }
+
+  /** Players the signed-in user blocked, alphabetical. */
+  blocked(): Observable<{ users: BlockedPlayer[] }> {
+    return this.api.get('blocks');
+  }
+
+  /** Ends any friendship, request or open challenge between you; they are not told. */
+  block(userId: string): Observable<void> {
+    return this.api.put(`blocks/${encodeURIComponent(userId)}`, {});
+  }
+
+  unblock(userId: string): Observable<void> {
+    return this.api.delete(`blocks/${encodeURIComponent(userId)}`);
   }
 
   removeFriend(friendId: string): Observable<void> {

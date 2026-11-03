@@ -194,6 +194,7 @@ describe('DB ticket schema on PostgreSQL', () => {
         language: 'en',
         theme: 'system',
         soundEnabled: true,
+        messagesFromFriendsOnly: false,
       });
     for (const table of ['auth_sessions', 'oauth_flows']) {
       const [restored] = await source.query('SELECT to_regclass($1) AS name', [

@@ -3,7 +3,13 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { RealtimeService, ServerEvent } from '../../core/realtime/realtime.service';
-import { messageLength, MessagesApi, privateMessages } from './messages-api';
+import {
+  messageLength,
+  MessagesApi,
+  privateMessages,
+  readReceipts,
+  typingHints,
+} from './messages-api';
 
 describe('Private messages client', () => {
   it('reads conversations and paged history under the API prefix, and sends on the socket', () => {
@@ -26,12 +32,16 @@ describe('Private messages client', () => {
     ).toBe('GET');
     api.history(id, 30, 10).subscribe();
     http.expectOne(`/api/v1/conversations/${id}/messages?limit=10&offset=30`);
+    api.markRead(id).subscribe();
+    expect(http.expectOne(`/api/v1/conversations/${id}/read`).request.method).toBe('POST');
     http.verify();
     expect(api.send(id, 'Hello!')).toBe(true);
     expect(send).toHaveBeenCalledWith('SEND_PRIVATE_MESSAGE', {
       receiverId: id,
       content: 'Hello!',
     });
+    api.typing(id);
+    expect(send).toHaveBeenCalledWith('TYPING', { receiverId: id });
   });
 
   it('keeps only well-formed PRIVATE_MESSAGE events', () => {
@@ -51,6 +61,28 @@ describe('Private messages client', () => {
     events.next({ event: 'PRIVATE_MESSAGE', data: { ...message, content: 3 } });
     events.next({ event: 'GAME_MESSAGE', data: message });
     expect(seen).toEqual([message]);
+  });
+
+  it('keeps only well-formed read receipts and typing hints', () => {
+    const events = new Subject<ServerEvent>();
+    const realtime = { events } as unknown as RealtimeService;
+    const receipts: unknown[] = [];
+    const typing: unknown[] = [];
+    readReceipts(realtime).subscribe((receipt) => receipts.push(receipt));
+    typingHints(realtime).subscribe((userId) => typing.push(userId));
+    const receipt = {
+      readerId: 'b',
+      senderId: 'a',
+      readAt: '2026-11-02T10:00:00.000Z',
+      messageIds: ['m1'],
+    };
+    events.next({ event: 'MESSAGES_READ', data: receipt });
+    events.next({ event: 'MESSAGES_READ', data: { ...receipt, messageIds: [1] } });
+    events.next({ event: 'MESSAGES_READ', data: { ...receipt, readAt: null } });
+    events.next({ event: 'TYPING', data: { userId: 'b' } });
+    events.next({ event: 'TYPING', data: {} });
+    expect(receipts).toEqual([receipt]);
+    expect(typing).toEqual(['b']);
   });
 
   it('counts code points like the server, so an emoji is one character', () => {

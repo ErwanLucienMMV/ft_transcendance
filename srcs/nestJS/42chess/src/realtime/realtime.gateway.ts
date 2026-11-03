@@ -20,6 +20,7 @@ import { RealtimeAuthenticator } from './realtime-authenticator.js';
 import type { RealtimePrincipal } from './realtime-authenticator.js';
 import { parseRealtimeMessage, RealtimeMessages } from './realtime-messages.js';
 import { PrivateMessageRealtime } from '../chat/private-message-realtime.js';
+import { UserEvents } from '../social/user-events.js';
 
 /**
  * Periodic check that the session behind a socket still exists. Revocations made
@@ -47,6 +48,7 @@ export class RealtimeGateway
     @Optional() private readonly presence?: PresenceGateway,
     @Optional() private readonly matchmaking?: MatchmakingEvents,
     @Optional() private readonly privateMessages?: PrivateMessageRealtime,
+    @Optional() private readonly userEvents?: UserEvents,
   ) {
     this.connectionsActive = metrics.gauge({
       name: 'websocket_connections_active',
@@ -166,6 +168,7 @@ export class RealtimeGateway
       this.messages.disconnect(connectionId);
       this.matchmaking?.disconnect(connectionId);
       this.privateMessages?.disconnect(connectionId);
+      this.userEvents?.disconnect(connectionId);
     });
     socket.on('message', (raw, binary) => {
       if (socket.readyState !== WebSocket.OPEN) return;
@@ -272,6 +275,7 @@ export class RealtimeGateway
               this.presence?.connect(connectionId, authenticatedClient);
               this.matchmaking?.connect(connectionId, authenticatedClient);
               this.privateMessages?.connect(connectionId, authenticatedClient);
+              this.userEvents?.connect(connectionId, authenticatedClient);
             } else {
               if (
                 principal.expiresAt <= Date.now() ||
@@ -287,6 +291,13 @@ export class RealtimeGateway
                 this.privateMessages
               ) {
                 await this.privateMessages.send(principal.userId, message.data);
+                return;
+              }
+              if (message.event === 'TYPING' && this.privateMessages) {
+                await this.privateMessages.announceTyping(
+                  principal.userId,
+                  message.data,
+                );
                 return;
               }
               await this.messages.handle(

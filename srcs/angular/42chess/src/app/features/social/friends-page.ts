@@ -1,14 +1,4 @@
-import { isPlatformBrowser } from '@angular/common';
-import {
-  Component,
-  computed,
-  DestroyRef,
-  effect,
-  inject,
-  PLATFORM_ID,
-  signal,
-  untracked,
-} from '@angular/core';
+import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -22,33 +12,35 @@ import { UserAvatar } from '../../shared/user-avatar';
 import { Challenges } from './challenge';
 import {
   Friend,
+  FRIEND_ERRORS,
   FriendRequest,
   PlayerSearchResult,
-  PublicProfile,
   presenceChanges,
+  RequestPlayer,
   SEARCH_MAX_LENGTH,
+  SocialEvent,
+  socialEvents,
   UsersApi,
 } from './users-api';
 
-/** No event announces a new request, so the inbox is read again while the page is open. */
-export const REQUESTS_REFRESH_MS = 30_000;
-
 export interface IncomingRequest extends FriendRequest {
   /** Null when the sender's profile could not be read; the request stays actionable. */
-  sender: PublicProfile | null;
+  sender: RequestPlayer | null;
+}
+export interface SentRequest extends FriendRequest {
+  recipient: RequestPlayer | null;
+}
+
+function byName(a: Friend, b: Friend): number {
+  return (
+    a.username.toLowerCase().localeCompare(b.username.toLowerCase()) || a.id.localeCompare(b.id)
+  );
 }
 
 /**
- * Player search (kept in `?q=`), incoming friend requests, and the signed-in user's friends
- * with live presence.
+ * Player search (kept in `?q=`), friend requests both ways, and the signed-in user's friends
+ * with live presence. Requests and friendships change live, from any tab or the other player.
  */
-
-const FRIEND_ERRORS: Record<string, string> = {
-  FRIEND_REQUEST_SELF: 'You cannot add yourself as a friend.',
-  FRIEND_REQUEST_FORBIDDEN: 'You cannot answer this friend request.',
-  ALREADY_FRIENDS: 'You are already friends with this player.',
-  FRIEND_REQUEST_PENDING: 'A friend request is already pending with this player.',
-};
 @Component({
   selector: 'app-friends-page',
   imports: [PresenceBadge, ReactiveFormsModule, RouterLink, UserAvatar],
@@ -61,7 +53,7 @@ export class FriendsPage {
   private readonly session = inject(AuthSession);
   private readonly challenges = inject(Challenges);
   readonly challenging = signal<string | null>(null);
-  readonly challengeFailed = signal(false);
+  readonly challengeError = signal<string | null>(null);
   readonly maxLength = SEARCH_MAX_LENGTH;
   private readonly signedInId = computed(() => this.session.user()?.id);
 
@@ -80,6 +72,7 @@ export class FriendsPage {
   readonly friends = signal<Friend[] | null>(null);
   readonly friendsFailed = signal(false);
   readonly requests = signal<IncomingRequest[] | null>(null);
+  readonly sent = signal<SentRequest[] | null>(null);
   /** Request or friend ids with an action in flight, so their buttons cannot fire twice. */
   readonly busy = signal<ReadonlySet<string>>(new Set());
   readonly confirmingRemoval = signal<string | null>(null);
@@ -100,18 +93,31 @@ export class FriendsPage {
         this.loadRequests();
       });
     });
-    if (isPlatformBrowser(inject(PLATFORM_ID))) {
-      const timer = setInterval(() => this.loadRequests(), REQUESTS_REFRESH_MS);
-      inject(DestroyRef).onDestroy(() => clearInterval(timer));
-    }
-    presenceChanges(inject(RealtimeService))
-      .pipe(takeUntilDestroyed(inject(DestroyRef)))
+    const realtime = inject(RealtimeService);
+    // Events missed while the socket was down are not replayed: read everything again.
+    let previous = realtime.state();
+    effect(() => {
+      const state = realtime.state();
+      const reconnected = state === 'connected' && previous !== 'connected';
+      previous = state;
+      if (reconnected && this.signedInId())
+        untracked(() => {
+          this.loadFriends();
+          this.loadRequests();
+        });
+    });
+    const destroy = inject(DestroyRef);
+    presenceChanges(realtime)
+      .pipe(takeUntilDestroyed(destroy))
       .subscribe(({ userId, status }) =>
         this.friends.update(
           (list) =>
             list?.map((friend) => (friend.id === userId ? { ...friend, status } : friend)) ?? null,
         ),
       );
+    socialEvents(realtime)
+      .pipe(takeUntilDestroyed(destroy))
+      .subscribe((event) => this.apply(event));
   }
 
   submit(): void {
@@ -122,11 +128,11 @@ export class FriendsPage {
   challenge(friend: { id: string }): void {
     if (this.challenging()) return;
     this.challenging.set(friend.id);
-    this.challengeFailed.set(false);
+    this.challengeError.set(null);
     this.challenges.send(friend.id).subscribe({
-      error: () => {
+      error: (error: unknown) => {
         this.challenging.set(null);
-        this.challengeFailed.set(true);
+        this.challengeError.set(errorText(error, 'The challenge could not be sent. Try again.'));
       },
       complete: () => this.challenging.set(null),
     });
@@ -152,6 +158,16 @@ export class FriendsPage {
       )
       // A failed refresh keeps the list already shown; the next one tries again.
       .subscribe({ next: (requests) => this.requests.set(requests), error: () => {} });
+    this.users
+      .sentFriendRequests()
+      .pipe(
+        switchMap(({ requests }) =>
+          requests.length
+            ? forkJoin(requests.map((request) => this.withRecipient(request)))
+            : of([] as SentRequest[]),
+        ),
+      )
+      .subscribe({ next: (requests) => this.sent.set(requests), error: () => {} });
   }
 
   accept(request: IncomingRequest): void {
@@ -162,7 +178,14 @@ export class FriendsPage {
   }
 
   reject(request: IncomingRequest): void {
-    this.act(request.id, this.users.rejectFriendRequest(request.id), () =>
+    this.act(request.id, this.users.removeFriendRequest(request.id), () =>
+      this.dropRequest(request.id),
+    );
+  }
+
+  /** Withdraws a request this player sent: it disappears from the other player's list. */
+  cancel(request: SentRequest): void {
+    this.act(request.id, this.users.removeFriendRequest(request.id), () =>
       this.dropRequest(request.id),
     );
   }
@@ -178,15 +201,68 @@ export class FriendsPage {
     return id === this.signedInId();
   }
 
-  private withSender(request: FriendRequest): Observable<IncomingRequest> {
-    return this.users.profile(request.senderId).pipe(
-      map((sender) => ({ ...request, sender })),
-      catchError(() => of({ ...request, sender: null })),
+  private player(id: string): Observable<RequestPlayer | null> {
+    return this.users.profile(id).pipe(
+      map(({ id, username, avatarUrl, elo }) => ({ id, username, avatarUrl, elo })),
+      catchError(() => of(null)),
     );
+  }
+
+  private withSender(request: FriendRequest): Observable<IncomingRequest> {
+    return this.player(request.senderId).pipe(map((sender) => ({ ...request, sender })));
+  }
+
+  private withRecipient(request: FriendRequest): Observable<SentRequest> {
+    return this.player(request.recipientId).pipe(map((recipient) => ({ ...request, recipient })));
   }
 
   private dropRequest(id: string): void {
     this.requests.update((list) => list?.filter((request) => request.id !== id) ?? null);
+    this.sent.update((list) => list?.filter((request) => request.id !== id) ?? null);
+  }
+
+  private apply(event: SocialEvent): void {
+    switch (event.type) {
+      case 'request-received':
+        this.requests.update((list) =>
+          list?.some((request) => request.id === event.request.id)
+            ? list
+            : [...(list ?? []), { ...event.request, sender: event.sender }],
+        );
+        break;
+      case 'request-sent': {
+        const request = event.request;
+        if (this.sent()?.some((known) => known.id === request.id)) break;
+        this.withRecipient(request).subscribe((added) =>
+          this.sent.update((list) =>
+            list?.some((known) => known.id === added.id) ? list : [...(list ?? []), added],
+          ),
+        );
+        break;
+      }
+      case 'request-removed':
+        this.dropRequest(event.requestId);
+        break;
+      case 'friend-added':
+        if (event.requestId) this.dropRequest(event.requestId);
+        this.friends.update((list) =>
+          list && !list.some((friend) => friend.id === event.friend.id)
+            ? [...list, event.friend].sort(byName)
+            : list,
+        );
+        // A crossed request may be listed under either id: drop any left with this player.
+        this.requests.update(
+          (list) => list?.filter((request) => request.senderId !== event.friend.id) ?? null,
+        );
+        this.sent.update(
+          (list) => list?.filter((request) => request.recipientId !== event.friend.id) ?? null,
+        );
+        break;
+      case 'friend-removed':
+        this.friends.update((list) => list?.filter((friend) => friend.id !== event.userId) ?? null);
+        if (this.confirmingRemoval() === event.userId) this.confirmingRemoval.set(null);
+        break;
+    }
   }
 
   private act(id: string, call: Observable<unknown>, done: () => void): void {
