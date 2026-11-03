@@ -102,9 +102,21 @@ export class I18n {
   private readonly transloco = inject(TranslocoService);
   private readonly document = inject(DOCUMENT);
   readonly language = active.asReadonly();
+  private requested: Language = DEFAULT_LANGUAGE;
 
   async use(language: Language): Promise<void> {
-    await firstValueFrom(this.transloco.load(language));
+    this.requested = language;
+    // Already shown: nothing to load or draw again.
+    if (language === active()) return;
+    try {
+      await firstValueFrom(this.transloco.load(language));
+    } catch {
+      // Its texts did not load (a lost connection, a new deployment): the site stays in the
+      // language it shows, and still starts.
+      return;
+    }
+    // A later choice wins, even when its texts loaded first.
+    if (this.requested !== language) return;
     this.transloco.setActiveLang(language);
     active.set(language);
     this.document.documentElement.lang = language;

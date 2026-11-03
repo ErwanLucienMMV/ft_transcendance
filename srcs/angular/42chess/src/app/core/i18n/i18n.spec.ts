@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslocoService } from '@jsverse/transloco';
+import { Subject } from 'rxjs';
 import { PrivacyPage } from '../../features/legal/privacy-page';
 import { RulesPage } from '../../features/help/rules-page';
 import { resultText, spokenMove } from '../../shared/chess/game-text';
@@ -82,6 +84,44 @@ describe('Languages', () => {
     expect([...help.querySelectorAll('li')].map((item) => item.textContent).at(-1)).toBe(
       '30 + 0 (Clásica)',
     );
+  });
+
+  it('keeps the latest choice when texts load out of order, and stays put when they fail', async () => {
+    const loads = new Map<string, Subject<unknown>>();
+    const answer = (language: string) => {
+      loads.get(language)!.next({});
+      loads.get(language)!.complete();
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: TranslocoService,
+          useValue: {
+            load: (language: string) => {
+              loads.set(language, new Subject());
+              return loads.get(language);
+            },
+            setActiveLang: vi.fn(),
+          },
+        },
+      ],
+    });
+    const i18n = TestBed.inject(I18n);
+    const french = i18n.use('fr');
+    const spanish = i18n.use('es');
+    answer('es');
+    await spanish;
+    answer('fr');
+    await french;
+    expect(currentLanguage()).toBe('es');
+    // A chunk that cannot be loaded leaves the site as it is.
+    const failed = i18n.use('fr');
+    loads.get('fr')!.error(new Error('Failed to fetch dynamically imported module'));
+    await expect(failed).resolves.toBeUndefined();
+    expect(currentLanguage()).toBe('es');
+    const back = i18n.use('en');
+    answer('en');
+    await back;
   });
 
   it('picks the first supported language of the browser', () => {
