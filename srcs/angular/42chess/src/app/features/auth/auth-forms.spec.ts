@@ -163,6 +163,11 @@ describe('Authentication forms', () => {
       'I accept the Terms of Service and the Privacy Policy',
     );
     expect(label.querySelector('a[href="/terms"]')?.getAttribute('target')).toBe('_blank');
+    // Screen readers hear that both links open a new tab.
+    for (const link of label.querySelectorAll('a'))
+      expect(element.querySelector(`#${link.getAttribute('aria-describedby')}`)?.textContent).toBe(
+        '(opens in a new tab)',
+      );
     expect(label.querySelector('a[href="/privacy"]')).not.toBeNull();
     acceptTerms(fixture);
     submit(fixture);

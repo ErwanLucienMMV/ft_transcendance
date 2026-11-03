@@ -82,8 +82,8 @@ in [BACKUP.md](../BACKUP.md).
 ## Development and isolated tests
 
 `make dev` uses `srcs/docker-compose.dev.yml`: Angular on 4200, NestJS on
-APIPORT and Grafana on 3001, bound to 127.0.0.1, with source bind mounts and an
-Angular proxy. It has no Nginx TLS
+APIPORT, Grafana on 3001, Prometheus on 9090 and PostgreSQL on 5432, bound to
+127.0.0.1, with source bind mounts and an Angular proxy. It has no Nginx TLS
 entry point. Production and development use fixed container names, so run one
 application stack at a time.
 

@@ -6,8 +6,8 @@ SCRUM-509 · Run commands from the repository root unless noted otherwise.
 
 - Git, Make and a running Docker engine with Compose v2 (or compatible Podman).
 - Free ports 8080 (HTTPS) and 80 (HTTP redirect) for production: no other
-  service publishes a port. Development uses 4200, 3000 and 3001 (Grafana),
-  bound to 127.0.0.1.
+  service publishes a port. Development uses 4200, 3000, 3001 (Grafana), 9090
+  (Prometheus) and 5432 (PostgreSQL), bound to 127.0.0.1.
 - Node 22 and npm for running backend tools on the host; container builds bring
   their own Node toolchain. Use the Angular package's supported Node version if
   developing the frontend outside its Node 22 container.

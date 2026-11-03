@@ -503,10 +503,11 @@ Les tables ci-dessus ont été générées avant ces migrations ; elles ajoutent
   connecté. `id` (PK, `uuid`), `userId` (FK `users` `ON DELETE CASCADE`, indexée), `expiresAt`,
   `revokedAt`, `refreshTokenHash` et `previousRefreshTokenHash` (`varchar(64)`, rotation du
   jeton de rafraîchissement), `refreshRotatedAt`.
-- `oauth_flows` (`CreateOauthFlows`) : état temporaire d'une connexion Google, GitHub ou 42.
-  `id` (PK, `varchar(64)`), `browserHash`, `purpose` (`authorize` ou `handoff`), `provider`,
-  `verifier` (PKCE), `userId` et `sessionId` (sans clé étrangère : la ligne vit quelques
-  minutes), `expiresAt`, `created` (compte créé par ce flux).
+- `oauth_flows` (`CreateOauthFlows`, `AddAccountManagement`) : état temporaire d'une connexion
+  Google, GitHub ou 42. `id` (PK, `varchar(64)`), `browserHash`, `purpose` (`authorize` ou
+  `handoff`), `provider` (`google`, `github` ou `fortytwo`), `verifier` (PKCE), `userId` (FK
+  `users` `ON DELETE CASCADE`) et `sessionId` (FK `auth_sessions` `ON DELETE CASCADE`), tous deux
+  vides tant que personne n'est connecté, `expiresAt`, `created` (compte créé par ce flux).
 - `user_blocks` (`AddSocialControls`) : `id`, `createdAt`, `blockerId` et `blockedId` (FK
   `users` `CASCADE`), `UQ_user_blocks_pair`, `CHK_user_blocks_self`, index sur `blockedId`.
 

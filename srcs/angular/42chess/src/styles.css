@@ -363,6 +363,11 @@ textarea:focus-visible {
   padding: 0;
   accent-color: var(--accent);
 }
+/* A native checkbox draws no red border: an outline marks it like the other fields. */
+.checkbox input[aria-invalid='true'] {
+  outline: 2px solid var(--error);
+  outline-offset: 2px;
+}
 
 /* Three pulsing dots: someone is typing. */
 .dots {

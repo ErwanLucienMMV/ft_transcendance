@@ -17,6 +17,8 @@ project; the project is rejected without them.
   not sent until it is ticked.
 - Under the Google, GitHub and 42 buttons of the sign-in page, a line says that creating an
   account with a provider means accepting both pages, with the same links.
+- The acceptance is asked by the site's forms only: the API does not record it, so an account
+  created by calling the API directly has not ticked anything.
 
 ## Keeping the Privacy Policy true
 

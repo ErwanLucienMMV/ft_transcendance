@@ -47,6 +47,7 @@ export const auth = {
     acceptStart: 'I accept the',
     acceptAnd: 'and the',
     acceptError: 'Accept the terms to create your account.',
+    newTab: '(opens in a new tab)',
   },
   verify: {
     title: 'Verify your email',
@@ -86,6 +87,7 @@ export const auth = {
     others: 'Other sign-in methods',
     continueWith: 'Continue with {{provider}}',
     acceptStart: 'Creating an account with a provider means you accept the',
+    acceptAnd: 'and the',
     unavailable: 'This sign-in method is currently unavailable.',
     openFailed: 'The sign-in page could not be opened. Please try again.',
     title: 'Completing sign-in',

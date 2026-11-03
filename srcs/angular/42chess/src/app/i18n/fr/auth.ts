@@ -49,6 +49,7 @@ export const auth: Translation['auth'] = {
     acceptStart: "J'accepte les",
     acceptAnd: 'et la',
     acceptError: 'Acceptez les conditions pour créer votre compte.',
+    newTab: "(s'ouvre dans un nouvel onglet)",
   },
   verify: {
     title: 'Vérifiez votre email',
@@ -88,6 +89,7 @@ export const auth: Translation['auth'] = {
     others: 'Autres moyens de connexion',
     continueWith: 'Continuer avec {{provider}}',
     acceptStart: 'En créant un compte avec un fournisseur, vous acceptez les',
+    acceptAnd: 'et la',
     unavailable: 'Ce moyen de connexion est indisponible pour le moment.',
     openFailed: "La page de connexion n'a pas pu s'ouvrir. Réessayez.",
     title: 'Finalisation de la connexion',

@@ -12,7 +12,7 @@ out of Git; use placeholders in reports and examples.
 | APIPORT | 3000 | API listener; Nginx, the healthcheck and Prometheus follow it |
 | CORS_ORIGINS | empty | Comma-separated exact additional browser origins; same-origin Nginx needs none |
 | DATABASE_HOST | postgres | Compose PostgreSQL service DNS name; use loopback for host-side tools |
-| DATABASE_PORT | 5432 | Database port inside the network; keep 5432 (not published on the host) |
+| DATABASE_PORT | 5432 | Database port inside the network; keep 5432 (published on 127.0.0.1 by `make dev` only) |
 | DATABASE_NAME | transcendence | Application database |
 | DATABASE_USER | transcendence | Application database role |
 | DATABASE_PASSWORD | generated | Required non-empty database password |

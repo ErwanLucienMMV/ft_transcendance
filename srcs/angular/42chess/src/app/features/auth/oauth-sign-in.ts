@@ -18,12 +18,10 @@ import { RouterLink } from '@angular/router';
             </button>
           }
         </div>
-      }
-      @if (oauth.providers().length) {
         <p class="oauth-terms">
           {{ t('auth.oauth.acceptStart') }}
           <a routerLink="/terms">{{ t('app.terms') }}</a>
-          {{ t('auth.register.acceptAnd') }}
+          {{ t('auth.oauth.acceptAnd') }}
           <a routerLink="/privacy">{{ t('app.privacy') }}</a>
         </p>
       }

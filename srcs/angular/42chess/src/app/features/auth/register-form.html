@@ -85,14 +85,20 @@
           [attr.aria-invalid]="invalid('acceptTerms')"
           [attr.aria-describedby]="invalid('acceptTerms') ? 'terms-error' : null"
         />
-        <!-- New tabs, so reading the terms keeps what was typed here. -->
+        <!-- New tabs, so reading the terms keeps what was typed here. The links say so
+             as their description, which stays out of the checkbox's name. -->
         <span>
           {{ t('auth.register.acceptStart') }}
-          <a routerLink="/terms" target="_blank">{{ t('app.terms') }}</a>
+          <a routerLink="/terms" target="_blank" aria-describedby="terms-new-tab">{{
+            t('app.terms')
+          }}</a>
           {{ t('auth.register.acceptAnd') }}
-          <a routerLink="/privacy" target="_blank">{{ t('app.privacy') }}</a>
+          <a routerLink="/privacy" target="_blank" aria-describedby="terms-new-tab">{{
+            t('app.privacy')
+          }}</a>
         </span>
       </label>
+      <span id="terms-new-tab" hidden>{{ t('auth.register.newTab') }}</span>
       @if (invalid('acceptTerms')) {
         <p id="terms-error">{{ t('auth.register.acceptError') }}</p>
       }

@@ -256,7 +256,7 @@ UUIDs; all dates are `timestamptz`.
 | Monitoring and alerts | Application and host metrics, Grafana dashboards, alert rules sent by email | emaigne, hcombaud |
 | Status, backups and recovery | Health check, public status page, hourly backups, all-or-nothing restore | emaigne, hcombaud |
 | Interface | Design system, light and dark themes, three languages, keyboard and screen reader support | hcombaud |
-| Legal pages | Privacy Policy and Terms of Service, accepted at registration | hcombaud |
+| Legal pages | Privacy Policy and Terms of Service, linked from every page and accepted on the sign-up form | hcombaud |
 
 ## Modules
 
@@ -266,7 +266,7 @@ UUIDs; all dates are `timestamptz`.
 | Web: real-time features (WebSockets) | Major | 2 | One authenticated WebSocket per tab for moves, clocks, chat, presence and notifications; reconnection resumes the game; broadcasts go only to a game's players and spectators. | hcombaud, emaigne |
 | Web: user interaction | Major | 2 | Private chat, profiles, friends (add, remove, list), plus blocking and challenges. | emaigne, hcombaud |
 | Web: ORM | Minor | 1 | TypeORM entities and versioned migrations on PostgreSQL. | all |
-| Web: custom design system | Minor | 1 | Tokens for colours, type and icons, 15 reusable components, a living guide at `/design`. | hcombaud |
+| Web: custom design system | Minor | 1 | Tokens for colours, type and icons, 16 reusable components, a living guide at `/design`. | hcombaud |
 | Accessibility: multiple languages | Minor | 1 | English, French and Spanish with Transloco, switcher in the footer and settings, every text translated. | hcombaud |
 | User management: standard user management | Major | 2 | Profile and avatar, friends and online status, profile pages with stats and history. | hcombaud, ntassin |
 | User management: game statistics and match history | Minor | 1 | Results, rating curve, rank and full game history with replay. | hcombaud, emaigne |

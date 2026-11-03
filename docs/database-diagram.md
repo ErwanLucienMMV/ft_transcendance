@@ -155,6 +155,8 @@ erDiagram
     users ||..o{ user_achievements : userId
     achievements ||..o{ user_achievements : code
     users ||..o{ auth_sessions : userId
+    users |o..o{ oauth_flows : userId
+    auth_sessions |o..o{ oauth_flows : sessionId
 ```
 
 `||` indique un parent obligatoire, `o|` zéro ou un, `o{` zéro ou plusieurs.
