@@ -34,6 +34,7 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
     echo "Starting PostgreSQL temporarily..."
 
     as_postgres "$PG_BIN/pg_ctl" -D "$PGDATA" -o "-c listen_addresses=localhost" -w start
+    started=1
 
     # Values are passed as psql variables (:"name" for identifiers, :'name'
     # for literals) so they are quoted by psql, never pasted into the SQL.
@@ -44,9 +45,10 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
 		CREATE USER :"app_user" WITH PASSWORD :'app_password';
 		CREATE DATABASE :"app_db" OWNER :"app_user";
 	EOSQL
-else
+elif [ -n "${POSTGRES_BACKUP_USER:-}" ] && [ -n "${POSTGRES_BACKUP_PASSWORD:-}" ]; then
     echo "Starting PostgreSQL temporarily to check the read-only role..."
     as_postgres "$PG_BIN/pg_ctl" -D "$PGDATA" -o "-c listen_addresses=localhost" -w start
+    started=1
 fi
 
 # On every start, so a database created by an older version (or before the
@@ -67,7 +69,10 @@ else
         "no read-only role, so no backups and no PostgreSQL metrics."
 fi
 
-as_postgres "$PG_BIN/pg_ctl" -D "$PGDATA" -m fast -w stop
+# Only if one of the steps above started it.
+if [ "${started:-0}" = 1 ]; then
+    as_postgres "$PG_BIN/pg_ctl" -D "$PGDATA" -m fast -w stop
+fi
 
 # Volumes created before this rule allowed every address: narrow them too.
 sed -i 's|^host all all 0\.0\.0\.0/0 |host all all samenet |' "$PGDATA/pg_hba.conf"

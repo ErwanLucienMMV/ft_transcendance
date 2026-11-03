@@ -153,6 +153,8 @@ describe('HealthService', () => {
     expect(text).toContain(
       `backup_last_success_timestamp_seconds ${Date.parse('2026-11-02T16:00:00Z') / 1000}`,
     );
+    // The stale threshold of the status page, for the BackupStale alert.
+    expect(text).toContain('backup_max_age_seconds 7200');
   });
 });
 

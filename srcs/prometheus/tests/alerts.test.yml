@@ -135,6 +135,8 @@ tests:
       # The last backup happened at second 600 and none came after it.
       - series: 'backup_last_success_timestamp_seconds{job="nestjs", instance="nestjs:3000"}'
         values: '600x200'
+      - series: 'backup_max_age_seconds{job="nestjs", instance="nestjs:3000"}'
+        values: '7200x200'
     alert_rule_test:
       - eval_time: 2h
         alertname: BackupStale
@@ -161,6 +163,8 @@ tests:
     input_series:
       - series: 'backup_last_success_timestamp_seconds{job="nestjs", instance="nestjs:3000"}'
         values: '0x200'
+      - series: 'backup_max_age_seconds{job="nestjs", instance="nestjs:3000"}'
+        values: '7200x200'
     alert_rule_test:
       - eval_time: 1h
         alertname: BackupMissing
@@ -250,5 +254,5 @@ tests:
             exp_annotations:
               summary: Container srcs-bot-1 keeps restarting
               description: >-
-                srcs-bot-1 started 3 times in 15 minutes. See its
+                srcs-bot-1 restarted 3 times in 15 minutes. See its
                 logs with `docker logs srcs-bot-1`.

@@ -91,8 +91,9 @@ groups:
             accepts are in use. New connections will soon be refused.
 
       - alert: BackupStale
+        # The same threshold as the status page: BACKUP_MAX_AGE_SECONDS, 2 h by default.
         expr: |
-          (time() - backup_last_success_timestamp_seconds > 2 * 3600)
+          (time() - backup_last_success_timestamp_seconds > backup_max_age_seconds)
           and
           backup_last_success_timestamp_seconds > 0
         for: 5m
@@ -154,5 +155,5 @@ groups:
         annotations:
           summary: 'Container {{ $labels.name }} keeps restarting'
           description: >-
-            {{ $labels.name }} started {{ $value }} times in 15 minutes. See its
+            {{ $labels.name }} restarted {{ $value }} times in 15 minutes. See its
             logs with `docker logs {{ $labels.name }}`.

@@ -51,9 +51,15 @@ export function pingWebSocket(url: string, ms = CHECK_TIMEOUT_MS) {
       else resolve();
     };
     const timer = setTimeout(() => finish(new Error('Ping timed out')), ms);
-    socket.addEventListener('open', () =>
-      socket.send(JSON.stringify({ id, op: 'ping' })),
-    );
+    socket.addEventListener('open', () => {
+      if (settled) return;
+      try {
+        socket.send(JSON.stringify({ id, op: 'ping' }));
+      } catch {
+        // Thrown in a listener, it would be an uncaught exception.
+        finish(new Error('Ping not sent'));
+      }
+    });
     socket.addEventListener('message', (event) => {
       try {
         const reply = JSON.parse(String(event.data)) as {
@@ -198,6 +204,13 @@ export class HealthService {
       async collect() {
         for (const service of (await report()).services)
           this.set({ service: service.name }, service.status === 'up' ? 1 : 0);
+      },
+    });
+    metrics.gauge({
+      name: 'backup_max_age_seconds',
+      help: 'Age past which the last backup is stale (BACKUP_MAX_AGE_SECONDS)',
+      async collect() {
+        this.set((await report()).backup.maxAgeSeconds);
       },
     });
     metrics.gauge({

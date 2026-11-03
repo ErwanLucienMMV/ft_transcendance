@@ -20,7 +20,8 @@ scrape_configs:
     static_configs:
       - targets: ['nestjs:${APIPORT}']
 
-  # The machine: CPU, memory, disks, network.
+  # The machine: CPU, memory and disks. The network is per container, from
+  # cAdvisor: node-exporter only sees the network of its own container.
   - job_name: 'node'
     static_configs:
       - targets: ['node-exporter:9100']
@@ -30,7 +31,12 @@ scrape_configs:
     static_configs:
       - targets: ['cadvisor:8080']
     metric_relabel_configs:
-      # Keep the containers of this project, by their Compose service name.
+      # Only the containers of this stack: Compose names its project after the
+      # folder of docker-compose.yml, srcs (as in the srcs_* volumes).
+      - source_labels: [container_label_com_docker_compose_project]
+        regex: srcs
+        action: keep
+      # Each one named by its Compose service.
       - source_labels: [container_label_com_docker_compose_service]
         target_label: service
       - regex: 'container_label_.*'

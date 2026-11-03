@@ -2,6 +2,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { catchError, Observable, of } from 'rxjs';
 import { ApiClient } from '../../core/api/api-client';
+import { ApiError } from '../../core/api/api-error';
+import { handledErrors } from '../../core/api/api-error.interceptor';
 
 export type ServiceName = 'database' | 'chess-engine' | 'bot' | 'mail';
 
@@ -28,6 +30,9 @@ export interface HealthReport {
 
 export const STATUS_REFRESH_MS = 30_000;
 
+/** The page explains an outage itself: no global error banner on top of it. */
+const OUTAGE_ERRORS = handledErrors('HTTP_ERROR', 'NETWORK_ERROR', 'INTERNAL_SERVER_ERROR');
+
 function isReport(value: unknown): value is HealthReport {
   return (
     typeof value === 'object' &&
@@ -46,12 +51,14 @@ export class StatusApi {
    * carries the report: the API is up but its database is not.
    */
   health(): Observable<HealthReport | null> {
-    return this.api
-      .get<HealthReport>('health')
-      .pipe(
-        catchError((error: unknown) =>
-          of(error instanceof HttpErrorResponse && isReport(error.error) ? error.error : null),
-        ),
-      );
+    return this.api.get<HealthReport>('health', OUTAGE_ERRORS).pipe(
+      catchError((error: unknown) => {
+        // The API error interceptor keeps the HTTP response as the cause.
+        const response = error instanceof ApiError ? error.cause : error;
+        return of(
+          response instanceof HttpErrorResponse && isReport(response.error) ? response.error : null,
+        );
+      }),
+    );
   }
 }

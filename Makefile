@@ -3,8 +3,11 @@ COMPOSE_FILE	= docker-compose.yml
 DEV_COMPOSE	= docker-compose.dev.yml
 TEST_COMPOSE	= $(COMPOSE_DIR)/nestJS/42chess/test/docker-compose.yml
 
+# The API reads the backup status from BACKUP_DIR/status (relative to srcs/, as
+# in Compose): the folder must exist before the stack starts.
 all: env
-	@mkdir -p backups/status
+	@dir="$${BACKUP_DIR:-../backups}"; case "$$dir" in /*) ;; *) dir="$(COMPOSE_DIR)/$$dir" ;; esac; \
+		mkdir -p "$$dir/status"
 	@echo "Starting the building of images, be patient this can take a loooong time"
 	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) up --build -d > compose.log 2>&1 || { \
 		echo "Build or start failed, last lines of compose.log:"; \
