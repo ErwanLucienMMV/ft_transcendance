@@ -141,6 +141,25 @@ describe('Social notices', () => {
     expect(noticeFor({ event: 'LEVEL_UP', data: { level: 'x' } }, 'me')).toBeNull();
   });
 
+  it('lets a burst of progress notices make room among themselves, never over a challenge', () => {
+    TestBed.inject(AuthSession).establish({
+      user: { id: 'me', username: 'me', elo: 1200 },
+      accessToken: `x.${btoa(JSON.stringify({ exp: Date.now() / 1000 + 3600 }))}.x`,
+    });
+    const fixture = TestBed.createComponent(SocialNotices);
+    const element: HTMLElement = fixture.nativeElement;
+    events.next(challenge);
+    for (const code of ['FIRST_GAME', 'FIRST_WIN', 'BOT_EASY', 'GAMES_10'])
+      events.next({ ...achievement, data: { ...achievement.data, code, name: code } });
+    fixture.detectChanges();
+    const kinds = [...element.querySelectorAll('.notice')].map((notice) =>
+      notice.getAttribute('data-kind'),
+    );
+    expect(kinds).toEqual(['challenge', 'achievement', 'achievement']);
+    expect(element.textContent).toContain('GAMES_10');
+    expect(element.textContent).toContain('bob challenges you');
+  });
+
   it('shows progress notices with a badge, even on the profile page', async () => {
     vi.useFakeTimers();
     TestBed.inject(AuthSession).establish({

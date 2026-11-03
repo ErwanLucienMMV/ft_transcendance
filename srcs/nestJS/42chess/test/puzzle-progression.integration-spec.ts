@@ -34,9 +34,14 @@ describe('Puzzle limits, archive and rewards', () => {
     return row.solution;
   }
 
-  async function solve(userId: string, attemptId: string, line: string[]) {
+  async function solve(
+    userId: string,
+    attemptId: string,
+    line: string[],
+    from = 0,
+  ) {
     let turn;
-    for (let ply = 0, version = 0; ply < line.length; ply += 2, version++)
+    for (let ply = 0, version = from; ply < line.length; ply += 2, version++)
       turn = await service.play(userId, attemptId, line[ply], version);
     return turn!;
   }
@@ -146,6 +151,30 @@ describe('Puzzle limits, archive and rewards', () => {
     });
   });
 
+  it('counts the daily puzzle on the day the attempt started, solved after midnight', async () => {
+    const daily = await service.daily();
+    const start = await service.start(f.alice, daily.id);
+    // Started yesterday, when this was yesterday's puzzle.
+    await f.source.query(
+      `UPDATE daily_puzzles SET date = date - 1 WHERE "puzzleId" = $1`,
+      [daily.id],
+    );
+    await f.source.query(
+      `UPDATE puzzle_attempts SET "createdAt" = "createdAt" - interval '1 day' WHERE id = $1`,
+      [start.attemptId],
+    );
+    const done = await solve(
+      f.alice,
+      start.attemptId,
+      await solution(daily.id),
+    );
+    expect(done.reward).toEqual({ xp: 25, streak: 1 });
+    expect((await progression.stats(f.alice)).puzzles).toMatchObject({
+      streak: 1,
+      solvedToday: false,
+    });
+  });
+
   it('starts the streak again after a missed day', async () => {
     const daily = await service.daily();
     await f.source.query(
@@ -171,12 +200,14 @@ describe('Puzzle limits, archive and rewards', () => {
     const puzzle = await f.reference();
     const start = await service.start(f.alice, puzzle.id);
     const hinted = await service.hint(f.alice, start.attemptId);
-    expect(hinted).toMatchObject({ hint: 'a2', hintUsed: true });
+    // A new version: another tab learns that the attempt now earns half.
+    expect(hinted).toMatchObject({ hint: 'a2', hintUsed: true, version: 1 });
     expect(hinted).not.toHaveProperty('solution');
     const done = await solve(
       f.alice,
       start.attemptId,
       await solution(puzzle.id),
+      hinted.version,
     );
     expect(done.reward).toEqual({ xp: 5, streak: null });
     expect((await progression.stats(f.alice)).puzzles.streak).toBe(0);

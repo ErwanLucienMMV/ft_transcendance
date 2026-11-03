@@ -25,10 +25,12 @@ import type {
   PuzzleReward,
   XpChange,
 } from '../progression/progression.service.js';
-import { XP_RULES } from '../progression/progression.rules.js';
+import {
+  TODAY_SQL as TODAY,
+  XP_RULES,
+} from '../progression/progression.rules.js';
 import type { Pagination } from '../common/types/api.js';
 
-const TODAY = `(clock_timestamp() AT TIME ZONE 'UTC')::date`;
 const MAX_MISTAKES = XP_RULES.maxPuzzleMistakes;
 
 @Injectable()
@@ -62,7 +64,7 @@ export class PuzzlesService implements OnApplicationBootstrap {
   async daily(): Promise<DailyPuzzleResponse> {
     return this.source.transaction(async (manager) => {
       const [{ date }] = (await manager.query(
-        `SELECT (clock_timestamp() AT TIME ZONE 'UTC')::date::text AS date`,
+        `SELECT ${TODAY}::text AS date`,
       )) as { date: string }[];
       await manager.query(
         `SELECT pg_advisory_xact_lock(hashtext(current_schema()), hashtext($1))`,
@@ -215,10 +217,22 @@ export class PuzzlesService implements OnApplicationBootstrap {
     this.assertPlayable(attempt);
     const puzzle = await this.puzzle(attempt.puzzleId);
     const next = puzzle.solution[attempt.moves.length];
-    if (!attempt.hintUsed)
-      await this.source
+    if (!attempt.hintUsed) {
+      // Only while the attempt is still playable; the new version tells another
+      // tab that the attempt now earns half the XP.
+      const result = await this.source
         .getRepository(PuzzleAttempt)
-        .update({ id: attempt.id, userId }, { hintUsed: true });
+        .createQueryBuilder()
+        .update()
+        .set({ hintUsed: true, version: () => 'version + 1' })
+        .where(
+          'id = :id AND "userId" = :userId AND version = :version AND NOT solved AND NOT revealed',
+          { id: attempt.id, userId, version: attempt.version },
+        )
+        .execute();
+      if (!result.affected) this.stale();
+      attempt.version += 1;
+    }
     attempt.hintUsed = true;
     return {
       ...this.present(attempt, await this.practice(attempt)),
@@ -263,8 +277,9 @@ export class PuzzlesService implements OnApplicationBootstrap {
       );
     }
     const attempt = await this.attempt(userId, attemptId);
-    if (attempt.version !== version) this.stale();
+    // A finished attempt says so, whatever version the client holds.
     this.assertPlayable(attempt);
+    if (attempt.version !== version) this.stale();
     const puzzle = await this.puzzle(attempt.puzzleId);
     const history = [...attempt.moves];
     const before = await this.rules.position(puzzle.fen, history);

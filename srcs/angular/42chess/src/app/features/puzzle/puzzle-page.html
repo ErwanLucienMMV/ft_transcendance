@@ -92,7 +92,12 @@
               {{ solved() ? 'Solve it again' : 'Try again' }}
             </button>
             @if (failed() && !solution()) {
-              <button type="button" class="ghost" [disabled]="busy()" (click)="showSolution()">
+              <button
+                type="button"
+                class="ghost"
+                [disabled]="busy() || !!sending()"
+                (click)="showSolution()"
+              >
                 Show the solution
               </button>
             }
@@ -105,7 +110,12 @@
             >
               Hint
             </button>
-            <button type="button" class="ghost" [disabled]="busy()" (click)="showSolution()">
+            <button
+              type="button"
+              class="ghost"
+              [disabled]="busy() || !!sending()"
+              (click)="showSolution()"
+            >
               Show the solution
             </button>
           }

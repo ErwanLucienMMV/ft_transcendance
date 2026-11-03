@@ -209,7 +209,8 @@ export class PuzzlePage {
   showSolution(): void {
     const attempt = this.attempt();
     const puzzle = this.daily();
-    if (!puzzle || this.busy() || !this.session.user()) return;
+    // Not while a move is on its way: revealing first would discard a winning move.
+    if (!puzzle || this.busy() || this.sending() || !this.session.user()) return;
     this.busy.set(true);
     this.error.set(null);
     (attempt ? of(attempt) : this.api.start(puzzle.id))

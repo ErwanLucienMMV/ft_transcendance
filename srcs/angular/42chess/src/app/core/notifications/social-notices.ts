@@ -236,8 +236,20 @@ export class SocialNotices {
 
   private show(notice: Notice): void {
     this.dismiss(notice.id);
-    const dropped = this.notices().slice(0, Math.max(0, this.notices().length - MAX_NOTICES + 1));
-    for (const old of dropped) this.dismiss(old.id);
+    const list = this.notices();
+    const excess = list.length - MAX_NOTICES + 1;
+    if (excess > 0) {
+      // A challenge or a friend request still waits for an answer: progress notices make
+      // room first, oldest first, and never push one of those out.
+      const progress = (item: Notice) => item.kind === 'achievement' || item.kind === 'level';
+      const candidates = [
+        ...list.filter(progress),
+        ...(progress(notice) ? [] : list.filter((item) => !progress(item))),
+      ].slice(0, excess);
+      for (const old of candidates) this.dismiss(old.id);
+      // No room left: the progress stays on the profile page.
+      if (candidates.length < excess) return;
+    }
     this.notices.update((list) => [...list, notice]);
     this.timers.set(
       notice.id,

@@ -14,6 +14,7 @@ import {
   levelFor,
   levelProgress,
   puzzleXp,
+  TODAY_SQL as TODAY,
   XP_RULES,
   xpForLevel,
 } from './progression.rules.js';
@@ -47,10 +48,9 @@ export interface Achievement {
 
 type Metrics = Record<AchievementMetric, number>;
 
-const TODAY = `(clock_timestamp() AT TIME ZONE 'UTC')::date`;
 /** Games that count for stats and achievements: finished with a result, two moves each. */
 const COUNTED_GAME = `g.status = 'FINISHED' AND g.result IS NOT NULL
-  AND (SELECT count(*) FROM moves m WHERE m."gameId" = g.id) >= ${XP_RULES.minimumMovesEach * 2}`;
+  AND EXISTS (SELECT 1 FROM moves m WHERE m."gameId" = g.id AND m.ply = ${XP_RULES.minimumMovesEach * 2})`;
 const WON = `((g.result = 'WHITE_WIN' AND me.color = 'WHITE') OR (g.result = 'BLACK_WIN' AND me.color = 'BLACK'))`;
 const LOST = `((g.result = 'WHITE_WIN' AND me.color = 'BLACK') OR (g.result = 'BLACK_WIN' AND me.color = 'WHITE'))`;
 
@@ -117,31 +117,36 @@ export class ProgressionService {
     puzzleId: string,
     hintUsed: boolean,
   ): Promise<{ change: XpChange; reward: PuzzleReward } | null> {
+    // The day the attempt started: a daily puzzle begun before midnight UTC and
+    // solved after it is still that day's puzzle.
     const [row] = (await manager.query(
-      `SELECT
-         (SELECT count(*)::int FROM puzzle_attempts WHERE "userId" = $1 AND "puzzleId" = $2) AS attempts,
-         EXISTS (SELECT 1 FROM daily_puzzles WHERE "puzzleId" = $2 AND date = ${TODAY}) AS daily`,
+      `SELECT count(*)::int AS attempts,
+         (min(a."createdAt") AT TIME ZONE 'UTC')::date::text AS day,
+         EXISTS (SELECT 1 FROM daily_puzzles d WHERE d."puzzleId" = $2
+           AND d.date = (min(a."createdAt") AT TIME ZONE 'UTC')::date) AS daily
+       FROM puzzle_attempts a WHERE a."userId" = $1 AND a."puzzleId" = $2`,
       [userId, puzzleId],
-    )) as { attempts: number; daily: boolean }[];
+    )) as { attempts: number; day: string; daily: boolean }[];
     if (row.attempts !== 1) return null;
     let streak: number | null = null;
     if (row.daily) {
       const [progress] = (await manager.query(
+        // A later day already counted keeps the streak as it is.
         `INSERT INTO user_progress ("userId", "puzzleStreak", "bestPuzzleStreak", "lastStreakDate")
-         VALUES ($1, 1, 1, ${TODAY})
+         VALUES ($1, 1, 1, $2::date)
          ON CONFLICT ("userId") DO UPDATE SET
            "puzzleStreak" = CASE
-             WHEN user_progress."lastStreakDate" = ${TODAY} THEN user_progress."puzzleStreak"
-             WHEN user_progress."lastStreakDate" = ${TODAY} - 1 THEN user_progress."puzzleStreak" + 1
+             WHEN user_progress."lastStreakDate" >= $2::date THEN user_progress."puzzleStreak"
+             WHEN user_progress."lastStreakDate" = $2::date - 1 THEN user_progress."puzzleStreak" + 1
              ELSE 1 END,
            "bestPuzzleStreak" = GREATEST(user_progress."bestPuzzleStreak", CASE
-             WHEN user_progress."lastStreakDate" = ${TODAY} THEN user_progress."puzzleStreak"
-             WHEN user_progress."lastStreakDate" = ${TODAY} - 1 THEN user_progress."puzzleStreak" + 1
+             WHEN user_progress."lastStreakDate" >= $2::date THEN user_progress."puzzleStreak"
+             WHEN user_progress."lastStreakDate" = $2::date - 1 THEN user_progress."puzzleStreak" + 1
              ELSE 1 END),
-           "lastStreakDate" = ${TODAY},
+           "lastStreakDate" = GREATEST(user_progress."lastStreakDate", $2::date),
            "updatedAt" = now()
          RETURNING "puzzleStreak"`,
-        [userId],
+        [userId, row.day],
       )) as { puzzleStreak: number }[];
       streak = progress.puzzleStreak;
     }
@@ -428,21 +433,17 @@ export class ProgressionService {
     userId: string,
   ): Promise<Metrics> {
     const [row] = (await manager.query(
-      `SELECT
-         (SELECT count(*) FILTER (WHERE opp."userId" IS NOT NULL)::int AS games
-            FROM game_players me JOIN games g ON g.id = me."gameId"
-            JOIN game_players opp ON opp."gameId" = g.id AND opp.id <> me.id
-            WHERE me."userId" = $1 AND ${COUNTED_GAME}) AS "HUMAN_GAMES",
-         (SELECT count(*) FILTER (WHERE opp."userId" IS NOT NULL AND ${WON})::int
-            FROM game_players me JOIN games g ON g.id = me."gameId"
-            JOIN game_players opp ON opp."gameId" = g.id AND opp.id <> me.id
-            WHERE me."userId" = $1 AND ${COUNTED_GAME}) AS "HUMAN_WINS",
+      `WITH counted AS MATERIALIZED (
+         SELECT opp."userId" IS NULL AS bot, opp."botDifficulty" AS level, ${WON} AS won
+         FROM game_players me JOIN games g ON g.id = me."gameId"
+         JOIN game_players opp ON opp."gameId" = g.id AND opp.id <> me.id
+         WHERE me."userId" = $1 AND ${COUNTED_GAME})
+       SELECT
+         (SELECT count(*) FILTER (WHERE NOT bot)::int FROM counted) AS "HUMAN_GAMES",
+         (SELECT count(*) FILTER (WHERE NOT bot AND won)::int FROM counted) AS "HUMAN_WINS",
          (SELECT jsonb_object_agg(level, wins) FROM (
-            SELECT opp."botDifficulty" AS level, count(*)::int AS wins
-            FROM game_players me JOIN games g ON g.id = me."gameId"
-            JOIN game_players opp ON opp."gameId" = g.id AND opp.id <> me.id
-            WHERE me."userId" = $1 AND opp."userId" IS NULL AND ${WON} AND ${COUNTED_GAME}
-            GROUP BY opp."botDifficulty") bots) AS bots,
+            SELECT level, count(*)::int AS wins FROM counted
+            WHERE bot AND won GROUP BY level) bots) AS bots,
          (SELECT count(*)::int FROM xp_events WHERE "userId" = $1 AND source = 'PUZZLE') AS "PUZZLES_SOLVED",
          (SELECT COALESCE(max("bestPuzzleStreak"), 0) FROM user_progress WHERE "userId" = $1) AS "PUZZLE_STREAK",
          GREATEST(

@@ -1,5 +1,8 @@
 import type { BotDifficulty } from '../bots/bot-engine.js';
 
+/** Today's UTC date in SQL, from PostgreSQL's clock: shared by every API replica. */
+export const TODAY_SQL = `(clock_timestamp() AT TIME ZONE 'UTC')::date`;
+
 /**
  * Every number a player can earn, in one place: the API serves this table to the
  * "Progression rules" page, so the page and the awards cannot disagree.
