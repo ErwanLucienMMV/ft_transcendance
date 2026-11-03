@@ -59,6 +59,8 @@ describe('Social controls and live social events', () => {
   const timeControl = { initialTime: 180000, increment: 2000 };
 
   beforeAll(async () => {
+    process.env.CHESS_ENGINE_URL =
+      process.env.TEST_CHESS_ENGINE_URL ?? 'ws://127.0.0.1:55433';
     app = (
       await Test.createTestingModule({ imports: [AppModule] }).compile()
     ).createNestApplication();
