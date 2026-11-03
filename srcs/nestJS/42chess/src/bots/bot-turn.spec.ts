@@ -200,13 +200,13 @@ describe('Bot turns with short database leases', () => {
       'MEDIUM',
     );
     expect(f.clocks.move).toHaveBeenCalledTimes(2);
-    // One legal reply in this position: a quick answer, less the search time, before the save.
+    // One legal reply in this position: a quick answer, less the turn so far, before the save.
     expect(f.wait).toHaveBeenCalledTimes(1);
     expect(f.wait.mock.invocationCallOrder[0]).toBeLessThan(
       f.clocks.move.mock.invocationCallOrder[1],
     );
     const [ms] = f.wait.mock.calls[0];
-    expect(ms).toBeGreaterThanOrEqual(350 * 0.6 - 2);
+    expect(ms).toBeGreaterThanOrEqual(350 * 0.6 - 50);
     expect(ms).toBeLessThanOrEqual(350 * 1.4);
   });
   it.each([new GameError('BOT_UNAVAILABLE', 'Offline'), new Error('Timeout')])(

@@ -58,12 +58,19 @@ describe('Game realtime routing and rooms', () => {
         'claimDraw',
         'abort',
         'claimAbandonment',
+        'resumeBot',
       ].map((name) => [name, vi.fn(async () => structuredClone(state))]),
     );
     const presenter = {
       state: vi.fn(async (value: typeof state) => ({
         id,
         status: value.game.status,
+        botPending:
+          value.game.status === 'ACTIVE' &&
+          value.players.some(
+            (seat: { color?: string; botDifficulty?: string }) =>
+              seat.botDifficulty && seat.color === value.game.turn,
+          ),
         board: { fen: value.game.currentFen, turn: value.game.turn },
         clocks: { white: 5000, black: 5000 },
         result: value.game.result,
@@ -290,7 +297,9 @@ describe('Game realtime routing and rooms', () => {
       to: 'a8',
       promotion: 'KNIGHT',
     });
-    expect(games.play).toHaveBeenCalledWith(white, id, 'a7a8n');
+    expect(games.play).toHaveBeenCalledWith(white, id, 'a7a8n', {
+      waitForBot: false,
+    });
     for (const client of [a, b])
       expect(client.send).toHaveBeenCalledWith(
         'MOVE_PLAYED',
@@ -370,6 +379,39 @@ describe('Game realtime routing and rooms', () => {
     await join(b);
     expect(played(a)).toEqual([]);
     expect(played(b)).toEqual([]);
+  });
+  it('shows the human move at once and publishes the bot reply when it comes', async () => {
+    state.players = [
+      { userId: white, color: 'WHITE' },
+      { userId: null, color: 'BLACK', botDifficulty: 'EASY' },
+    ];
+    await join();
+    const afterHuman = structuredClone(state);
+    afterHuman.moves.push(e4);
+    afterHuman.game.currentFen = e4.fen;
+    afterHuman.game.turn = 'BLACK';
+    games.play.mockResolvedValue(afterHuman);
+    let answer!: () => void;
+    games.resumeBot.mockReturnValue(
+      new Promise<void>((resolve) => (answer = resolve)),
+    );
+    vi.mocked(a.send).mockClear();
+    await command('MAKE_MOVE', a, { from: 'e2', to: 'e4' });
+    expect(games.play).toHaveBeenCalledWith(white, id, 'e2e4', {
+      waitForBot: false,
+    });
+    expect(games.resumeBot).toHaveBeenCalledWith(white, id);
+    expect(played(a)).toHaveLength(1);
+    // The room is not held while the bot thinks: chat still goes through.
+    await command('SEND_GAME_MESSAGE', a, { content: 'Your move' });
+    expect(chat.send).toHaveBeenCalled();
+    const afterBot = structuredClone(afterHuman);
+    afterBot.moves.push(e5);
+    afterBot.game.currentFen = e5.fen;
+    afterBot.game.turn = 'WHITE';
+    games.observe.mockResolvedValue(afterBot);
+    answer();
+    await vi.waitFor(() => expect(played(a)).toHaveLength(2));
   });
   it('preserves domain errors without notifying the other player', async () => {
     await join();

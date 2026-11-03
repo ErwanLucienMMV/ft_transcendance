@@ -363,7 +363,16 @@ export class GamesService {
     return this.store.state(manager, state.game);
   }
 
-  async play(actor: string, id: string, input: string): Promise<GameState> {
+  /**
+   * Plays a human move. In a bot game the bot answers before this returns,
+   * unless `waitForBot` is false: the caller then runs `resumeBot` itself.
+   */
+  async play(
+    actor: string,
+    id: string,
+    input: string,
+    { waitForBot = true }: { waitForBot?: boolean } = {},
+  ): Promise<GameState> {
     const userId = identifier(actor),
       gameId = identifier(id),
       uci = moveInput(input);
@@ -381,7 +390,7 @@ export class GamesService {
       botGame,
     );
     // A bot failure never converts an already accepted human move into an API error.
-    return botGame ? this.resumeBot(userId, gameId) : state;
+    return botGame && waitForBot ? this.resumeBot(userId, gameId) : state;
   }
 
   async createBot(

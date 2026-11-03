@@ -40,7 +40,8 @@ Limits limitsFor(Difficulty difficulty)
 {
 	switch (difficulty) {
 	case Difficulty::Easy:
-		return {1, 1500, std::chrono::milliseconds(100)};
+		// One ply only; the budget lets that ply finish even with the root window of its style.
+		return {1, 8000, std::chrono::milliseconds(100)};
 	case Difficulty::Medium:
 		return {3, 40000, std::chrono::milliseconds(1000)};
 	case Difficulty::Hard:

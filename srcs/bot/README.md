@@ -59,7 +59,7 @@ Each request owns its search state; matches and clients do not share a board.
 
 | Difficulty | Maximum main depth | Node limit, including quiescence | Search time budget |
 | --- | ---: | ---: | ---: |
-| EASY | 1 ply | 1,500 | 100 ms |
+| EASY | 1 ply | 8,000 | 100 ms |
 | MEDIUM | 3 plies | 40,000 | 1,000 ms |
 | HARD | 5 plies | 100,000 | 2,200 ms |
 
@@ -67,9 +67,10 @@ Quiescence extends tactical lines by up to six plies. These are ceilings, not
 promises to reach that depth. Time is checked at each search node and is a soft
 budget: legal-move generation, initial history replay and final response work
 can extend total request duration. Only completed iterations replace the chosen
-move. If a budget expires immediately, the result still contains a validated
-legal fallback (`depth:0`). There is no random illegal move or implicit queen
-promotion.
+move, except that a first iteration cut short plays the best move it did score
+rather than an unsearched one. If a budget expires immediately, the result still
+contains a validated legal fallback (`depth:0`). There is no random illegal move
+or implicit queen promotion.
 
 ### Variety and mistakes
 
@@ -121,10 +122,10 @@ score repetition correctly. The protocol does not accept client search budgets
 or arbitrary unbounded depths. Move strings use lowercase UCI, e.g. `e2e4`,
 `e1g1` (castling), `e5d6` (en passant), or `a7a8n` (promotion).
 
-Example response (search statistics vary with hardware):
+Example response, out of the opening book (search statistics vary with hardware):
 
 ```json
-{"id":"game-42:8","ok":true,"result":{"bestMove":"b1c3","fen":"rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2","fenAfter":"rnbqkbnr/pppp1ppp/8/4p3/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 1 2","difficulty":"HARD","status":"ongoing","scoreCp":0,"depth":4,"nodes":100000,"elapsedMs":1200,"book":false}}
+{"id":"game-42:12","ok":true,"result":{"bestMove":"e4e5","book":false,"depth":4,"difficulty":"HARD","elapsedMs":1794,"fen":"r1bqk2r/pppp1ppp/2n2n2/2b5/2BpP3/2P2N2/PP3PPP/RNBQK2R w KQkq - 0 6","fenAfter":"r1bqk2r/pppp1ppp/2n2n2/2b1P3/2Bp4/2P2N2/PP3PPP/RNBQK2R b KQkq - 0 6","nodes":100000,"scoreCp":-57,"status":"ongoing"}}
 ```
 
 `book` is true when the move comes from the opening book; `depth`, `nodes` and

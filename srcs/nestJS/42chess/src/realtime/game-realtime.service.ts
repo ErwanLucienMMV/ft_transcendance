@@ -207,6 +207,7 @@ export class GameRealtimeService
             client.userId,
             id,
             this.uci(message.data),
+            { waitForBot: false },
           );
           break;
         case 'RESIGN':
@@ -249,7 +250,21 @@ export class GameRealtimeService
         });
       }
       this.publish(room, state, view);
+      if (message.event === 'MAKE_MOVE' && view.botPending)
+        this.botTurn(id, client.userId);
     });
+  }
+
+  /**
+   * The bot answers outside the room's queue: the human move is already shown,
+   * and chat, clocks and commands keep flowing while the bot thinks. A failure
+   * is stored on the game (botError) and published with it.
+   */
+  private botTurn(id: string, userId: string): void {
+    void this.games
+      .resumeBot(userId, id)
+      .catch(() => undefined)
+      .then(() => this.refresh(id));
   }
 
   /** The other seated player must have been gone for the whole delay. */
@@ -278,33 +293,34 @@ export class GameRealtimeService
     if (this.ticking) return;
     this.ticking = true;
     try {
-      await Promise.all(
-        [...this.rooms.keys()].map((id) =>
-          this.inGame(id, async () => {
-            const room = this.rooms.get(id);
-            if (!room || room.ended) return;
-            // A read without lock nor write; only a fallen flag is settled.
-            const state = await this.games.observe(id);
-            const view = await this.presenter.state(state);
-            if (this.signature(state) !== room.signature)
-              this.publish(room, state, view);
-            if (view.status === 'ACTIVE')
-              this.broadcast(room, 'CLOCK_UPDATE', {
-                gameId: id,
-                clocks: view.clocks,
-                turn: view.board.turn,
-                ...this.clockSample(state),
-              });
-          }).catch((error: unknown) => {
-            if (error instanceof GameError && error.code === 'GAME_NOT_FOUND')
-              this.vanished(id, error);
-            else this.logger.warn('Realtime game refresh failed.');
-          }),
-        ),
-      );
+      await Promise.all([...this.rooms.keys()].map((id) => this.refresh(id)));
     } finally {
       this.ticking = false;
     }
+  }
+
+  /** Publishes what changed in one game since its room last heard, and its clocks. */
+  private refresh(id: string): Promise<void> {
+    return this.inGame(id, async () => {
+      const room = this.rooms.get(id);
+      if (!room || room.ended) return;
+      // A read without lock nor write; only a fallen flag is settled.
+      const state = await this.games.observe(id);
+      const view = await this.presenter.state(state);
+      if (this.signature(state) !== room.signature)
+        this.publish(room, state, view);
+      if (view.status === 'ACTIVE')
+        this.broadcast(room, 'CLOCK_UPDATE', {
+          gameId: id,
+          clocks: view.clocks,
+          turn: view.board.turn,
+          ...this.clockSample(state),
+        });
+    }).catch((error: unknown) => {
+      if (error instanceof GameError && error.code === 'GAME_NOT_FOUND')
+        this.vanished(id, error);
+      else this.logger.warn('Realtime game refresh failed.');
+    });
   }
 
   /** The game was deleted (a withdrawn or expired invitation): say so, then close the room. */

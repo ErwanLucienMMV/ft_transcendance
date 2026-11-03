@@ -89,9 +89,11 @@ equally scored moves only.
 
 The bot shows a think time before each move, longer in busier positions and at
 higher levels, varying by a quarter either way (EASY 0.5 to 1.5 s, MEDIUM 0.7 to
-2.2 s, HARD 0.9 to 3 s; book moves and forced replies about 0.35 s). The search
-time is part of it, and the pause never takes more than a fortieth of the bot's
-remaining clock. The game page shows "The bot is thinking…" meanwhile.
+2.2 s, HARD 0.9 to 3 s; book moves and forced replies about 0.35 s). The whole
+turn is part of it (search, rules checks, network), and the pause never takes
+more than a fortieth of the bot's remaining clock. Your move is shown at once;
+the game page shows "The bot is thinking…" meanwhile, with the bot's clock
+running, and the chat keeps working.
 
 ## Testing
 

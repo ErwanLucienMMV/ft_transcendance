@@ -112,6 +112,35 @@ int main()
 			require(seeded.bestMove(queen, Difficulty::Easy).move->uci() == "d1d4",
 				"An easy mistake never leaves a queen");
 		}
+		// EASY finishes its one ply in busy middlegames, despite the wider root window.
+		for (const auto *fen : {"r2q1rk1/1b1nbppp/p2ppn2/1p6/3NP3/1BN1B3/PPP1QPPP/R4RK1 w - - 0 11",
+				 "2rq1rk1/pb1nbppp/1p2pn2/2pp4/2PP4/1P2PN2/PB1NBPPP/2RQ1RK1 w - - 0 12"}) {
+			for (std::uint64_t seed = 0; seed < 8; ++seed) {
+				require(SearchEngine(seed).bestMove(position(fen, {}), Difficulty::Easy).depth == 1,
+					"EASY completes its ply");
+			}
+		}
+		{
+			// A first iteration cut short plays a move it scored, not the unsearched first one
+			// (here the queen takes a pawn defended by a pawn).
+			auto defended = position("4k3/8/4p3/3p4/8/8/8/3QK3 w - - 0 1", {});
+			auto cut = SearchEngine(1).search(defended, {1, 12, std::chrono::milliseconds(100)});
+			require(cut.depth == 0 && cut.move && cut.move->uci() != "d1d5",
+				"A cut first iteration keeps a searched move");
+		}
+		{
+			// The reported score is the one of the move played: when EASY picks a move below its
+			// best, it says so.
+			bool lower = false;
+			for (std::uint64_t seed = 0; seed < 24; ++seed) {
+				auto best =
+					SearchEngine(seed).search(italian, limitsFor(Difficulty::Easy), Style{});
+				auto easy = SearchEngine(seed).bestMove(italian, Difficulty::Easy);
+				require(easy.score <= best.score, "Easy score never above the best");
+				lower = lower || easy.score < best.score;
+			}
+			require(lower, "Easy reports the score of a weaker move it played");
+		}
 		auto replayed = [&](std::uint64_t seed) {
 			return SearchEngine(seed).bestMove(italian, Difficulty::Medium).move->uci();
 		};

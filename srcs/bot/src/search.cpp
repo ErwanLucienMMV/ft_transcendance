@@ -251,6 +251,13 @@ SearchResult Search::run(const Position &position, const Style &style, std::mt19
 				}
 			}
 		} catch (const SearchAborted &) {
+			// The first iteration ran out of budget: the moves it did score still beat an
+			// unsearched one.
+			if (scored.empty() && selected) {
+				result.move = selected;
+				result.score = best;
+				scored = std::move(current);
+			}
 			break;
 		}
 		result.move = selected;
@@ -264,6 +271,12 @@ SearchResult Search::run(const Position &position, const Style &style, std::mt19
 	// A forced mate, for either side, is played exactly: variety must not spoil it.
 	if (window > 0 && !scored.empty() && std::abs(result.score) < mateScore - 128) {
 		result.move = choose(scored, result.score, style, random);
+		// The reported score is the one of the move played, not of the best one.
+		for (const auto &[move, score] : scored) {
+			if (move.uci() == result.move->uci()) {
+				result.score = score;
+			}
+		}
 	}
 	result.nodes = visitedNodes_;
 	result.elapsedMs = elapsedMilliseconds();
