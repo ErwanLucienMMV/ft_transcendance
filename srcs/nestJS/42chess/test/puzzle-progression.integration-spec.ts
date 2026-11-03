@@ -198,13 +198,15 @@ describe('Puzzle limits, archive and rewards', () => {
   });
 
   it('lists earlier days in the archive with how the player did', async () => {
-    const daily = await service.daily();
+    // Earlier days first: today's puzzle then goes to a puzzle never shown,
+    // so it cannot be one of these two.
     const puzzle = await f.reference();
     const failed = await f.composed(
       '7k/5Q2/6K1/8/8/8/8/8 w - - 0 1',
       ['f7g7'],
       ['MATE_IN_ONE'],
     );
+    const daily = await service.daily();
     const attempt = await service.start(f.alice, puzzle.id);
     await solve(f.alice, attempt.attemptId, await solution(puzzle.id));
     const other = await service.start(f.alice, failed.id);
