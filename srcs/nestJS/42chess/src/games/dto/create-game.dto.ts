@@ -38,7 +38,11 @@ export class CreateGameDto {
   @IsAllowedTimeControl()
   timeControl: TimeControlDto;
 
-  /** Games against a friend are casual unless both agreed to play for rating. */
+  /**
+   * Games against a friend are casual unless their creator asks for a rated
+   * one. The opponent sees it when the game starts and can still abort it,
+   * unrated, before both sides have moved.
+   */
   @IsOptional()
   @IsBoolean()
   rated = false;

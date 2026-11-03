@@ -78,8 +78,8 @@ export class GameStoreService {
        WHERE g.status = 'ACTIVE'
        AND NOT EXISTS (SELECT 1 FROM game_players b
          WHERE b."gameId" = g.id AND b."botDifficulty" IS NOT NULL)
-       AND (SELECT count(*) FROM moves m WHERE m."gameId" = g.id) < 2
-       AND COALESCE((SELECT max(m."createdAt") FROM moves m WHERE m."gameId" = g.id),
+       AND NOT EXISTS (SELECT 1 FROM moves m WHERE m."gameId" = g.id AND m.ply = 2)
+       AND COALESCE((SELECT m."createdAt" FROM moves m WHERE m."gameId" = g.id AND m.ply = 1),
                     g."startedAt") <= CURRENT_TIMESTAMP - make_interval(secs => $1)
        ORDER BY g."startedAt", g.id LIMIT 100`,
       [delaySeconds],

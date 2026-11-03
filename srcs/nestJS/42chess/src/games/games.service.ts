@@ -190,11 +190,19 @@ export class GamesService {
           'INVALID_GAME_HISTORY',
           'A waiting game must have one creator.',
         );
-      if (!(await manager.existsBy(User, { id: userId })))
+      // One game at a time, as matchmaking already requires. Both accounts are
+      // locked as matchmaking locks them, so two invitations of one creator
+      // opened at the same moment cannot both start.
+      const ids = [userId, players[0].userId!].sort();
+      const users = await manager
+        .createQueryBuilder(User, 'user')
+        .where('user.id IN (:...ids)', { ids })
+        .orderBy('user.id', 'ASC')
+        .setLock('pessimistic_write')
+        .getMany();
+      if (!users.some((user) => user.id === userId))
         throw new GameError('USER_NOT_FOUND', 'Player account does not exist.');
-      // One game at a time, as matchmaking already requires.
-      if (await this.store.activeGameOf(manager, [userId, players[0].userId!]))
-        throw activeGameExists();
+      if (await this.store.activeGameOf(manager, ids)) throw activeGameExists();
       const color = players[0].color === 'WHITE' ? 'BLACK' : 'WHITE';
       await manager.save(
         GamePlayer,

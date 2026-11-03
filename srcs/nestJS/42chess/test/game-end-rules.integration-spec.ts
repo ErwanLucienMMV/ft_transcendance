@@ -110,6 +110,27 @@ describe('Game end rules, rated games and invitations', () => {
       expect(state.game).toMatchObject({ result: null, endReason: 'ABORTED' });
     });
 
+    it('counts the second first move from the first one, and stops once both played', async () => {
+      const backdate = (id: string) =>
+        f.source.query(
+          `UPDATE moves SET "createdAt" = now() - interval '31 seconds' WHERE "gameId" = $1`,
+          [id],
+        );
+      const one = await f.active();
+      await f.playLine(one.game.id, ['e2e4']);
+      await backdate(one.game.id);
+      await sweeper().sweepAborts();
+      expect((await f.service.get(one.game.id)).game).toMatchObject({
+        endReason: 'ABORTED',
+      });
+
+      const both = await f.active();
+      await f.playLine(both.game.id, ['e2e4', 'e7e5']);
+      await backdate(both.game.id);
+      await sweeper().sweepAborts();
+      expect((await f.service.get(both.game.id)).game.status).toBe('ACTIVE');
+    });
+
     it('leaves a game alone while its first-move delay runs', async () => {
       const { game } = await f.active();
       await sweeper().sweepAborts();
@@ -215,6 +236,21 @@ describe('Game end rules, rated games and invitations', () => {
         code: 'GAME_NOT_FOUND',
       });
       expect((await f.service.get(fresh.game.id)).game.status).toBe('WAITING');
+    });
+
+    it('starts only one of two invitations of the same creator opened at once', async () => {
+      const first = await f.service.create(f.outsider, { initialTime: 300000 });
+      const second = await f.service.create(f.outsider, {
+        initialTime: 300000,
+      });
+      const results = await Promise.allSettled([
+        f.service.join(f.white, first.game.id),
+        f.service.join(f.black, second.game.id),
+      ]);
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      expect(results.find((r) => r.status === 'rejected')).toMatchObject({
+        reason: { response: { code: 'ACTIVE_GAME_EXISTS' } },
+      });
     });
 
     it('refuses to start a second game for a player who is already playing', async () => {

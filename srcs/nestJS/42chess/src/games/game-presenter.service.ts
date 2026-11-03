@@ -75,6 +75,7 @@ export class GamePresenterService {
       blackPlayer: refs.find((player) => player.color === 'BLACK') ?? null,
       rated: game.rated,
       timeControl: { initialTime: game.initialTime, increment: game.increment },
+      initialFen: game.initialFen,
       board: {
         fen: game.currentFen,
         turn: game.turn,

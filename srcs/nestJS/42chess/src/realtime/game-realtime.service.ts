@@ -8,6 +8,7 @@ import {
   HttpException,
 } from '@nestjs/common';
 import { GameMessagesService } from '../chat/game-messages.service.js';
+import { apiError } from '../common/api-error.js';
 import { GamesService } from '../games/games.service.js';
 import { GamePresenterService } from '../games/game-presenter.service.js';
 import { GameError } from '../games/game-error.js';
@@ -294,12 +295,30 @@ export class GameRealtimeService
                 turn: view.board.turn,
                 ...this.clockSample(state),
               });
-          }).catch(() => this.logger.warn('Realtime game refresh failed.')),
+          }).catch((error: unknown) => {
+            if (error instanceof GameError && error.code === 'GAME_NOT_FOUND')
+              this.vanished(id, error);
+            else this.logger.warn('Realtime game refresh failed.');
+          }),
         ),
       );
     } finally {
       this.ticking = false;
     }
+  }
+
+  /** The game was deleted (a withdrawn or expired invitation): say so, then close the room. */
+  private vanished(id: string, error: GameError): void {
+    const room = this.rooms.get(id);
+    if (!room) return;
+    this.broadcast(room, 'ERROR', { ...apiError(error), gameId: id });
+    for (const connectionId of room.clients.keys()) {
+      const memberships = this.memberships.get(connectionId);
+      memberships?.delete(id);
+      if (memberships?.size === 0) this.memberships.delete(connectionId);
+    }
+    this.rooms.delete(id);
+    this.spectators.set(id, 0);
   }
 
   private async join(client: RealtimeClient, id: string): Promise<void> {

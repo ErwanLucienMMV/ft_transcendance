@@ -315,6 +315,26 @@ describe('Live game page', () => {
     expect(transport.send).toHaveBeenCalledWith('CLAIM_DRAW', { gameId: id });
   });
 
+  it('counts repetitions from the position the game started from', () => {
+    const { button, state } = setup();
+    const start = '4k3/8/8/8/8/8/8/4K2R w K - 0 1';
+    const cycle = ['e1d1', 'e8d8', 'd1e1', 'd8e8'];
+    const moves = [...cycle, ...cycle].map((uci, index) => ({
+      number: index + 1,
+      playerId: index % 2 ? 'rival' : 'me',
+      from: uci.slice(0, 2),
+      to: uci.slice(2),
+      notation: null,
+      fen: index % 4 === 3 ? start.replace(' 0 1', ` ${index + 1} ${3 + index / 2}`) : `x${index}`,
+      timestamp: '',
+    }));
+    state({ moves });
+    expect(button('Claim draw')).toBeFalsy();
+    state({ moves, initialFen: start });
+    button('Claim draw')!.click();
+    expect(transport.send).toHaveBeenCalledWith('CLAIM_DRAW', { gameId: id });
+  });
+
   it('asks for confirmation before resigning', () => {
     const { button, render, state } = setup();
     state({ ...opening });

@@ -14,6 +14,12 @@ describe('Server clock display synchronization', () => {
     expect(clock.project(1400)).toEqual({ white: 3850, black: 6000 });
     expect(clock.project(100000)).toEqual({ white: 0, black: 6000 });
   });
+  it('tells the server time once a round trip measured the offset', () => {
+    const clock = new GameClockSync();
+    expect(clock.serverTime(400)).toBeNull();
+    clock.synchronize(sample, 100, 400, 100, 50);
+    expect(clock.serverTime(1400)).toBe(Date.parse(sample.serverTime) + 50 + 100 + 1000);
+  });
   it('reanchors the next turn and accepts increment from the server', () => {
     const clock = new GameClockSync();
     clock.synchronize(sample, 0, 0, 0, 0);

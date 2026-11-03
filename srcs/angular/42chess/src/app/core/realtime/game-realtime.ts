@@ -44,6 +44,8 @@ export interface GameSnapshot {
   /** Only rated games change Elo. */
   rated?: boolean;
   timeControl: { initialTime: number; increment: number };
+  /** Position the game started from; the standard one when absent. */
+  initialFen?: string;
   board: { fen: string; turn: PlayerColor; halfmoveClock: number; fullmoveNumber: number };
   clocks: { white: number; black: number } | null;
   serverTime?: string | null;
@@ -109,6 +111,8 @@ export class GameRealtime {
   readonly displayClocks = signal<{ white: number; black: number } | null>(null);
   /** True once a SYNC_CLOCK round trip measured the server offset, so the projection can run. */
   readonly clockSynced = signal(false);
+  /** Server time minus this device's time, measured by SYNC_CLOCK; 0 until then. */
+  readonly serverSkew = signal(0);
   private readonly clock = new GameClockSync();
   private syncRequest: { id: number; sent: number } | null = null;
   private requestSequence = 0;
@@ -255,8 +259,10 @@ export class GameRealtime {
     if (packet.event === 'ERROR') {
       // The chat answers its own errors.
       if (packet.data['event'] === 'SEND_GAME_MESSAGE') return;
-      // Errors carry no game id; one game is watched at a time, so they belong to it.
+      // Most errors carry no game id; one game is watched at a time, so they belong to it.
       if (!this.watched()) return;
+      if (typeof packet.data['gameId'] === 'string' && packet.data['gameId'] !== this.watched())
+        return;
       const code = typeof packet.data['code'] === 'string' ? packet.data['code'] : 'REALTIME_ERROR';
       this.pending.set(false);
       this.error.set({
@@ -306,8 +312,11 @@ export class GameRealtime {
               Number(packet.data['processingMs']),
               Number(packet.data['sampleAgeMs']),
             )
-          )
+          ) {
             this.clockSynced.set(true);
+            const server = this.clock.serverTime(performance.now());
+            if (server !== null) this.serverSkew.set(server - Date.now());
+          }
           this.displayClocks.set(this.clock.project(performance.now()));
         }
         break;

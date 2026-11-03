@@ -26,6 +26,8 @@ export interface GameResponse {
   /** Only rated games change Elo. */
   rated: boolean;
   timeControl: TimeControl;
+  /** Position the game started from, for repetition counts. */
+  initialFen: string;
   board: {
     fen: string;
     turn: PlayerColor;

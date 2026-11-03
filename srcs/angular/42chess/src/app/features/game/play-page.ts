@@ -124,11 +124,6 @@ export class PlayPage {
     this.createBot();
   }
 
-  /** The link to send for an open invitation. */
-  link(id: string): string {
-    return this.browser ? `${location.origin}/game/${id}` : `/game/${id}`;
-  }
-
   cancelInvitation(id: string): void {
     if (this.cancelling()) return;
     this.cancelling.set(id);

@@ -157,7 +157,7 @@ export class GamePage {
     const game = this.game();
     if (!game || !this.myTurn()) return false;
     if (game.board.halfmoveClock >= 100) return true;
-    return repetitions(START_FEN, this.moves()) >= 3;
+    return repetitions(game.initialFen ?? START_FEN, this.moves()) >= 3;
   });
   /** Before both sides have moved, a player aborts instead of resigning: nothing is rated. */
   readonly canAbort = computed(() => this.active() && !!this.myColor() && this.moves().length < 2);
@@ -167,7 +167,7 @@ export class GamePage {
     if (!game || game.status !== 'ACTIVE' || this.bot() || this.moves().length >= 2) return null;
     const since = Date.parse(this.moves().at(-1)?.timestamp ?? game.startedAt ?? '');
     if (!Number.isFinite(since)) return null;
-    return Math.max(0, since + FIRST_MOVE_MS - this.now());
+    return Math.max(0, since + FIRST_MOVE_MS - this.serverNow());
   });
   /** The opponent left the game; the claim opens one minute after they left. */
   readonly opponentAway = computed(() => {
@@ -176,11 +176,16 @@ export class GamePage {
     if (!game || game.status !== 'ACTIVE' || !this.myColor() || !me) return null;
     const entry = (game.away ?? []).find((away) => away.playerId !== me);
     // A short grace: a reload, or an opponent still opening the game, is not news.
-    if (!entry || this.now() - Date.parse(entry.since) < AWAY_GRACE_MS) return null;
-    const left = Math.max(0, Date.parse(entry.claimableAt) - this.now());
+    const now = this.serverNow();
+    if (!entry || now - Date.parse(entry.since) < AWAY_GRACE_MS) return null;
+    const left = Math.max(0, Date.parse(entry.claimableAt) - now);
     return { left, claimable: left === 0 };
   });
   readonly format = formatClock;
+  /** The server's time now, as far as the last clock sync tells: deadlines are the server's. */
+  private serverNow(): number {
+    return this.now() + this.realtime.serverSkew();
+  }
   /** "Rated · 10 + 0", "Casual · 3 + 2" or "Against the computer · 5 + 0". */
   readonly kind = computed(() => {
     const game = this.game();

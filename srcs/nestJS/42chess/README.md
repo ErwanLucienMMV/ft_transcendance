@@ -192,6 +192,9 @@ since per-ply clocks are not stored. Joining sends the snapshot, not past moves.
 same side waits four plies before offering again (`DRAW_OFFER_TOO_SOON`);
 `drawOfferAllowedFrom` in the snapshot says from which ply.
 
+An invitation withdrawn or expired while its creator waits in the room gets
+`ERROR { code: GAME_NOT_FOUND, gameId }` once, then the room closes.
+
 When the last connection of a seated player leaves an active game, the room gets
 `OPPONENT_DISCONNECTED { gameId, playerId, since, claimableAt }`, and
 `OPPONENT_RECONNECTED { gameId, playerId }` when they join again. The snapshot

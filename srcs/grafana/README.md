@@ -72,7 +72,7 @@ Metrics use the existing Prometheus registry and the provisioned `nestjs` scrape
 
 | Metric | Meaning |
 | --- | --- |
-| `games_finished` | Retained FINISHED game rows |
+| `games_finished` | Retained FINISHED game rows, aborted games excluded |
 | `matchmaking_queue_size` | Currently WAITING queue entries |
 | `puzzle_attempts{outcome="solved|unsolved"}` | Retained training sessions grouped by current solved state, including legacy rows; not submitted moves or retries |
 | `puzzle_move_submissions` | Sum of recorded move submissions (correct and incorrect) across retained sessions; legacy NULL measurements excluded |

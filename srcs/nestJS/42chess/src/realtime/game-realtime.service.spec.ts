@@ -396,6 +396,25 @@ describe('Game realtime routing and rooms', () => {
     expect(games.observe).not.toHaveBeenCalled();
     expect(a.send).not.toHaveBeenCalled();
   });
+  it('tells the room once that a waiting game is gone, then stops refreshing it', async () => {
+    state.game.status = 'WAITING';
+    state.players = [{ userId: white }];
+    await join();
+    games.observe.mockRejectedValue(
+      new GameError('GAME_NOT_FOUND', 'Game does not exist.'),
+    );
+    vi.mocked(a.send).mockClear();
+    await service.tick();
+    expect(a.send).toHaveBeenCalledWith(
+      'ERROR',
+      expect.objectContaining({ code: 'GAME_NOT_FOUND', gameId: id }),
+    );
+    vi.mocked(a.send).mockClear();
+    games.observe.mockClear();
+    await service.tick();
+    expect(games.observe).not.toHaveBeenCalled();
+    expect(a.send).not.toHaveBeenCalled();
+  });
   it('cleans memberships at disconnect without resigning', async () => {
     await join();
     service.disconnect('a');

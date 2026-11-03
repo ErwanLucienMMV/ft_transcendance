@@ -16,6 +16,10 @@ describe('Committed observability inventories (SCRUM-428..431)', () => {
     const [game] = await fixture.source.query(`INSERT INTO games
       (status,"initialTime","startedAt","finishedAt",result)
       VALUES ('FINISHED',300000,now(),now(),'DRAW') RETURNING id`);
+    // An aborted game did not take place: it is not counted as finished.
+    await fixture.source.query(`INSERT INTO games
+      (status,"initialTime","startedAt","finishedAt","endReason")
+      VALUES ('FINISHED',300000,now(),now(),'ABORTED')`);
     await fixture.source.query(
       `INSERT INTO matchmaking_matches
       ("gameId","matchedAt","whiteWaitSeconds","blackWaitSeconds") VALUES ($1,now(),1,10)`,
