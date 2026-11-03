@@ -244,6 +244,72 @@ describe('Realtime gateway over actual sockets', () => {
     socket.send(Buffer.from('binary'));
     expect((await closed)[0]).toBe(1003);
   });
+  it('enforces the rate budget even when commands finish between sends', async () => {
+    const socket = await open();
+    await request(socket, 'AUTHENTICATE', { accessToken: 'valid' });
+    for (let i = 0; i < 59; i++)
+      expect(await request(socket, 'JOIN_GAME', {})).toMatchObject({
+        event: 'ACK',
+      });
+    const closed = once(socket, 'close');
+    expect(await request(socket, 'JOIN_GAME', {})).toMatchObject({
+      event: 'ERROR',
+      data: { statusCode: 429, code: 'TOO_MANY_REQUESTS' },
+    });
+    expect((await closed)[0]).toBe(1013);
+    expect(messages.handle).toHaveBeenCalledTimes(59);
+    const healthy = await open();
+    expect(
+      await request(healthy, 'AUTHENTICATE', { accessToken: 'valid' }),
+    ).toMatchObject({ event: 'AUTHENTICATED' });
+    expect(await request(healthy, 'JOIN_GAME', {})).toMatchObject({
+      event: 'ACK',
+    });
+  });
+
+  it('renews the message budget after the ten-second window', async () => {
+    const socket = await open();
+    await request(socket, 'AUTHENTICATE', { accessToken: 'valid' });
+    for (let i = 0; i < 59; i++) await request(socket, 'JOIN_GAME', {});
+    // Advance the gateway wall clock while retaining actual socket IO/timers.
+    const nextWindow = Date.now() + 10_001;
+    const now = vi.spyOn(Date, 'now').mockReturnValue(nextWindow);
+    try {
+      expect(await request(socket, 'JOIN_GAME', {})).toMatchObject({
+        event: 'ACK',
+      });
+      expect(await request(socket, 'JOIN_GAME', {})).toMatchObject({
+        event: 'ACK',
+      });
+      expect(socket.readyState).toBe(WebSocket.OPEN);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it('bounds queued work while validation is pending', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(auth, 'authenticate').mockResolvedValue({
+      userId: 'verified-player',
+      expiresAt: Date.now() + 60000,
+      validate: () => pending,
+    });
+    const socket = await open();
+    await request(socket, 'AUTHENTICATE', { accessToken: 'valid' });
+    try {
+      const closed = once(socket, 'close');
+      for (let i = 0; i < 33; i++)
+        socket.send(JSON.stringify({ event: 'JOIN_GAME', data: {} }));
+      expect((await closed)[0]).toBe(1013);
+      expect(messages.handle).not.toHaveBeenCalled();
+    } finally {
+      release();
+    }
+  });
+
   it('bounds a complete fragmented message before authentication or dispatch', async () => {
     const socket = await open();
     const closed = once(socket, 'close');
