@@ -28,6 +28,13 @@ then register these exact callback URLs with the provider:
 <public origin>/api/v1/auth/oauth/github/callback
 ```
 
+## Sign-in with 42
+
+The 42 provider added later uses the same code path: `FORTYTWO_*` variables
+(or `OAUTH_FORTYTWO_*`), the same public-origin checks and an exact
+`<public origin>/api/v1/auth/oauth/fortytwo/callback`. The provider cases of
+`oauth-configuration.spec.ts` run for Google, GitHub and 42.
+
 ## Validation
 
 The configuration and provider unit suites passed: **32 tests in two files**.
