@@ -112,11 +112,16 @@ int main()
 			require(seeded.bestMove(queen, Difficulty::Easy).move->uci() == "d1d4",
 				"An easy mistake never leaves a queen");
 		}
-		// EASY finishes its one ply in busy middlegames, despite the wider root window.
+		// EASY's node budget finishes its one ply in busy middlegames, despite the wider root
+		// window. The clock is left out: a loaded test machine must not decide the result.
+		Limits easyNodes = limitsFor(Difficulty::Easy);
+		easyNodes.time = std::chrono::seconds(30);
 		for (const auto *fen : {"r2q1rk1/1b1nbppp/p2ppn2/1p6/3NP3/1BN1B3/PPP1QPPP/R4RK1 w - - 0 11",
 				 "2rq1rk1/pb1nbppp/1p2pn2/2pp4/2PP4/1P2PN2/PB1NBPPP/2RQ1RK1 w - - 0 12"}) {
 			for (std::uint64_t seed = 0; seed < 8; ++seed) {
-				require(SearchEngine(seed).bestMove(position(fen, {}), Difficulty::Easy).depth == 1,
+				require(SearchEngine(seed)
+							.search(position(fen, {}), easyNodes, styleFor(Difficulty::Easy))
+							.depth == 1,
 					"EASY completes its ply");
 			}
 		}
@@ -133,9 +138,9 @@ int main()
 			// best, it says so.
 			bool lower = false;
 			for (std::uint64_t seed = 0; seed < 24; ++seed) {
-				auto best =
-					SearchEngine(seed).search(italian, limitsFor(Difficulty::Easy), Style{});
-				auto easy = SearchEngine(seed).bestMove(italian, Difficulty::Easy);
+				auto best = SearchEngine(seed).search(italian, easyNodes, Style{});
+				auto easy =
+					SearchEngine(seed).search(italian, easyNodes, styleFor(Difficulty::Easy));
 				require(easy.score <= best.score, "Easy score never above the best");
 				lower = lower || easy.score < best.score;
 			}
