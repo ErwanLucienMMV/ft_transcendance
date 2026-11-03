@@ -151,30 +151,7 @@
       </div>
     </header>
 
-    <dl class="stats">
-      <div>
-        <dt>Elo</dt>
-        <dd>{{ player.elo }}</dd>
-      </div>
-      <div>
-        <dt>Games</dt>
-        <dd>{{ player.gamesPlayed }}</dd>
-      </div>
-      @if (own(); as me) {
-        <div>
-          <dt>Won</dt>
-          <dd>{{ me.gamesWon }}</dd>
-        </div>
-        <div>
-          <dt>Drawn</dt>
-          <dd>{{ me.gamesDraw }}</dd>
-        </div>
-        <div>
-          <dt>Lost</dt>
-          <dd>{{ me.gamesLost }}</dd>
-        </div>
-      }
-    </dl>
+    <app-player-stats [userId]="player.id" [elo]="player.elo" />
 
     <div class="columns">
       <section aria-labelledby="rating-title">
@@ -185,8 +162,9 @@
           @if (changes.length === 0) {
             <p class="empty">No rated game yet.</p>
           } @else {
+            <app-elo-chart [history]="changes" />
             <ol class="rows list">
-              @for (change of changes; track change.gameId) {
+              @for (change of changes.slice(0, listed); track change.gameId) {
                 <li>
                   <a [routerLink]="['/replay', change.gameId]">
                     <span

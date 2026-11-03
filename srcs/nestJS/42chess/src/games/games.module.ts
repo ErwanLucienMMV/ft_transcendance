@@ -23,6 +23,7 @@ import { RatingModule } from '../rating/rating.module.js';
 import { PresenceModule } from '../presence/presence.module.js';
 import { SessionModule } from '../auth/session.module.js';
 import { SocialModule } from '../social/social.module.js';
+import { ProgressionModule } from '../progression/progression.module.js';
 
 /**
  * Core of the application: game lifecycle (WAITING → ACTIVE → FINISHED),
@@ -40,6 +41,7 @@ import { SocialModule } from '../social/social.module.js';
     BotEngineModule,
     SessionModule,
     SocialModule,
+    ProgressionModule,
   ],
   providers: [
     GamePresenterService,

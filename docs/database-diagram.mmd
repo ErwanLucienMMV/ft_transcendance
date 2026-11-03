@@ -58,6 +58,9 @@ erDiagram
         uuid id PK
         uuid userId FK
         uuid puzzleId FK
+        int mistakes
+        bool hintUsed
+        bool revealed
     }
     puzzles {
         uuid id PK
@@ -74,6 +77,36 @@ erDiagram
         uuid id PK
         string username
         string email
+    }
+    user_blocks {
+        uuid id PK
+        uuid blockerId FK
+        uuid blockedId FK
+    }
+    user_progress {
+        uuid userId PK
+        int xp
+        int puzzleStreak
+        int bestPuzzleStreak
+        date lastStreakDate
+    }
+    xp_events {
+        uuid id PK
+        uuid userId FK
+        string source
+        string refId
+        int amount
+    }
+    achievements {
+        string code PK
+        string metric
+        int goal
+        int xp
+    }
+    user_achievements {
+        uuid userId PK
+        string code PK
+        timestamptz unlockedAt
     }
     puzzles ||..o{ daily_puzzles : puzzleId
     users ||..o{ friend_requests : recipientId
@@ -95,3 +128,9 @@ erDiagram
     users ||..o{ puzzle_attempts : userId
     games ||..o{ rating_history : gameId
     users ||..o{ rating_history : userId
+    users ||..o{ user_blocks : blockerId
+    users ||..o{ user_blocks : blockedId
+    users ||..o| user_progress : userId
+    users ||..o{ xp_events : userId
+    users ||..o{ user_achievements : userId
+    achievements ||..o{ user_achievements : code

@@ -1,0 +1,122 @@
+:host {
+  display: grid;
+  gap: 20px;
+}
+.stats {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+.stats div {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.stats dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.stats dd {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.stats div:first-child dd,
+.stats a {
+  color: var(--accent);
+}
+.stats small,
+h3 small {
+  color: var(--muted);
+  font-family: var(--font-text);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.stat-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.results {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.results th,
+.results td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+.results th:first-child {
+  text-align: left;
+}
+.results thead th {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.small {
+  font-size: 13px;
+}
+.achievements ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+.achievements li {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  opacity: 0.75;
+}
+.achievements li.unlocked {
+  border-color: var(--accent-line);
+  opacity: 1;
+}
+.badge {
+  font-size: 22px;
+  color: var(--muted);
+}
+.unlocked .badge {
+  color: var(--accent);
+}
+.achievements p {
+  margin: 2px 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.achievements small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.meter {
+  height: 6px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background: var(--field);
+  overflow: hidden;
+}
+.meter span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+@media (max-width: 760px) {
+  .stat-columns {
+    grid-template-columns: 1fr;
+  }
+}

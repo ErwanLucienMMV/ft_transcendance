@@ -7,6 +7,8 @@ import { GameError } from './game-error.js';
 import type { GameState } from './game-state.js';
 import { RatingService } from '../rating/rating.service.js';
 import { PresenceService } from '../presence/presence.service.js';
+import { ProgressionService } from '../progression/progression.service.js';
+import type { XpChange } from '../progression/progression.service.js';
 
 @Injectable()
 export class GameStoreService {
@@ -14,6 +16,7 @@ export class GameStoreService {
     private readonly source: DataSource,
     private readonly ratings: RatingService = new RatingService(),
     @Optional() private readonly presence?: PresenceService,
+    @Optional() private readonly progression?: ProgressionService,
   ) {}
 
   transaction<T>(action: (manager: EntityManager) => Promise<T>): Promise<T> {
@@ -142,6 +145,7 @@ export class GameStoreService {
     try {
       const changes: { gameId: string; userIds: string[]; active: boolean }[] =
         [];
+      const awards: XpChange[] = [];
       const response = await this.source.transaction(async (manager) => {
         await manager.query(`SET LOCAL lock_timeout = '12s'`);
         const game = await manager.findOne(Game, {
@@ -173,6 +177,9 @@ export class GameStoreService {
         ) {
           await this.ratings.applyFinishedGame(manager, game, state.players);
         }
+        // Experience goes with the result, in the same transaction, once per game.
+        if (wasActive && game.status === 'FINISHED' && this.progression)
+          awards.push(...(await this.progression.awardGame(manager, game.id)));
         if (before !== game.status) {
           const seats = await manager.findBy(GamePlayer, { gameId: game.id });
           changes.push({
@@ -191,6 +198,7 @@ export class GameStoreService {
           change.userIds,
           change.active,
         );
+      if (awards.length) await this.progression?.settle(awards);
       return response;
     } catch (error: unknown) {
       if (

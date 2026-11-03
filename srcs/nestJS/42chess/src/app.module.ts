@@ -24,6 +24,7 @@ import { PresenceModule } from './presence/presence.module.js';
 import { RealtimeModule } from './realtime/realtime.module.js';
 import { OAuthModule } from './oauth/oauth.module.js';
 import { SocialModule } from './social/social.module.js';
+import { ProgressionModule } from './progression/progression.module.js';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SocialModule } from './social/social.module.js';
     OAuthModule,
     UsersModule,
     SocialModule,
+    ProgressionModule,
     FriendsModule,
     GamesModule,
     MatchmakingModule,

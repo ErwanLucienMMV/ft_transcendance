@@ -1,0 +1,85 @@
+.card {
+  display: grid;
+  gap: 12px;
+}
+.card h3,
+.card p,
+.card ul {
+  margin: 0;
+}
+.card ul {
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+th,
+td {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+tbody th {
+  font-weight: 500;
+}
+td {
+  text-align: right;
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--accent);
+}
+thead th {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.levels {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.levels li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--field);
+  font-variant-numeric: tabular-nums;
+}
+.levels span {
+  color: var(--muted);
+}
+.card .achievements {
+  padding: 0;
+  list-style: none;
+  color: inherit;
+}
+.achievements li {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.6fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.achievements span,
+.achievements small {
+  color: var(--muted);
+}
+@media (max-width: 560px) {
+  .achievements li {
+    grid-template-columns: 1fr auto;
+  }
+  .achievements span {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

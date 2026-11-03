@@ -4,19 +4,20 @@
       <app-chess-board
         [fen]="fen()"
         [orientation]="color()"
-        [lastMove]="sending() ?? lastMove()"
+        [lastMove]="boardMove()"
+        [hint]="hint()"
         [interactive]="canMove()"
         [playerColor]="color()"
         (moved)="play($event)"
       />
     } @else if (loading()) {
-      <p class="empty board-placeholder" role="status">Loading today's puzzle…</p>
+      <p class="empty board-placeholder" role="status">Loading the puzzle…</p>
     }
   </div>
 
   <div class="puzzle-panel side-panel">
-    <span class="eyebrow">Daily puzzle</span>
-    <h2 id="puzzle-title">{{ daily() ? prompt() : "Today's puzzle" }}</h2>
+    <span class="eyebrow">{{ isToday() ? 'Daily puzzle' : 'Puzzle archive' }}</span>
+    <h2 id="puzzle-title">{{ daily() ? prompt() : isToday() ? "Today's puzzle" : 'Puzzle' }}</h2>
 
     @if (error(); as message) {
       <p class="alert" role="alert">{{ message }}</p>
@@ -26,10 +27,15 @@
       <p class="feedback" role="status" [attr.data-feedback]="feedback()">
         @if (feedback() === 'correct' && !solved()) {
           The opponent answered. Your move again.
-        } @else if (feedback() === 'incorrect') {
+        } @else if (feedback() === 'incorrect' && !failed()) {
           The position is unchanged.
+          {{ mistakesLeft() }} {{ mistakesLeft() === 1 ? 'try' : 'tries' }} left.
         }
       </p>
+
+      @if (hint(); as square) {
+        <p class="hint-note" role="status">Hint: move the piece on {{ square }}.</p>
+      }
 
       @if (solved()) {
         <dl class="result" aria-label="Your result">
@@ -42,13 +48,97 @@
             <dd data-result="mistakes">{{ mistakes() }}</dd>
           </div>
         </dl>
-        <button type="button" class="secondary" (click)="restart()">Solve it again</button>
       }
 
-      @if (!session.authenticated()) {
+      @if (reward(); as earned) {
+        <p class="reward" role="status">
+          +{{ earned.xp }} XP
+          @if (earned.streak !== null) {
+            · {{ earned.streak }}-day streak
+          }
+        </p>
+      } @else if (solved() && attempt()?.practice) {
+        <p class="note">Practice attempt: it earns no XP.</p>
+      }
+
+      @if (solution(); as line) {
+        <nav class="replay" aria-label="Solution">
+          <button
+            type="button"
+            class="button ghost small"
+            [disabled]="step() === 0"
+            (click)="stepTo(step() - 1)"
+            aria-label="Previous move"
+          >
+            ‹
+          </button>
+          <span>Move {{ step() }} of {{ line.length }}</span>
+          <button
+            type="button"
+            class="button ghost small"
+            [disabled]="step() === line.length"
+            (click)="stepTo(step() + 1)"
+            aria-label="Next move"
+          >
+            ›
+          </button>
+        </nav>
+      }
+
+      @if (session.authenticated()) {
+        <div class="puzzle-actions">
+          @if (over()) {
+            <button type="button" class="secondary" [disabled]="busy()" (click)="restart()">
+              {{ solved() ? 'Solve it again' : 'Try again' }}
+            </button>
+            @if (failed() && !solution()) {
+              <button
+                type="button"
+                class="ghost"
+                [disabled]="busy() || !!sending()"
+                (click)="showSolution()"
+              >
+                Show the solution
+              </button>
+            }
+          } @else {
+            <button
+              type="button"
+              class="secondary"
+              [disabled]="busy() || !canMove() || !!hint()"
+              (click)="askHint()"
+            >
+              Hint
+            </button>
+            <button
+              type="button"
+              class="ghost"
+              [disabled]="busy() || !!sending()"
+              (click)="showSolution()"
+            >
+              Show the solution
+            </button>
+          }
+        </div>
+        @if (!over()) {
+          <p class="note">
+            {{ mistakesLeft() }} wrong {{ mistakesLeft() === 1 ? 'move' : 'moves' }} left.
+            @if (scored()) {
+              A hint halves the XP; the solution ends the attempt.
+            } @else {
+              Practice attempt: it earns no XP.
+            }
+          </p>
+        }
+      } @else {
         <div class="signin">
-          <p>Sign in to play the moves. Your time and wrong tries are saved.</p>
-          <a class="button" routerLink="/login" [queryParams]="{ returnUrl: '/puzzle' }">Sign in</a>
+          <p>Sign in to play the moves. Your time, tries and streak are saved.</p>
+          <a
+            class="button"
+            routerLink="/login"
+            [queryParams]="{ returnUrl: isToday() ? '/puzzle' : '/puzzle/' + puzzle.id }"
+            >Sign in</a
+          >
         </div>
       }
 
@@ -61,13 +151,29 @@
           <dt>Date</dt>
           <dd>{{ puzzle.date }}</dd>
         </div>
-        @if (themes().length) {
+        @if (streak() !== null) {
           <div>
+            <dt>Your streak</dt>
+            <dd>{{ streak() }} {{ streak() === 1 ? 'day' : 'days' }}</dd>
+          </div>
+        }
+        @if (themes().length) {
+          <div class="themes">
             <dt>Themes</dt>
             <dd>{{ themes().join(', ') }}</dd>
           </div>
         }
       </dl>
     }
+
+    <p class="links">
+      @if (!isToday()) {
+        <a routerLink="/puzzle">Today's puzzle</a>
+      }
+      @if (session.authenticated()) {
+        <a routerLink="/puzzle/archive">Earlier puzzles</a>
+      }
+      <a routerLink="/progression">How XP and streaks work</a>
+    </p>
   </div>
 </section>

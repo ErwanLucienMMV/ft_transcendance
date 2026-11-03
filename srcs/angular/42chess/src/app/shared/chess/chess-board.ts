@@ -89,6 +89,8 @@ export class ChessBoard {
   readonly playerColor = input<PlayerColor | null>(null);
   /** The server's verdict wins over the locally detected checkmate or stalemate. */
   readonly result = input<BoardResult | null>(null);
+  /** A square to point out, such as the piece a puzzle hint names. */
+  readonly hint = input<string | null>(null);
   readonly moved = output<BoardMove>();
 
   readonly position = computed<Position | null>(() => {
@@ -186,6 +188,7 @@ export class ChessBoard {
       square.piece ? `${square.piece.color} ${square.piece.name}` : 'empty',
     ];
     if (this.checkSquare() === square.name) parts.push('in check');
+    if (this.hint() === square.name) parts.push('hint');
     if (this.targets().has(square.name)) parts.push('possible move');
     return parts.join(', ');
   }

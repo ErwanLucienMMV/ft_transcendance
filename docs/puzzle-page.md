@@ -30,16 +30,19 @@ changed there.
 
 ## Resume
 
-The attempt id, the puzzle id and the user id are kept in this tab's `sessionStorage`, so
-a reload resumes the same attempt. Nothing secret is stored: the server checks that the
-attempt belongs to the signed-in account. Signing out removes the entry.
+The page asks the server for the player's latest attempt at the puzzle
+(`GET /puzzles/:id/progress`), so a reload, another tab or another device resumes it. The
+attempt id used to be kept in `sessionStorage`; that is gone.
+
+Limits, hints, the shown solution, rewards, the streak and the archive (`/puzzle/:id`,
+`/puzzle/archive`) are described in [progression.md](progression.md#puzzle-rules).
 
 ## PUZZLE-06: the solution never reaches the browser
 
 Checked in the backend: `solution` is not selected by default on the entity, the daily
 and attempt responses are built field by field, and `test/puzzles.e2e-spec.ts` asserts
-that no response contains `solution` or the move list. The front end has no way to ask
-for it.
+that no response contains `solution` or the move list. The front end only gets it through `POST /puzzles/attempts/:id/solution`, which the player
+asks for with **Show the solution** and which ends the attempt without reward.
 
 ## Catalogue
 

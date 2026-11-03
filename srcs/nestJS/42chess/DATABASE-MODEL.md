@@ -358,9 +358,13 @@ Index (y compris ceux créés par les clés primaires et uniques) :
 | `moves` | `text[]` | non | `'{}'::text[]` |
 | `attempts` | `integer` | oui | `—` |
 | `duration` | `integer` | oui | `—` |
+| `mistakes` | `integer` | non | `0` |
+| `hintUsed` | `boolean` | non | `false` |
+| `revealed` | `boolean` | non | `false` |
 
 Contraintes :
 
+- `CHK_puzzle_attempts_mistakes`: `CHECK ((mistakes >= 0))`
 - `CHK_puzzle_attempts_0`: `CHECK ((array_position(moves, NULL::text) IS NULL))`
 - `CHK_puzzle_attempts_metrics`: `CHECK (((attempts >= 0) AND (duration >= 0)))`
 - `FK_puzzle_attempts_puzzleId`: `FOREIGN KEY ("puzzleId") REFERENCES puzzles(id) ON DELETE RESTRICT`
@@ -462,6 +466,24 @@ Index (y compris ceux créés par les clés primaires et uniques) :
 - `CREATE UNIQUE INDEX "UQ_b3b08b9bfa724a55e787c5b8fe5" ON users USING btree ("emailVerificationTokenHash")`
 - `CREATE UNIQUE INDEX "UQ_fe0bb3f6520ee0469504521e710" ON users USING btree (username)`
 - `CREATE UNIQUE INDEX "UQ_users_username_lower" ON users USING btree (lower((username)::text))`
+
+### Progression : `user_progress`, `xp_events`, `achievements`, `user_achievements`
+
+Ajoutées par la migration `AddProgression1793800000000` (règles :
+[docs/progression.md](../../../docs/progression.md)).
+
+- `user_progress` : `userId` (PK, FK `users` `ON DELETE CASCADE`), `xp`, `puzzleStreak`,
+  `bestPuzzleStreak` (entiers non nuls, défaut 0, `CHK_user_progress_counts` : positifs et
+  record ≥ série), `lastStreakDate` (`date`, UTC), `updatedAt`.
+- `xp_events` : `id`, `createdAt`, `userId` (FK `CASCADE`), `source` (`GAME`, `PUZZLE`,
+  `ACHIEVEMENT`), `refId` (`varchar(64)` : id de partie, id de puzzle ou code de succès),
+  `amount` (> 0). `UQ_xp_events_award` rend chaque gain unique par
+  `(userId, source, refId)`.
+- `achievements` : catalogue semé par la migration (`code` PK, `position`, `name`,
+  `description`, `metric`, `goal` > 0, `xp` ≥ 0).
+- `user_achievements` : `(userId, code)` PK, `unlockedAt` ; FK vers `users` et
+  `achievements` en `CASCADE`.
+- `daily_puzzles` reçoit l'index `IDX_daily_puzzles_puzzleId` (archive, puzzle publié).
 
 ## Exemples de lecture
 

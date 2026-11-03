@@ -23,4 +23,23 @@ describe('Puzzles REST client', () => {
     });
     http.verify();
   });
+
+  it('reads earlier puzzles, the latest attempt, a hint and the solution', () => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+    const api = TestBed.inject(PuzzlesApi);
+    const http = TestBed.inject(HttpTestingController);
+    api.published('p1').subscribe();
+    expect(http.expectOne('/api/v1/puzzles/p1').request.method).toBe('GET');
+    api.progress('p1').subscribe();
+    expect(http.expectOne('/api/v1/puzzles/p1/progress').request.method).toBe('GET');
+    api.archive(40).subscribe();
+    expect(http.expectOne('/api/v1/puzzles/archive?limit=20&offset=40').request.method).toBe('GET');
+    api.hint('a1').subscribe();
+    expect(http.expectOne('/api/v1/puzzles/attempts/a1/hint').request.method).toBe('POST');
+    api.solution('a1').subscribe();
+    expect(http.expectOne('/api/v1/puzzles/attempts/a1/solution').request.method).toBe('POST');
+    http.verify();
+  });
 });
