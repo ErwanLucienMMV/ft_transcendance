@@ -397,5 +397,13 @@ describe('Social controls and live social events', () => {
     await message(bobSocket, alice, 'blocked');
     await bobSocket.take('ERROR');
     expect(aliceSocket.count('TYPING')).toBe(0);
+
+    // Reading the old conversation after a block is not told to the other side.
+    await as(alice).read(bob).expect(204);
+    expect((await aliceSocket.take('MESSAGES_READ')).data).toMatchObject({
+      readerId: alice.id,
+      senderId: bob.id,
+    });
+    expect(bobSocket.count('MESSAGES_READ')).toBe(0);
   });
 });

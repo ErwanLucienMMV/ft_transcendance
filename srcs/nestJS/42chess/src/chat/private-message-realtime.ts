@@ -50,16 +50,24 @@ export class PrivateMessageRealtime implements OnModuleDestroy {
     );
   }
 
-  /** The sender sees "Read"; the reader's other tabs clear their unread count. */
+  /**
+   * The sender sees "Read"; the reader's other tabs clear their unread count. After a
+   * block, in either direction, the peer is no longer told when the reader reads.
+   */
   async markRead(readerId: string, peerId: string): Promise<void> {
     const read = await this.messages.markRead(readerId, peerId);
     if (!read) return;
-    await this.events.send([peerId, readerId], 'MESSAGES_READ', {
-      readerId,
-      senderId: peerId,
-      readAt: read.readAt,
-      messageIds: read.messageIds,
-    });
+    const blocked = await this.messages.blockedBetween(readerId, peerId);
+    await this.events.send(
+      blocked ? [readerId] : [peerId, readerId],
+      'MESSAGES_READ',
+      {
+        readerId,
+        senderId: peerId,
+        readAt: read.readAt,
+        messageIds: read.messageIds,
+      },
+    );
   }
 
   /**

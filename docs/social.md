@@ -19,7 +19,8 @@ routes are given as NestJS sees them (`/v1/...`); behind Nginx they start with `
 - From then on, in **both** directions, private messages, challenges (`POST /v1/games` with
   an `opponentId`) and friend requests are refused with `403 USER_BLOCKED`. The blocker reads
   "You blocked this player. Unblock them to …", the other "You cannot … this player." The
-  blocked player is not told otherwise. Typing hints between them are dropped.
+  blocked player is not told otherwise. Typing hints between them are dropped, and so are
+  read receipts: reading the old conversation is no longer shown to the other side.
 - Existing conversations stay readable. Games already running are not touched.
 - Stored in `user_blocks` (`blockerId`, `blockedId`, unique pair, no self-block, cascade on
   user deletion). The export lists blocked players; account deletion removes every block

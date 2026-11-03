@@ -107,6 +107,17 @@ export class PrivateMessagesService {
     };
   }
 
+  /** Whether either player blocked the other. */
+  async blockedBetween(first: string, second: string): Promise<boolean> {
+    const [row] = (await this.messages.query(
+      `SELECT EXISTS (SELECT 1 FROM user_blocks
+         WHERE ("blockerId" = $1 AND "blockedId" = $2) OR ("blockerId" = $2 AND "blockedId" = $1)
+       ) AS blocked`,
+      [first, second],
+    )) as { blocked: boolean }[];
+    return row.blocked;
+  }
+
   /** Whether this player may write to that one: used before announcing typing. */
   async mayWrite(senderId: string, receiverId: string): Promise<boolean> {
     try {

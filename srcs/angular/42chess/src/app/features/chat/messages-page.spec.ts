@@ -177,6 +177,19 @@ describe('Messages page', () => {
     expect(markRead).toHaveBeenCalledExactlyOnceWith('bob');
   });
 
+  it('marks again a message that arrived while the conversation was being marked read', async () => {
+    const pending = new Subject<void>();
+    markRead.mockReturnValueOnce(pending);
+    const { harness } = await open('/messages/bob');
+    events.next({ event: 'PRIVATE_MESSAGE', data: message('m9', 'bob', 'me', 'Still there?', 9) });
+    await harness.fixture.whenStable();
+    expect(markRead).toHaveBeenCalledTimes(1);
+    pending.next();
+    pending.complete();
+    await harness.fixture.whenStable();
+    expect(markRead).toHaveBeenCalledTimes(2);
+  });
+
   it('does not mark a conversation read when nothing in it is unread', async () => {
     await open('/messages/carol');
     expect(markRead).not.toHaveBeenCalled();

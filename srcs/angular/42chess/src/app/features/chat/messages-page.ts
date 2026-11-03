@@ -100,6 +100,7 @@ export class MessagesPage {
   private listLoading = false;
   /** The conversation being marked read, so a burst of messages sends one request. */
   private marking: string | null = null;
+  private markAgain = false;
 
   readonly peer = signal<Peer | null>(null);
   readonly peerError = signal<string | null>(null);
@@ -530,8 +531,13 @@ export class MessagesPage {
    * messages. MESSAGES_READ then updates every tab, and the sender's.
    */
   private markRead(id: string): void {
-    if (id !== this.peerId() || this.marking === id) return;
+    if (id !== this.peerId()) return;
     if (this.document.visibilityState === 'hidden') return;
+    if (this.marking === id) {
+      // A message arrived while the last request was on its way: mark again after it.
+      this.markAgain = true;
+      return;
+    }
     const unreadListed =
       this.conversations()?.find((conversation) => conversation.user.id === id)?.unreadCount ?? 0;
     const unreadShown = (this.thread() ?? []).some(
@@ -539,13 +545,21 @@ export class MessagesPage {
     );
     if (!unreadListed && !unreadShown) return;
     this.marking = id;
+    this.markAgain = false;
     this.messages.markRead(id).subscribe({
       next: () => {
         this.marking = null;
         this.clearUnread(id);
+        if (this.markAgain) {
+          this.markAgain = false;
+          this.markRead(id);
+        }
       },
       // Unread stays unread; the next message or visit tries again.
-      error: () => (this.marking = null),
+      error: () => {
+        this.marking = null;
+        this.markAgain = false;
+      },
     });
   }
 

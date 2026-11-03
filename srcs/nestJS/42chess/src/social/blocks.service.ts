@@ -51,6 +51,17 @@ export class BlocksService {
       });
     const ended = await this.source.transaction(async (manager) => {
       const [first, second] = [actorId, targetId].sort();
+      // Open challenges between them can no longer be played. They are locked
+      // first, in the order a join takes its locks (game, then accounts): a join
+      // already running ends before the block, and its started game is left alone.
+      const challenges = (await manager.query(
+        `SELECT g.id FROM games g WHERE g.status = 'WAITING' AND EXISTS (
+           SELECT 1 FROM game_players p WHERE p."gameId" = g.id
+             AND ((p."userId" = $1 AND g."invitedOpponentId" = $2)
+               OR (p."userId" = $2 AND g."invitedOpponentId" = $1)))
+         ORDER BY g.id FOR UPDATE OF g`,
+        [actorId, targetId],
+      )) as { id: string }[];
       // Same lock order as friend requests, so blocking cannot race a new friendship.
       const users = (await manager.query(
         `SELECT id FROM users WHERE id IN ($1, $2) AND "emailVerifiedAt" IS NOT NULL
@@ -78,18 +89,17 @@ export class BlocksService {
          RETURNING id`,
         [actorId, targetId],
       )) as [{ id: string }[], number];
-      // Open challenges between them can no longer be played.
-      const waiting = `SELECT g.id FROM games g JOIN game_players p ON p."gameId" = g.id
-        WHERE g.status = 'WAITING' AND ((p."userId" = $1 AND g."invitedOpponentId" = $2)
-          OR (p."userId" = $2 AND g."invitedOpponentId" = $1))`;
-      await manager.query(
-        `DELETE FROM game_messages WHERE "gameId" IN (${waiting})`,
-        [actorId, targetId],
-      );
-      await manager.query(`DELETE FROM games WHERE id IN (${waiting})`, [
-        actorId,
-        targetId,
-      ]);
+      // The creator's waiting room hears that the game is gone at its next refresh.
+      const ids = challenges.map((game) => game.id);
+      if (ids.length > 0) {
+        await manager.query(
+          `DELETE FROM game_messages WHERE "gameId" = ANY($1::uuid[])`,
+          [ids],
+        );
+        await manager.query(`DELETE FROM games WHERE id = ANY($1::uuid[])`, [
+          ids,
+        ]);
+      }
       return { friends: friendships > 0, requests: requests[0] };
     });
     if (ended.friends) {
