@@ -138,11 +138,35 @@ def main():
             check(defaults.get('unit') == expected.get(expr), f'Inventory unit mismatch: {expr}')
             found.add(expr)
     check(found == set(expected), 'Incomplete matchmaking inventory dashboard')
+
+    # Infrastructure dashboards: every panel explains itself and shows missing
+    # data as unknown; the API metrics they read are the ones the health
+    # service registers.
+    check('alertmanager' in datasource_uids, 'Missing provisioned alertmanager datasource UID')
+    health = (REPO_SRCS / 'nestJS/42chess/src/health/health.service.ts').read_text()
+    api_metrics = set(re.findall(r"name: '(\w+)'", health))
+    for name, uid in (('overview.json', 'transcendence-overview'),
+                      ('host.json', 'transcendence-host'),
+                      ('containers.json', 'transcendence-containers'),
+                      ('postgres.json', 'transcendence-postgres')):
+        dashboard = loaded.get(name, {})
+        check(dashboard.get('uid') == uid, f'{name}: expected dashboard UID {uid}')
+        for panel in dashboard.get('panels', []):
+            if panel.get('type') == 'text':
+                continue
+            context = f'{name} panel {panel.get("id")}'
+            check(bool(panel.get('description')), f'{context}: description required')
+            check(panel.get('fieldConfig', {}).get('defaults', {}).get('noValue') == 'No data',
+                  f'{context}: absent metrics must not display as zero')
+            for target in panel.get('targets', []):
+                for metric in ('service_up', 'backup_last_success_timestamp_seconds'):
+                    if metric in target.get('expr', ''):
+                        check(metric in api_metrics, f'{context}: {metric} not registered by the API')
     if ERRORS:
         print('\n'.join(ERRORS), file=sys.stderr)
         return 1
-    print(f'Validated {len(loaded)} dashboards: provisioning, unique IDs, grid, datasource, '
-          'WebSocket metric registrations, inventory PromQL contracts and units.')
+    print(f'Validated {len(loaded)} dashboards: provisioning, unique IDs, grid, datasources, '
+          'WebSocket and health metric registrations, inventory PromQL contracts and units.')
     return 0
 
 

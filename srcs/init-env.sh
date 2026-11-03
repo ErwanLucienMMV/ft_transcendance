@@ -44,3 +44,4 @@ fill POSTGRES_BACKUP_PASSWORD "$(random)"
 fill JWT_SECRET "$(random)"
 fill GF_SECURITY_ADMIN_USER admin
 fill GF_SECURITY_ADMIN_PASSWORD "$(random)"
+fill ALERT_WEBHOOK_TOKEN "$(random)"

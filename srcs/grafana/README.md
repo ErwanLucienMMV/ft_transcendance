@@ -1,7 +1,10 @@
 # Grafana dashboards
 
-The existing `Transcendence` file provider provisions both `transcendence.json`
-and `websocket.json` into the Transcendence folder. The image copies the
+The `Transcendence` file provider provisions every JSON file of
+`provisioning/dashboards/` into the Transcendence folder: the application
+dashboards (`transcendence.json`, `websocket.json`, `matchmaking.json`) and the
+infrastructure ones (`overview.json`, `host.json`, `containers.json`,
+`postgres.json`, described in `DOC_MONITORING.md` at the repository root). The image copies the
 provisioning directory; rebuild and recreate Grafana after changing dashboards:
 
 ```sh

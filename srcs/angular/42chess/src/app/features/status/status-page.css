@@ -1,0 +1,97 @@
+.summary {
+  display: grid;
+}
+.overall h3,
+.overall p,
+.card h3,
+.backup p {
+  margin: 0;
+}
+.overall p,
+.note,
+li small {
+  color: var(--muted);
+}
+.card {
+  display: grid;
+  gap: 12px;
+}
+.card.overall {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--faint);
+}
+.overall .dot {
+  width: 16px;
+  height: 16px;
+}
+.ok .dot {
+  background: var(--accent);
+}
+.degraded .dot {
+  background: var(--warning);
+}
+.down .dot {
+  background: var(--error);
+}
+.overall.ok {
+  border-color: var(--success-border);
+  background: var(--success-bg);
+}
+.overall.down {
+  border-color: var(--error-border);
+  background: var(--error-bg);
+}
+.overall.degraded,
+.backup.degraded {
+  border-color: var(--warning);
+}
+.services {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.services li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.services li:last-child {
+  border-bottom: 0;
+}
+li > div {
+  display: grid;
+  gap: 2px;
+}
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.down .state {
+  color: var(--error);
+}
+.backup small {
+  color: var(--muted);
+  margin-left: 6px;
+}
+.checked {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 14px;
+}

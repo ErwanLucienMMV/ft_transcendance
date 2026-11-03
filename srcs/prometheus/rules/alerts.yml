@@ -1,0 +1,159 @@
+# Alert rules. Alertmanager groups them and forgemail emails them to ALERT_EMAIL.
+# `make check-monitoring` validates this file and runs tests/alerts.test.yml.
+# severity: critical = players are affected now; warning = act before they are.
+groups:
+  - name: availability
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $labels.job }} is not answering Prometheus'
+          description: >-
+            Prometheus could not read the metrics of {{ $labels.instance }}
+            (job {{ $labels.job }}) for at least one minute. The container is
+            probably stopped or crashing: check `docker compose ps` and its logs.
+
+      - alert: ServiceUnreachable
+        expr: service_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'The API cannot reach the {{ $labels.service }} service'
+          description: >-
+            The health check of the API has failed for {{ $labels.service }}
+            for at least one minute. The status page shows it too.
+
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'PostgreSQL is unreachable'
+          description: >-
+            postgres-exporter cannot connect to the database: nothing that
+            needs an account, a game or a puzzle works.
+
+  - name: api
+    rules:
+      - alert: ApiHighErrorRate
+        # Ignored below 0.1 request per second: two errors out of three
+        # requests on an idle site are not an outage.
+        expr: |
+          (
+            sum(rate(http_request_duration_seconds_count{job="nestjs", status_code=~"5.."}[5m]))
+              /
+            sum(rate(http_request_duration_seconds_count{job="nestjs"}[5m]))
+          ) > 0.05
+          and
+          sum(rate(http_request_duration_seconds_count{job="nestjs"}[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'More than 5% of API requests fail'
+          description: >-
+            {{ $value | humanizePercentage }} of the API responses were server
+            errors (5xx) over the last 5 minutes. See the API logs.
+
+      - alert: ApiSlowResponses
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{job="nestjs"}[5m]))
+          ) > 1
+          and
+          sum(rate(http_request_duration_seconds_count{job="nestjs"}[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'The API is slow'
+          description: >-
+            95% of the API requests took up to {{ $value | humanizeDuration }}
+            over the last 5 minutes (more than one second).
+
+  - name: database
+    rules:
+      - alert: PostgresTooManyConnections
+        expr: |
+          sum(pg_stat_activity_count) / max(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'PostgreSQL is close to its connection limit'
+          description: >-
+            {{ $value | humanizePercentage }} of the connections PostgreSQL
+            accepts are in use. New connections will soon be refused.
+
+      - alert: BackupStale
+        # The same threshold as the status page: BACKUP_MAX_AGE_SECONDS, 2 h by default.
+        expr: |
+          (time() - backup_last_success_timestamp_seconds > backup_max_age_seconds)
+          and
+          backup_last_success_timestamp_seconds > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'The last database backup is too old'
+          description: >-
+            The last successful backup was {{ $value | humanizeDuration }} ago,
+            while one runs every hour. Is the backup container running
+            (`make backup`)? See `make backup-logs`.
+
+      - alert: BackupMissing
+        # Cron takes the first backup at the next full hour.
+        expr: backup_last_success_timestamp_seconds == 0
+        for: 2h
+        labels:
+          severity: warning
+        annotations:
+          summary: 'No database backup was ever recorded'
+          description: >-
+            No backup has completed since the API started. Start the backup
+            service with `make backup` (or use `make full`).
+
+  - name: host
+    rules:
+      - alert: DiskAlmostFull
+        # One alert per disk, even when it is mounted in several places.
+        expr: |
+          min by (job, instance, device) (
+            node_filesystem_avail_bytes{fstype!~"tmpfs|ramfs|overlay|squashfs|nsfs|fuse.*"}
+              / node_filesystem_size_bytes{fstype!~"tmpfs|ramfs|overlay|squashfs|nsfs|fuse.*"}
+          ) < 0.10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Disk {{ $labels.device }} is almost full'
+          description: >-
+            Only {{ $value | humanizePercentage }} of {{ $labels.device }} is
+            free (the Host dashboard shows where it is mounted). PostgreSQL
+            stops writing when the disk is full.
+
+      - alert: HostLowMemory
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'The machine is running out of memory'
+          description: >-
+            Only {{ $value | humanizePercentage }} of the memory is available.
+
+      - alert: ContainerRestarting
+        expr: |
+          changes(container_start_time_seconds{name!=""}[15m]) > 2
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Container {{ $labels.name }} keeps restarting'
+          description: >-
+            {{ $labels.name }} restarted {{ $value }} times in 15 minutes. See its
+            logs with `docker logs {{ $labels.name }}`.

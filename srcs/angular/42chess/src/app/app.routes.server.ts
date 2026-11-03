@@ -10,6 +10,7 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'puzzle/:id', renderMode: RenderMode.Client },
   { path: 'leaderboard', renderMode: RenderMode.Client },
   { path: 'progression', renderMode: RenderMode.Client },
+  { path: 'status', renderMode: RenderMode.Client },
   { path: 'game/:id', renderMode: RenderMode.Client },
   { path: 'live', renderMode: RenderMode.Client },
   { path: 'history', renderMode: RenderMode.Client },

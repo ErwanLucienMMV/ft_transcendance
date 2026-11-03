@@ -3,7 +3,11 @@ COMPOSE_FILE	= docker-compose.yml
 DEV_COMPOSE	= docker-compose.dev.yml
 TEST_COMPOSE	= $(COMPOSE_DIR)/nestJS/42chess/test/docker-compose.yml
 
+# The API reads the backup status from BACKUP_DIR/status (relative to srcs/, as
+# in Compose): the folder must exist before the stack starts.
 all: env
+	@dir="$${BACKUP_DIR:-../backups}"; case "$$dir" in /*) ;; *) dir="$(COMPOSE_DIR)/$$dir" ;; esac; \
+		mkdir -p "$$dir/status"
 	@echo "Starting the building of images, be patient this can take a loooong time"
 	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) up --build -d > compose.log 2>&1 || { \
 		echo "Build or start failed, last lines of compose.log:"; \
@@ -76,11 +80,31 @@ full: all
 	@echo "Main stack is ready, starting the independent backup service"
 	@$(MAKE) --no-print-directory backup
 
+# Every service but PostgreSQL, so that nothing writes during a restore.
+APP_SERVICES	= chess-engine bot forgemail nestjs nginx prometheus alertmanager \
+		  grafana node-exporter cadvisor postgres-exporter
+
 stop-app:
-	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) stop chess-engine bot nginx prometheus nestjs forgemail grafana
+	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) stop $(APP_SERVICES)
 
 start-app:
-	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) start chess-engine bot forgemail nestjs nginx prometheus grafana
+	@docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) start $(APP_SERVICES)
+
+# Offline checks of the monitoring configuration (Docker only): Prometheus
+# configuration and alert rules with their unit tests, Alertmanager
+# configuration, Grafana dashboards.
+PROMETHEUS_IMAGE	= docker.io/prom/prometheus:v3.13.3
+ALERTMANAGER_IMAGE	= docker.io/prom/alertmanager:v0.34.1
+check-monitoring:
+	@docker run --rm --entrypoint /bin/sh \
+		-v "$(CURDIR)/$(COMPOSE_DIR)/prometheus:/src:ro" \
+		-v "$(CURDIR)/$(COMPOSE_DIR)/prometheus/rules:/etc/prometheus/rules:ro" \
+		$(PROMETHEUS_IMAGE) -c 'sed "s/\$${APIPORT}/3000/g" /src/prometheus.yml > /tmp/prometheus.yml \
+			&& promtool check config /tmp/prometheus.yml && cd /src && promtool test rules tests/alerts.test.yml'
+	@docker run --rm --entrypoint /bin/sh \
+		-v "$(CURDIR)/$(COMPOSE_DIR)/alertmanager:/src:ro" \
+		$(ALERTMANAGER_IMAGE) -c 'printf x > /tmp/alert-webhook-token && amtool check-config /src/alertmanager.yml'
+	@python3 $(COMPOSE_DIR)/grafana/scripts/validate_dashboards.py
 
 # The tests do not read srcs/.env: they bring their own settings.
 # --profile is required by podman-compose to see the `tests` service; the
@@ -127,4 +151,4 @@ fclean:
 	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down -v --remove-orphans
 	docker compose -f ./backup/docker-compose.yml down -v --remove-orphans
 
-.PHONY: all puzzles loud dev env down backup backup-down backup-logs backup-now backups restore full stop-app start-app test test-bot test-puzzles re clean fclean
+.PHONY: all puzzles loud dev env down backup backup-down backup-logs backup-now backups restore full stop-app start-app check-monitoring test test-bot test-puzzles re clean fclean

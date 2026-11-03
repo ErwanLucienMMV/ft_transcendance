@@ -10,11 +10,4 @@ export class AppController {
   describe(): ApiDescription {
     return this.appService.describe();
   }
-
-  @Get('v1/health')
-  healthCheck() {
-    return {
-      status: 'ok',
-    };
-  }
 }

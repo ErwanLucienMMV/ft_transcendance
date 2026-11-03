@@ -1,0 +1,258 @@
+# Unit tests of rules/alerts.yml, run by `make check-monitoring`:
+#   promtool test rules tests/alerts.test.yml
+# promtool starts its clock at 0, so time() is the number of seconds elapsed.
+rule_files:
+  - ../rules/alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: a stopped container is reported after one minute
+    interval: 1m
+    input_series:
+      - series: 'up{job="postgres", instance="postgres-exporter:9187"}'
+        values: '1 1 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: TargetDown
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: TargetDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: postgres
+              instance: postgres-exporter:9187
+            exp_annotations:
+              summary: postgres is not answering Prometheus
+              description: >-
+                Prometheus could not read the metrics of postgres-exporter:9187
+                (job postgres) for at least one minute. The container is
+                probably stopped or crashing: check `docker compose ps` and its logs.
+
+  - name: the API reports which service it cannot reach
+    interval: 1m
+    input_series:
+      - series: 'service_up{job="nestjs", instance="nestjs:3000", service="bot"}'
+        values: '0x5'
+      - series: 'service_up{job="nestjs", instance="nestjs:3000", service="mail"}'
+        values: '1x5'
+      - series: 'pg_up{job="postgres", instance="postgres-exporter:9187"}'
+        values: '1 0 0 0'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ServiceUnreachable
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: nestjs
+              instance: nestjs:3000
+              service: bot
+            exp_annotations:
+              summary: The API cannot reach the bot service
+              description: >-
+                The health check of the API has failed for bot
+                for at least one minute. The status page shows it too.
+      - eval_time: 3m
+        alertname: PostgresDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: postgres
+              instance: postgres-exporter:9187
+            exp_annotations:
+              summary: PostgreSQL is unreachable
+              description: >-
+                postgres-exporter cannot connect to the database: nothing that
+                needs an account, a game or a puzzle works.
+
+  - name: server errors above 5% of a real traffic
+    interval: 1m
+    input_series:
+      # 10 successful and 2 failed requests per minute: 1 in 6 fails.
+      - series: 'http_request_duration_seconds_count{job="nestjs", route="/v1/games", status_code="200"}'
+        values: '0+10x20'
+      - series: 'http_request_duration_seconds_count{job="nestjs", route="/v1/games", status_code="500"}'
+        values: '0+2x20'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: ApiHighErrorRate
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: ApiHighErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: More than 5% of API requests fail
+              description: >-
+                16.67% of the API responses were server
+                errors (5xx) over the last 5 minutes. See the API logs.
+
+  - name: an idle site does not alert on a few errors
+    interval: 1m
+    input_series:
+      # One request per minute (below 0.1 per second), half of them failing.
+      - series: 'http_request_duration_seconds_count{job="nestjs", route="/v1/games", status_code="200"}'
+        values: '0+1x20'
+      - series: 'http_request_duration_seconds_count{job="nestjs", route="/v1/games", status_code="500"}'
+        values: '0+1x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: ApiHighErrorRate
+        exp_alerts: []
+
+  - name: slow responses
+    interval: 1m
+    input_series:
+      # 30 requests per minute, all slower than one second but under 2.5.
+      - series: 'http_request_duration_seconds_bucket{job="nestjs", le="1"}'
+        values: '0x30'
+      - series: 'http_request_duration_seconds_bucket{job="nestjs", le="2.5"}'
+        values: '0+30x30'
+      - series: 'http_request_duration_seconds_bucket{job="nestjs", le="+Inf"}'
+        values: '0+30x30'
+      - series: 'http_request_duration_seconds_count{job="nestjs"}'
+        values: '0+30x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: ApiSlowResponses
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: ApiSlowResponses
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: The API is slow
+              description: >-
+                95% of the API requests took up to 2.425s
+                over the last 5 minutes (more than one second).
+
+  - name: a backup older than two hours
+    interval: 1m
+    input_series:
+      # The last backup happened at second 600 and none came after it.
+      - series: 'backup_last_success_timestamp_seconds{job="nestjs", instance="nestjs:3000"}'
+        values: '600x200'
+      - series: 'backup_max_age_seconds{job="nestjs", instance="nestjs:3000"}'
+        values: '7200x200'
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: BackupStale
+        exp_alerts: []
+      - eval_time: 3h
+        alertname: BackupStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: nestjs
+              instance: nestjs:3000
+            exp_annotations:
+              summary: The last database backup is too old
+              description: >-
+                The last successful backup was 2h 50m 0s ago,
+                while one runs every hour. Is the backup container running
+                (`make backup`)? See `make backup-logs`.
+      - eval_time: 3h
+        alertname: BackupMissing
+        exp_alerts: []
+
+  - name: no backup at all
+    interval: 1m
+    input_series:
+      - series: 'backup_last_success_timestamp_seconds{job="nestjs", instance="nestjs:3000"}'
+        values: '0x200'
+      - series: 'backup_max_age_seconds{job="nestjs", instance="nestjs:3000"}'
+        values: '7200x200'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: BackupMissing
+        exp_alerts: []
+      - eval_time: 3h
+        alertname: BackupStale
+        exp_alerts: []
+      - eval_time: 3h
+        alertname: BackupMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: nestjs
+              instance: nestjs:3000
+            exp_annotations:
+              summary: No database backup was ever recorded
+              description: >-
+                No backup has completed since the API started. Start the backup
+                service with `make backup` (or use `make full`).
+
+  - name: disk, memory and connections
+    interval: 1m
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="node", mountpoint="/", fstype="ext4", device="/dev/sda1"}'
+        values: '5x10'
+      - series: 'node_filesystem_size_bytes{job="node", mountpoint="/", fstype="ext4", device="/dev/sda1"}'
+        values: '100x10'
+      # The same disk mounted a second time: still one alert.
+      - series: 'node_filesystem_avail_bytes{job="node", mountpoint="/var/lib/docker", fstype="ext4", device="/dev/sda1"}'
+        values: '5x10'
+      - series: 'node_filesystem_size_bytes{job="node", mountpoint="/var/lib/docker", fstype="ext4", device="/dev/sda1"}'
+        values: '100x10'
+      # A full tmpfs is not a problem.
+      - series: 'node_filesystem_avail_bytes{job="node", mountpoint="/run", fstype="tmpfs", device="tmpfs"}'
+        values: '0x10'
+      - series: 'node_filesystem_size_bytes{job="node", mountpoint="/run", fstype="tmpfs", device="tmpfs"}'
+        values: '100x10'
+      - series: 'node_memory_MemAvailable_bytes{job="node"}'
+        values: '50x20'
+      - series: 'node_memory_MemTotal_bytes{job="node"}'
+        values: '100x20'
+      - series: 'pg_stat_activity_count{job="postgres", datname="transcendence", state="idle"}'
+        values: '90x10'
+      - series: 'pg_settings_max_connections{job="postgres"}'
+        values: '100x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: DiskAlmostFull
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: node
+              device: /dev/sda1
+            exp_annotations:
+              summary: Disk /dev/sda1 is almost full
+              description: >-
+                Only 5% of /dev/sda1 is
+                free (the Host dashboard shows where it is mounted). PostgreSQL
+                stops writing when the disk is full.
+      - eval_time: 15m
+        alertname: HostLowMemory
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: PostgresTooManyConnections
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: PostgreSQL is close to its connection limit
+              description: >-
+                90% of the connections PostgreSQL
+                accepts are in use. New connections will soon be refused.
+
+  - name: a container that keeps restarting
+    interval: 1m
+    input_series:
+      - series: 'container_start_time_seconds{job="cadvisor", name="srcs-bot-1"}'
+        values: '100 100 200 300 400 400 400'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: ContainerRestarting
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: cadvisor
+              name: srcs-bot-1
+            exp_annotations:
+              summary: Container srcs-bot-1 keeps restarting
+              description: >-
+                srcs-bot-1 restarted 3 times in 15 minutes. See its
+                logs with `docker logs srcs-bot-1`.

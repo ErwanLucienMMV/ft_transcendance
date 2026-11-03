@@ -1,7 +1,61 @@
+# Every target lives on the transcendence network; none is published.
 global:
-  scrape_interval: 5s
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
 
 scrape_configs:
+  # The API: HTTP, WebSocket, game and puzzle metrics, plus its checks of the
+  # database, the chess engine, the bot, the mail service and the backups.
   - job_name: 'nestjs'
+    scrape_interval: 5s
+    metrics_path: /v1/metrics
     static_configs:
       - targets: ['nestjs:${APIPORT}']
+
+  # The machine: CPU, memory and disks. The network is per container, from
+  # cAdvisor: node-exporter only sees the network of its own container.
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # One series per container: CPU, memory, network, restarts.
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    metric_relabel_configs:
+      # Only the containers of this stack: Compose names its project after the
+      # folder of docker-compose.yml, srcs (as in the srcs_* volumes).
+      - source_labels: [container_label_com_docker_compose_project]
+        regex: srcs
+        action: keep
+      # Each one named by its Compose service.
+      - source_labels: [container_label_com_docker_compose_service]
+        target_label: service
+      - regex: 'container_label_.*'
+        action: labeldrop
+
+  # PostgreSQL statistics, read with the read-only role.
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'grafana'
+    metrics_path: /grafana/metrics
+    static_configs:
+      - targets: ['grafana:3000']

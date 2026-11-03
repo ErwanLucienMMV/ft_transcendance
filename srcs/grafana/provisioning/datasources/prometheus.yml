@@ -8,3 +8,19 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: false
+    jsonData:
+      # Shows the rules of srcs/prometheus/rules under Alerting > Alert rules.
+      manageAlerts: true
+      alertmanagerUid: alertmanager
+
+  # Alerting > Alert groups and Silences: what Alertmanager is sending, and
+  # silences during maintenance (a restore, a demo).
+  - name: Alertmanager
+    uid: alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    editable: false
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false

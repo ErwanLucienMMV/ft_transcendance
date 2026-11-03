@@ -2,6 +2,22 @@ const DEFAULT_PORT = 3002;
 const DEFAULT_SMTP_HOST = 'smtp.gmail.com';
 // Gmail: port 465 uses TLS from the first byte.
 const DEFAULT_SMTP_PORT = 465;
+const EMAIL_MAX_LENGTH = 254;
+
+/** "a@x.org, b@y.org" -> both addresses; anything that is not an address is dropped. */
+export function parseRecipients(value = '') {
+  return [
+    ...new Set(
+      value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(
+          (item) =>
+            item.length <= EMAIL_MAX_LENGTH && /^[^\s@]+@[^\s@]+$/.test(item),
+        ),
+    ),
+  ];
+}
 
 /**
  * Reads the configuration from the environment (srcs/.env, never committed).
@@ -23,5 +39,10 @@ export function loadConfig(env = process.env) {
       password,
     },
     from: env.MAIL_FROM || user || 'ft_transcendence <no-reply@localhost>',
+    // Monitoring alerts from Alertmanager, sent to the administrators.
+    alerts: {
+      token: env.ALERT_WEBHOOK_TOKEN ?? '',
+      recipients: parseRecipients(env.ALERT_EMAIL),
+    },
   };
 }

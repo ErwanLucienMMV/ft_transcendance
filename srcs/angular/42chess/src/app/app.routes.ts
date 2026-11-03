@@ -54,6 +54,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/progression/rules-page').then((m) => m.RulesPage),
   },
   {
+    path: 'status',
+    title: 'Service status | 42 Chess',
+    loadComponent: () => import('./features/status/status-page').then((m) => m.StatusPage),
+  },
+  {
     path: 'live',
     title: 'Live games | 42 Chess',
     loadComponent: () => import('./features/live/live-page').then((m) => m.LivePage),

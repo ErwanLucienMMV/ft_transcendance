@@ -59,14 +59,17 @@ describe('HTTP duration metrics', () => {
     },
   );
 
-  it.each(['/metrics', '/metrics/', '/v1/metrics', '/V1/METRICS/'])(
-    'excludes the scrape endpoint %s',
-    async (path) => {
-      const { response } = start(path);
-      response.emit('finish');
-      expect(await metrics.registry.metrics()).not.toContain('_count{');
-    },
-  );
+  it.each([
+    '/metrics',
+    '/metrics/',
+    '/v1/metrics',
+    '/V1/METRICS/',
+    '/v1/health',
+  ])('excludes %s (scrapes and health checks)', async (path) => {
+    const { response } = start(path);
+    response.emit('finish');
+    expect(await metrics.registry.metrics()).not.toContain('_count{');
+  });
 
   it('bounds unknown method and non-string route labels', async () => {
     const { request, response } = start('/private-id', 'CUSTOM-PRIVATE-ID');

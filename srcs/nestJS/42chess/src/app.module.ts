@@ -25,6 +25,7 @@ import { RealtimeModule } from './realtime/realtime.module.js';
 import { OAuthModule } from './oauth/oauth.module.js';
 import { SocialModule } from './social/social.module.js';
 import { ProgressionModule } from './progression/progression.module.js';
+import { HealthModule } from './health/health.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ProgressionModule } from './progression/progression.module.js';
     DatabaseModule,
     PresenceModule,
     MetricsModule,
+    HealthModule,
     AuthModule,
     OAuthModule,
     UsersModule,
