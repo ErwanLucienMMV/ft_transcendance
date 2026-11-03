@@ -9,6 +9,7 @@ import type { DataSource } from 'typeorm';
 import { WebSocketServer } from 'ws';
 import { MetricsService } from '../metrics/metrics.service.js';
 import {
+  CHECK_TIMEOUT_MS,
   HEALTH_CACHE_MS,
   HealthService,
   pingWebSocket,
@@ -116,10 +117,13 @@ describe('HealthService', () => {
   });
 
   it('gives up on a check after two seconds', async () => {
+    // Fake clocks: a busy machine must not make the two seconds look longer.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'Date', 'performance'] });
     const hanging = database(vi.fn(() => new Promise(() => {})));
-    const started = Date.now();
-    const report = await new HealthService(hanging).report();
-    expect(Date.now() - started).toBeLessThan(3_000);
+    const pending = new HealthService(hanging).report();
+    await vi.advanceTimersByTimeAsync(CHECK_TIMEOUT_MS);
+    const report = await pending;
+    vi.useRealTimers();
     expect(report.services[0]).toEqual({
       name: 'database',
       status: 'down',
