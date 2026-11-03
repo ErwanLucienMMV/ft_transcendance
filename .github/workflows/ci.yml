@@ -102,7 +102,10 @@ jobs:
 
       - name: Verify that only nginx is published
         run: |
-          published=$(docker compose -f srcs/docker-compose.yml ps --format '{{.Service}} {{.Publishers}}' | grep -v '^nginx ' | grep -E '0\.0\.0\.0|\[::\]' || true)
+          declared=$(docker compose -f srcs/docker-compose.yml config --format json \
+            | jq -r '.services | to_entries[] | select(.key != "nginx" and ((.value.ports // []) | length) > 0) | .key')
+          running=$(docker compose -f srcs/docker-compose.yml ps -a --format '{{.Service}} {{.Publishers}}' | grep -v '^nginx ' | grep -E '0\.0\.0\.0|::' || true)
+          published="$declared$running"
           if [ -n "$published" ]; then
             echo "Unexpected published ports:"; echo "$published"; exit 1
           fi

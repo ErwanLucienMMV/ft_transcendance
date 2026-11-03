@@ -59,14 +59,15 @@ backup-now:
 
 # Lists the backups, newest first.
 backups:
-	@ls -1t backups 2>/dev/null | grep '^transcendence_.*\.sql\.gz$$' || echo "No backup yet (run make full or make backup)"
+	@{ docker exec transcendence-backup ls -1t /backups 2>/dev/null || ls -1t "$${BACKUP_DIR:-backups}" 2>/dev/null; } \
+		| grep '^transcendence_.*\.sql\.gz$$' || echo "No backup yet (run make full or make backup)"
 
 # Restores one backup: make restore BACKUP=transcendence_<date>.sql.gz
 # The application is stopped meanwhile; the restore is all or nothing.
 restore:
 	@[ -n "$(BACKUP)" ] || { echo "Usage: make restore BACKUP=<file> (see make backups)"; exit 1; }
 	@$(MAKE) --no-print-directory stop-app
-	@docker exec -it transcendence-backup /usr/local/bin/restore.sh "$(BACKUP)"; \
+	@docker exec $$([ -t 0 ] && echo -it || echo -i) transcendence-backup /usr/local/bin/restore.sh "$(BACKUP)" $(if $(YES),--yes); \
 	status=$$?; \
 	$(MAKE) --no-print-directory start-app; \
 	exit $$status

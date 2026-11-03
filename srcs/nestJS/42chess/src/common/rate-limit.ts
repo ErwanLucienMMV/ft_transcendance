@@ -9,8 +9,16 @@ export const DEFAULT_RATE_LIMIT = { ttl: MINUTE, limit: 600 };
 /** Sign-in steps, where a password or a code can be guessed. */
 export const AUTH_RATE_LIMIT = { default: { ttl: MINUTE, limit: 20 } };
 
-/** Routes that send an email. */
+/** Routes that send an email to an existing account. */
 export const EMAIL_RATE_LIMIT = { default: { ttl: 10 * MINUTE, limit: 5 } };
+
+/**
+ * Registration also sends an email, but a room behind one address (an
+ * evaluation, a campus) must still be able to open several accounts.
+ */
+export const REGISTER_RATE_LIMIT = {
+  default: { ttl: 10 * MINUTE, limit: 20 },
+};
 
 /**
  * RATE_LIMIT_ENABLED=false turns the limits off (browser and HTTP test

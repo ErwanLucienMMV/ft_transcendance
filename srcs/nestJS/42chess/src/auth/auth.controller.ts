@@ -1,6 +1,10 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { AUTH_RATE_LIMIT, EMAIL_RATE_LIMIT } from '../common/rate-limit.js';
+import {
+  AUTH_RATE_LIMIT,
+  EMAIL_RATE_LIMIT,
+  REGISTER_RATE_LIMIT,
+} from '../common/rate-limit.js';
 import { AuthService } from './auth.service.js';
 import type {
   AuthTokenResponse,
@@ -19,7 +23,7 @@ export class AuthController {
 
   /** Creates an unverified account and emails its verification link. */
   @Post('register')
-  @Throttle(EMAIL_RATE_LIMIT)
+  @Throttle(REGISTER_RATE_LIMIT)
   register(@Body() dto: RegisterDto): Promise<AuthUserResponse> {
     return this.auth.register(dto);
   }

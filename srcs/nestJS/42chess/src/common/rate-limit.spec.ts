@@ -8,6 +8,8 @@ import type { App } from 'supertest/types.js';
 import { ApiExceptionFilter } from './api-exception.filter.js';
 import {
   AUTH_RATE_LIMIT,
+  EMAIL_RATE_LIMIT,
+  REGISTER_RATE_LIMIT,
   rateLimitEnabled,
   rateLimitOptions,
 } from './rate-limit.js';
@@ -48,6 +50,11 @@ describe('rate limiting', () => {
 
   it('keeps sign-in attempts strict', () => {
     expect(AUTH_RATE_LIMIT.default.limit).toBeLessThanOrEqual(20);
+  });
+
+  it('lets a room behind one address register, but keeps emails to an account rare', () => {
+    expect(REGISTER_RATE_LIMIT.default.limit).toBeGreaterThanOrEqual(10);
+    expect(EMAIL_RATE_LIMIT.default.limit).toBeLessThanOrEqual(5);
   });
 
   describe('guard', () => {

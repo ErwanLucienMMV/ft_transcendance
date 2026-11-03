@@ -52,7 +52,13 @@ if [ ! -s "$PGDATA/PG_VERSION" ]; then
     as_postgres "$PG_BIN/pg_ctl" -D "$PGDATA" -m fast -w stop
 fi
 
+# Volumes created before this rule allowed every address: narrow them too.
+sed -i 's|^host all all 0\.0\.0\.0/0 |host all all samenet |' "$PGDATA/pg_hba.conf"
+
 echo "Starting PostgreSQL..."
+
+# The server does not need the passwords once the roles exist.
+unset POSTGRES_PASSWORD POSTGRES_BACKUP_PASSWORD
 
 # setpriv replaces this shell: postgres becomes PID 1 and receives the stop
 # signals from Docker directly.

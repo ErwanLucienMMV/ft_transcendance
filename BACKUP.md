@@ -17,7 +17,7 @@ zero-data-loss system**: up to one hour of changes can be lost (see
 | `make backup` / `make backup-down` | Starts or stops the backup service alone |
 | `make backup-now` | Takes a backup immediately |
 | `make backups` | Lists the backups, newest first |
-| `make restore BACKUP=<file>` | Restores one backup (asks for confirmation) |
+| `make restore BACKUP=<file>` | Restores one backup (asks for confirmation, `YES=1` skips it) |
 | `make backup-logs` | Follows the backup service logs |
 
 ---
@@ -131,7 +131,8 @@ make restore BACKUP=transcendence_2026-11-02_16-00-00.sql.gz
 
 `make restore` stops the application (PostgreSQL keeps running, so nothing
 writes during the restore), asks for confirmation, restores the backup, then
-starts the application again, whatever the result.
+starts the application again, whatever the result. From a script, without a
+terminal, add `YES=1` to skip the question.
 
 ## Manual mode
 

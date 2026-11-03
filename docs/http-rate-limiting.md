@@ -29,8 +29,9 @@ The existing WebSocket message and payload limits are independent.
   one Nginx saw.
 - The API keeps its own limits (`src/common/rate-limit.ts`): 600 requests a
   minute on every route, 20 a minute on the sign-in steps and the routes that
-  check a password or a code, 5 per 10 minutes on the routes that send an
-  email. They also protect the API when it is reached without Nginx (the
+  check a password or a code, 5 per 10 minutes on the routes that email an
+  existing account, and 20 registrations per 10 minutes (a room behind one
+  address, such as an evaluation, can still open several accounts). They also protect the API when it is reached without Nginx (the
   development proxy). `RATE_LIMIT_ENABLED=false` turns them off for test
   stacks that create many accounts from one address.
 - `/api/metrics` and `/api/v1/metrics`, in any case, answer 404: Prometheus

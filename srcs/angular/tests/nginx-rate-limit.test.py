@@ -151,7 +151,10 @@ class RateLimitTest(unittest.TestCase):
         self.assertEqual(self.call("/api/v1/auth/login", "127.0.0.6")[0], 200)
 
     def test_metrics_stay_inside_the_network(self):
-        for path in ["/api/v1/metrics", "/api/metrics", "/api/v1/METRICS/", "/api//v1/metrics?x=1"]:
+        for path in [
+            "/api/v1/metrics", "/api/metrics", "/api/v1/METRICS/", "/api//v1/metrics?x=1",
+            "/grafana/metrics", "/grafana//Metrics",
+        ]:
             self.assertEqual(self.call(path, "127.0.0.7")[0], 404, path)
 
     def test_forwards_the_peer_address_not_the_client_header(self):
