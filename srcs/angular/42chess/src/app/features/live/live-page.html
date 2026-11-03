@@ -2,7 +2,7 @@
   <header class="page-head">
     <div>
       <span class="eyebrow">Spectate</span>
-      <h2 id="live-title">Live games</h2>
+      <h1 id="live-title">Live games</h1>
       <p>Games being played right now. Open one to follow it move by move.</p>
     </div>
     <button type="button" class="secondary" [disabled]="loading()" (click)="refresh()">
@@ -11,20 +11,42 @@
   </header>
 
   @if (failed()) {
-    <p class="alert" role="alert">The live games could not be loaded. Try again in a moment.</p>
+    <app-alert>
+      <p>The live games could not be loaded. Try again in a moment.</p>
+    </app-alert>
   }
 
   @if (games(); as list) {
+    @if (list.length) {
+      <app-segmented
+        class="filter"
+        label="Time control"
+        [options]="filters"
+        [value]="filter()"
+        (valueChange)="filter.set($event)"
+      />
+    }
     @if (list.length === 0) {
-      <div class="empty">
-        <svg viewBox="0 0 64 64" aria-hidden="true"><use href="/chess-pieces.svg#queen" /></svg>
-        <strong>No game is being played right now.</strong>
+      <app-empty-state piece="queen" heading="No game is being played right now.">
         <p>Start one and it shows up here for everyone to watch.</p>
         <a class="button" routerLink="/play">Start a game</a>
-      </div>
+      </app-empty-state>
+    } @else if (shown().length === 0) {
+      <app-empty-state
+        piece="knight"
+        [heading]="'No ' + filter().toLowerCase() + ' game right now.'"
+      >
+        <p>
+          {{ list.length }} {{ list.length === 1 ? 'game is' : 'games are' }} being played in other
+          time controls.
+        </p>
+        <button type="button" class="button secondary" (click)="filter.set('All')">
+          Show all games
+        </button>
+      </app-empty-state>
     } @else {
       <ul class="games rows" [attr.aria-busy]="loading()">
-        @for (game of list; track game.id) {
+        @for (game of shown(); track game.id) {
           <li class="game">
             <span class="players">
               <span class="side"
@@ -38,7 +60,7 @@
               >
             </span>
             <span class="meta">
-              {{ timeControlLabel(game.timeControl) }} ·
+              {{ timeControlLabel(game.timeControl) }} · {{ category(game.timeControl) }} ·
               <span data-spectators>
                 {{ game.spectatorCount }}
                 {{ game.spectatorCount === 1 ? 'spectator' : 'spectators' }}
@@ -59,6 +81,6 @@
       </ul>
     }
   } @else if (!failed()) {
-    <p class="empty" role="status">Loading the live games…</p>
+    <app-empty-state [loading]="true"><p>Loading the live games…</p></app-empty-state>
   }
 </section>

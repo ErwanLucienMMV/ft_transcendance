@@ -2,7 +2,7 @@
   display: grid;
   gap: 12px;
 }
-.card h3,
+.card h2,
 .card p,
 .card ul {
   margin: 0;

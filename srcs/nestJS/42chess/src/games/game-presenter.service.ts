@@ -3,6 +3,7 @@ import { DataSource, In } from 'typeorm';
 import { User } from '../users/user.entity.js';
 import { GameError } from './game-error.js';
 import type { GameState } from './game-state.js';
+import type { PlayerColor } from './clock/game-clock.js';
 import { DRAW_OFFER_COOLDOWN_PLIES } from './game-agreements.service.js';
 import type {
   GameMovesResponse,
@@ -48,6 +49,10 @@ export class GamePresenterService {
         color: player.color,
       } satisfies PlayerRef;
     });
+    const ratingChanges =
+      game.status === 'FINISHED' && game.rated
+        ? await this.ratingChanges(game.id, refs)
+        : null;
     const parts = game.currentFen.split(' ');
     const halfmoveClock = Number(parts[4]),
       fullmoveNumber = Number(parts[5]);
@@ -98,6 +103,7 @@ export class GamePresenterService {
               reason: game.endReason,
             }
           : null,
+      ratingChanges,
       drawOfferAllowedFrom: {
         white: nextOffer(game.whiteDrawOfferPly),
         black: nextOffer(game.blackDrawOfferPly),
@@ -112,6 +118,26 @@ export class GamePresenterService {
       endedAt: game.finishedAt?.toISOString() ?? null,
       createdAt: game.createdAt.toISOString(),
     };
+  }
+
+  /** What the game changed in each Elo rating, from the rating history it wrote. */
+  private async ratingChanges(
+    gameId: string,
+    refs: PlayerRef[],
+  ): Promise<{ white: number; black: number } | null> {
+    // Raw SQL: game callers may register only game entities on their DataSource.
+    const rows: { userId: string; change: number }[] = await this.source.query(
+      'SELECT "userId", "ratingAfter" - "ratingBefore" AS change FROM rating_history WHERE "gameId" = $1',
+      [gameId],
+    );
+    const change = (color: PlayerColor) => {
+      const id = refs.find((player) => player.color === color)?.id;
+      const row = rows.find((entry) => entry.userId === id);
+      return row ? Number(row.change) : null;
+    };
+    const white = change('WHITE');
+    const black = change('BLACK');
+    return white === null || black === null ? null : { white, black };
   }
 
   moves({ players, moves }: GameState): GameMovesResponse {

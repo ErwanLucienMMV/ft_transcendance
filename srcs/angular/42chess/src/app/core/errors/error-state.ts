@@ -1,24 +1,30 @@
-import { Injectable, signal } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import type { ApiError } from '../api/api-error';
 import { errorText } from '../api/error-text';
+import { Toasts } from '../../shared/ui/toasts';
 
+/**
+ * Failures no feature explains itself (server errors, a lost connection, a bug) become an
+ * error toast. It goes away by itself, when dismissed, or when the player changes page.
+ */
 @Injectable({ providedIn: 'root' })
 export class ErrorState {
-  private readonly currentMessage = signal<string | null>(null);
-  readonly message = this.currentMessage.asReadonly();
+  private readonly toasts = inject(Toasts);
 
-  /** Says what failed (API down, service unavailable, server bug) instead of a generic line. */
+  /** Says what failed (connection, server, a service) and where to check the service status. */
   reportHttp(error: ApiError): void {
-    this.currentMessage.set(
+    this.toasts.error(
       errorText(error, 'The server could not complete this request. Please try again.'),
+      {
+        key: 'http',
+        ...(error.statusCode === 0 || error.statusCode >= 500
+          ? { link: { label: 'Service status', path: '/status' } }
+          : {}),
+      },
     );
   }
 
   reportUnexpected(): void {
-    this.currentMessage.set('Something went wrong. Please try again.');
-  }
-
-  dismiss(): void {
-    this.currentMessage.set(null);
+    this.toasts.error('Something went wrong. Please try again.', { key: 'unexpected' });
   }
 }

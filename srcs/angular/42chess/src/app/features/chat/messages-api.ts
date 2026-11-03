@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { filter, map, Observable } from 'rxjs';
 import { ApiClient } from '../../core/api/api-client';
 import { RealtimeService } from '../../core/realtime/realtime.service';
+import { isUuid } from '../../core/api/ids';
 
 /** Public message shape of GET /v1/conversations/:userId/messages and PRIVATE_MESSAGE. */
 export interface PrivateMessage {
@@ -58,7 +59,7 @@ export function challengeMessage(origin: string, gameId: string): string {
 export function challengedGame(content: string, origin: string): string | null {
   if (!content.startsWith(`${CHALLENGE_TEXT}${origin}/game/`)) return null;
   const id = content.slice(CHALLENGE_TEXT.length + origin.length + '/game/'.length);
-  return /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id) ? id : null;
+  return isUuid(id) ? id : null;
 }
 
 function isMessage(data: Record<string, unknown>): boolean {

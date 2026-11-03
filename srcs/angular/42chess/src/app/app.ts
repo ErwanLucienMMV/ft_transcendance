@@ -1,23 +1,37 @@
-import { Component, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
+import { Component, DestroyRef, effect, inject, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { SessionLifecycle } from './core/auth/session-lifecycle';
 import { AuthSession } from './core/auth/auth-session';
-import { ErrorState } from './core/errors/error-state';
 import { SocialNotices } from './core/notifications/social-notices';
+import { UnreadMessages } from './core/notifications/unread-messages';
+import { Preferences, THEME_OPTIONS } from './core/preferences/preferences';
 import { RealtimeService } from './core/realtime/realtime.service';
+import { Badge } from './shared/ui/badge';
+import { Segmented } from './shared/ui/segmented';
+import { ToastHost } from './shared/ui/toasts';
 import { UserAvatar } from './shared/user-avatar';
 
 @Component({
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, SocialNotices, UserAvatar],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    SocialNotices,
+    UserAvatar,
+    Badge,
+    Segmented,
+    ToastHost,
+  ],
   selector: 'app-root',
   styleUrl: './app.css',
   templateUrl: './app.html',
 })
 export class App {
-  protected readonly title = signal('42chess');
-  protected readonly errors = inject(ErrorState);
   protected readonly session = inject(AuthSession);
+  protected readonly preferences = inject(Preferences);
+  protected readonly unread = inject(UnreadMessages);
+  protected readonly themes = THEME_OPTIONS;
   private readonly lifecycle = inject(SessionLifecycle);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);

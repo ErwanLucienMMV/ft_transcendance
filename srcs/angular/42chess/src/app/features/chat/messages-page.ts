@@ -37,6 +37,8 @@ import {
   TYPING_SHOWN_MS,
   typingHints,
 } from './messages-api';
+import { Spinner } from '../../shared/ui/spinner';
+import { UnreadMessages } from '../../core/notifications/unread-messages';
 
 /** Closer to the end of the log than this counts as following the conversation. */
 const FOLLOW_MARGIN_PX = 48;
@@ -71,12 +73,13 @@ function merge(list: PrivateMessage[], more: PrivateMessage[]): PrivateMessage[]
  */
 @Component({
   selector: 'app-messages-page',
-  imports: [DatePipe, PresenceBadge, RouterLink, UserAvatar],
+  imports: [Spinner, DatePipe, PresenceBadge, RouterLink, UserAvatar],
   templateUrl: './messages-page.html',
   styleUrl: './messages-page.css',
 })
 export class MessagesPage {
   private readonly messages = inject(MessagesApi);
+  private readonly unreadMessages = inject(UnreadMessages);
   private readonly users = inject(UsersApi);
   private readonly realtime = inject(RealtimeService);
   private readonly session = inject(AuthSession);
@@ -564,6 +567,8 @@ export class MessagesPage {
   }
 
   private clearUnread(peerId: string): void {
+    // The header badge too, without waiting for MESSAGES_READ.
+    this.unreadMessages.clear(peerId);
     this.conversations.update(
       (list) =>
         list?.map((conversation) =>

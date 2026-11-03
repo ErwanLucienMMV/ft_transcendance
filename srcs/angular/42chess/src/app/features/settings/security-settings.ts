@@ -13,6 +13,7 @@ import { AUTH_FIELD_LIMITS, backendLengthValidator } from '../auth/auth-form.mod
 import { SECOND_FACTOR_CODE } from '../auth/second-factor-code';
 import { AccountApi, SecurityStatus } from './account-api';
 import { settingsError } from './settings-text';
+import { Spinner } from '../../shared/ui/spinner';
 
 function samePasswords(group: AbstractControl): ValidationErrors | null {
   const value = group.value as { newPassword: string; confirmPassword: string };
@@ -29,13 +30,13 @@ export function svgDataUrl(svg: string): string {
 /** Password change, and two-factor authentication with its recovery codes. */
 @Component({
   selector: 'app-security-settings',
-  imports: [ReactiveFormsModule],
+  imports: [Spinner, ReactiveFormsModule],
   template: `
     <section class="card settings-section" aria-labelledby="security-settings-title">
-      <h3 id="security-settings-title" class="section-title">Security</h3>
+      <h2 id="security-settings-title" class="section-title">Security</h2>
       @if (status(); as current) {
         <div class="subsection">
-          <h4>Password</h4>
+          <h3>Password</h3>
           @if (current.hasPassword) {
             <form [formGroup]="password" (ngSubmit)="changePassword()" novalidate>
               <div class="form-field">
@@ -96,7 +97,7 @@ export function svgDataUrl(svg: string): string {
         </div>
 
         <div class="subsection">
-          <h4>Two-factor authentication</h4>
+          <h3>Two-factor authentication</h3>
           @if (codes(); as list) {
             <div class="recovery" role="region" aria-label="Recovery codes">
               <p>
@@ -225,7 +226,7 @@ export function svgDataUrl(svg: string): string {
       } @else if (failed()) {
         <p class="field-error" role="alert">Your security settings could not be loaded.</p>
       } @else {
-        <p class="muted" role="status">Loading…</p>
+        <app-spinner label="Loading…" [showLabel]="true" />
       }
     </section>
   `,

@@ -27,12 +27,12 @@ test('sends, accepts and removes a friend, with presence pushed live to the frie
     .getByRole('link', { name: bobName })
     .click();
   await alice.getByRole('button', { name: 'Add friend' }).click();
-  await expect(alice.getByRole('status')).toHaveText('Friend request sent.');
+  await expect(alice.getByRole('status').filter({ hasText: 'Friend request sent.' })).toBeVisible();
   // Bob is on another page: a notice tells him, with a link to his requests.
   await expect(bob.getByText(`${aliceName} wants to be your friend.`)).toBeVisible();
   // The profile reads the requests Alice sent, so a reload still knows, and offers to cancel.
   await alice.reload();
-  await expect(alice.getByRole('status')).toHaveText('Friend request sent.');
+  await expect(alice.getByRole('status').filter({ hasText: 'Friend request sent.' })).toBeVisible();
   await expect(alice.getByRole('button', { name: 'Cancel request' })).toBeVisible();
 
   // Bob sees it in his inbox with Alice's name, and accepts.
@@ -62,7 +62,7 @@ test('sends, accepts and removes a friend, with presence pushed live to the frie
   // Removing needs a confirmation.
   await openFriends(alice);
   await alice.getByRole('button', { name: `Remove ${bobName}` }).click();
-  await alice.getByRole('button', { name: 'Confirm removal' }).click();
+  await alice.getByRole('button', { name: 'Remove friend' }).click();
   await expect(alice.getByRole('list', { name: 'Friends' })).toHaveCount(0);
   await expect(alice.getByText('No friends yet.')).toBeVisible();
   expect(errors).toEqual([]);

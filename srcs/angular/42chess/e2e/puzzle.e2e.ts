@@ -8,7 +8,7 @@ test('shows the daily puzzle and checks a move on the server', async ({ browser,
   const anonymous = await (await browser.newContext()).newPage();
   await anonymous.goto('/puzzle');
   await expect(anonymous.locator('#puzzle-title')).toHaveText(/^Find the best move for/);
-  await expect(anonymous.locator('.square:not([disabled])')).toHaveCount(0);
+  await expect(anonymous.locator('.square:not([aria-disabled="true"])')).toHaveCount(0);
   await expect(anonymous.getByRole('main').getByRole('link', { name: 'Sign in' })).toBeVisible();
 
   const page = await signedIn(browser, await verifiedAccount(request));
@@ -18,7 +18,7 @@ test('shows the daily puzzle and checks a move on the server', async ({ browser,
   await expect(title).toHaveText(/^Find the best move for/);
   // Read the targets only once the board shows the clicked piece as selected: counting
   // right after the click can see the previous piece's targets and click a stale one.
-  const pieces = page.locator('.square[draggable="true"]');
+  const pieces = page.locator('.square.movable');
   const targets = page.locator('.square.target');
   for (let index = 0; index < (await pieces.count()); index++) {
     const piece = pieces.nth(index);

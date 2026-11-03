@@ -1,4 +1,13 @@
-import { Component, computed, DestroyRef, effect, inject, signal, untracked } from '@angular/core';
+import {
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  inject,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -22,6 +31,9 @@ import {
   socialEvents,
   UsersApi,
 } from './users-api';
+import { Alert } from '../../shared/ui/alert';
+import { ConfirmDialog } from '../../shared/ui/confirm-dialog';
+import { EmptyState } from '../../shared/ui/empty-state';
 
 export interface IncomingRequest extends FriendRequest {
   /** Null when the sender's profile could not be read; the request stays actionable. */
@@ -43,7 +55,15 @@ function byName(a: Friend, b: Friend): number {
  */
 @Component({
   selector: 'app-friends-page',
-  imports: [PresenceBadge, ReactiveFormsModule, RouterLink, UserAvatar],
+  imports: [
+    ConfirmDialog,
+    EmptyState,
+    Alert,
+    PresenceBadge,
+    ReactiveFormsModule,
+    RouterLink,
+    UserAvatar,
+  ],
   templateUrl: './friends-page.html',
   styleUrl: './friends-page.css',
 })
@@ -75,7 +95,9 @@ export class FriendsPage {
   readonly sent = signal<SentRequest[] | null>(null);
   /** Request or friend ids with an action in flight, so their buttons cannot fire twice. */
   readonly busy = signal<ReadonlySet<string>>(new Set());
-  readonly confirmingRemoval = signal<string | null>(null);
+  /** The friend the removal dialog asks about. */
+  readonly removing = signal<Friend | null>(null);
+  private readonly removal = viewChild.required<ConfirmDialog>('removal');
   readonly actionError = signal<string | null>(null);
 
   constructor() {
@@ -190,11 +212,18 @@ export class FriendsPage {
     );
   }
 
-  remove(friend: Friend): void {
-    this.act(friend.id, this.users.removeFriend(friend.id), () => {
-      this.confirmingRemoval.set(null);
-      this.friends.update((list) => list?.filter((item) => item.id !== friend.id) ?? null);
-    });
+  askRemoval(friend: Friend): void {
+    this.removing.set(friend);
+    this.removal().open();
+  }
+
+  removeConfirmed(): void {
+    const friend = this.removing();
+    this.removing.set(null);
+    if (!friend) return;
+    this.act(friend.id, this.users.removeFriend(friend.id), () =>
+      this.friends.update((list) => list?.filter((item) => item.id !== friend.id) ?? null),
+    );
   }
 
   self(id: string): boolean {
@@ -260,7 +289,8 @@ export class FriendsPage {
         break;
       case 'friend-removed':
         this.friends.update((list) => list?.filter((friend) => friend.id !== event.userId) ?? null);
-        if (this.confirmingRemoval() === event.userId) this.confirmingRemoval.set(null);
+        // Already gone (removed from another tab or by the friend): nothing left to confirm.
+        if (this.removing()?.id === event.userId) this.removal().answer(false);
         break;
     }
   }

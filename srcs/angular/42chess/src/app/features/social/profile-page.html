@@ -1,15 +1,17 @@
 <section class="profile-page page" aria-labelledby="profile-title">
   @if (error(); as message) {
     <span class="eyebrow">Player</span>
-    <h2 id="profile-title">Player profile</h2>
-    <p class="alert" role="alert">{{ message }}</p>
+    <h1 id="profile-title">Player profile</h1>
+    <app-alert
+      ><p>{{ message }}</p></app-alert
+    >
     <a class="button secondary" routerLink="/friends">Find players</a>
   } @else if (profile(); as player) {
     <header class="identity card">
       <app-avatar class="avatar initial" [username]="player.username" [url]="player.avatarUrl" />
       <div class="who">
         <span class="eyebrow">{{ mine() ? 'Your profile' : 'Player' }}</span>
-        <h2 id="profile-title">{{ player.username }}</h2>
+        <h1 id="profile-title">{{ player.username }}</h1>
         <app-presence-badge [status]="status()" />
       </div>
       <div class="identity-actions">
@@ -155,7 +157,7 @@
 
     <div class="columns">
       <section aria-labelledby="rating-title">
-        <h3 id="rating-title" class="section-title">Rating changes</h3>
+        <h2 id="rating-title" class="section-title">Rating changes</h2>
         @if (sideFailed().ratings) {
           <p class="muted">Rating changes could not be loaded.</p>
         } @else if (ratings(); as changes) {
@@ -184,12 +186,12 @@
             </ol>
           }
         } @else {
-          <p class="muted">Loading…</p>
+          <app-spinner label="Loading…" [showLabel]="true" />
         }
       </section>
 
       <section aria-labelledby="recent-title">
-        <h3 id="recent-title" class="section-title">Recent games</h3>
+        <h2 id="recent-title" class="section-title">Recent games</h2>
         @if (sideFailed().recent) {
           <p class="muted">Recent games could not be loaded.</p>
         } @else if (recent(); as games) {
@@ -213,12 +215,12 @@
             </ol>
           }
         } @else {
-          <p class="muted">Loading…</p>
+          <app-spinner label="Loading…" [showLabel]="true" />
         }
       </section>
     </div>
   } @else {
-    <h2 id="profile-title" class="sr-only">Player profile</h2>
-    <p class="empty" role="status">Loading the profile…</p>
+    <h1 id="profile-title" class="sr-only">Player profile</h1>
+    <app-empty-state [loading]="true"><p>Loading the profile…</p></app-empty-state>
   }
 </section>

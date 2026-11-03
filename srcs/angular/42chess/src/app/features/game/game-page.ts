@@ -1,10 +1,11 @@
-import { isPlatformBrowser } from '@angular/common';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import {
   Component,
   computed,
   DestroyRef,
   effect,
   inject,
+  linkedSignal,
   PLATFORM_ID,
   signal,
   untracked,
@@ -13,7 +14,13 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { AuthSession } from '../../core/auth/auth-session';
+import { SessionLifecycle } from '../../core/auth/session-lifecycle';
+import { Preferences } from '../../core/preferences/preferences';
 import { GameMove, GamePlayer, GameRealtime, PlayerColor } from '../../core/realtime/game-realtime';
+import { moveSound, Sounds } from '../../core/sound/sounds';
+import { PageTitle } from '../../core/title/page-title';
+import { CapturedPieces } from '../../shared/chess/captured-pieces';
+import { parseFen, PromotionType, sanOf } from '../../shared/chess/chess-rules';
 import { BoardMove, ChessBoard, fenAfter } from '../../shared/chess/chess-board';
 import {
   botName,
@@ -22,13 +29,21 @@ import {
   repetitions,
   resultText,
   seatOf,
+  spokenMove,
   START_FEN,
 } from '../../shared/chess/game-text';
+import { MoveList } from '../../shared/chess/move-list';
+import { downloadPgn, gamePgn } from '../../shared/chess/pgn';
+import { Icon } from '../../shared/ui/icon';
+import { Toasts } from '../../shared/ui/toasts';
 import { UserAvatar } from '../../shared/user-avatar';
+import { Challenges } from '../social/challenge';
+import { ApiError } from '../../core/api/api-error';
 import { GameChat } from './game-chat';
 import { GameClock } from './game-clock';
 import { GamesApi, timeControlLabel } from './games-api';
 import { formatClock } from './game-clock';
+import { EmptyState } from '../../shared/ui/empty-state';
 
 /** A side that does not play its first move within this delay aborts the game (server rule). */
 const FIRST_MOVE_MS = 30_000;
@@ -40,6 +55,8 @@ interface Seat {
   player: GamePlayer | null;
   remaining: number | null;
   running: boolean;
+  /** "+8" or "-8" once a rated game is over. */
+  eloChange: string | null;
 }
 
 /**
@@ -48,7 +65,17 @@ interface Seat {
  */
 @Component({
   selector: 'app-game-page',
-  imports: [ChessBoard, GameChat, GameClock, RouterLink, UserAvatar],
+  imports: [
+    EmptyState,
+    CapturedPieces,
+    ChessBoard,
+    GameChat,
+    GameClock,
+    Icon,
+    MoveList,
+    RouterLink,
+    UserAvatar,
+  ],
   templateUrl: './game-page.html',
   styleUrl: './game-page.css',
 })
@@ -57,6 +84,13 @@ export class GamePage {
   private readonly session = inject(AuthSession);
   private readonly games = inject(GamesApi);
   private readonly router = inject(Router);
+  private readonly lifecycle = inject(SessionLifecycle);
+  private readonly sounds = inject(Sounds);
+  private readonly title = inject(PageTitle);
+  private readonly toasts = inject(Toasts);
+  private readonly challenges = inject(Challenges);
+  private readonly document = inject(DOCUMENT);
+  readonly preferences = inject(Preferences);
   private readonly browser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly route = inject(ActivatedRoute);
   readonly gameId = toSignal(this.route.paramMap.pipe(map((params) => params.get('id') ?? '')), {
@@ -74,6 +108,28 @@ export class GamePage {
   readonly retryingBot = signal(false);
   readonly retryError = signal<string | null>(null);
   readonly copied = signal(false);
+  /** With move confirmation on, the move waiting for "Confirm", in the position it was chosen in. */
+  readonly unconfirmed = linkedSignal<string | undefined, BoardMove | null>({
+    // A new position or the end of the game (flag, resignation) drops it.
+    source: () => (this.active() ? this.game()?.board.fen : undefined),
+    computation: () => null,
+  });
+  /** "Nf3": the move waiting for confirmation, as the move list will show it. */
+  readonly unconfirmedText = computed(() => {
+    const move = this.unconfirmed();
+    const fen = this.game()?.board.fen;
+    if (!move || !fen) return '';
+    try {
+      return sanOf(parseFen(fen), {
+        from: move.from,
+        to: move.to,
+        promotion: move.promotion ? (move.promotion[0].toLowerCase() as PromotionType) : undefined,
+      });
+    } catch {
+      return `${move.from}-${move.to}`;
+    }
+  });
+  readonly rematching = signal(false);
 
   readonly game = this.realtime.game;
   readonly moves = computed<GameMove[]>(() => this.game()?.moves ?? []);
@@ -96,6 +152,14 @@ export class GamePage {
   readonly fen = computed(() => {
     const game = this.game();
     if (!game) return '';
+    const unconfirmed = this.unconfirmed();
+    if (unconfirmed && this.myTurn()) {
+      try {
+        return fenAfter(game.board.fen, unconfirmed);
+      } catch {
+        return game.board.fen;
+      }
+    }
     const proposed = this.proposed();
     if (!this.realtime.pending() || proposed?.base !== game.board.fen) return game.board.fen;
     try {
@@ -106,6 +170,8 @@ export class GamePage {
   });
   readonly previewing = computed(() => this.fen() !== this.game()?.board.fen);
   readonly lastMove = computed(() => {
+    const unconfirmed = this.unconfirmed();
+    if (unconfirmed && this.myTurn()) return unconfirmed;
     const proposed = this.proposed();
     if (this.previewing() && proposed) return proposed.move;
     const last = this.moves().at(-1);
@@ -113,8 +179,41 @@ export class GamePage {
   });
   readonly canPlay = computed(
     () =>
-      this.myTurn() && !this.realtime.pending() && this.realtime.transport.state() === 'connected',
+      this.myTurn() &&
+      !this.unconfirmed() &&
+      !this.realtime.pending() &&
+      this.realtime.transport.state() === 'connected',
   );
+  /** A move may be queued during the opponent's turn, unless the player turned that off. */
+  readonly premoves = computed(
+    () => this.preferences.premoves() && this.active() && !!this.myColor() && !this.myTurn(),
+  );
+  /** Elo this game won or lost for the player, once a rated game is over. */
+  readonly eloChange = computed(() => {
+    const changes = this.game()?.ratingChanges;
+    const color = this.myColor();
+    if (!changes || !color) return null;
+    return color === 'WHITE' ? changes.white : changes.black;
+  });
+  /** The player's rating as the server shows it now, after the game. */
+  readonly myRating = computed(() => {
+    const game = this.game();
+    const color = this.myColor();
+    return (color === 'WHITE' ? game?.whitePlayer : game?.blackPlayer)?.elo ?? null;
+  });
+  /** Read out to screen readers: the last move, in words. */
+  readonly announcement = computed(() => {
+    const last = this.moves().at(-1);
+    if (!last?.notation) return '';
+    return spokenMove(last.notation, last.number % 2 === 1 ? 'WHITE' : 'BLACK');
+  });
+  /** The opponent, for a rematch: a person, or the bot with its level. */
+  readonly opponent = computed(() => {
+    const game = this.game();
+    const color = this.myColor();
+    if (!game || !color) return null;
+    return (color === 'WHITE' ? game.blackPlayer : game.whitePlayer) ?? null;
+  });
 
   readonly top = computed(() => this.seat(this.orientation() === 'WHITE' ? 'BLACK' : 'WHITE'));
   readonly bottom = computed(() => this.seat(this.orientation()));
@@ -209,6 +308,9 @@ export class GamePage {
     return "Opponent's turn";
   });
 
+  /** The analysis board opens on the position the game reached. */
+  readonly analysisLink = computed(() => ({ fen: this.game()?.board.fen ?? START_FEN }));
+
   readonly link = computed(() =>
     this.browser ? `${location.origin}/game/${this.gameId()}` : `/game/${this.gameId()}`,
   );
@@ -242,18 +344,129 @@ export class GamePage {
       if (this.realtime.error()?.code === 'NOT_A_PLAYER')
         untracked(() => this.realtime.watch(this.gameId(), 'spectator'));
     });
+    // "Your move" in the tab title, so a player in another tab knows.
+    effect(() => this.title.status.set(this.myTurn() && !this.previewing() ? 'Your move' : null));
+    this.soundsAndRating();
     if (this.browser) {
       const timer = setInterval(() => this.now.set(Date.now()), 200);
       inject(DestroyRef).onDestroy(() => clearInterval(timer));
     }
-    inject(DestroyRef).onDestroy(() => this.realtime.leave());
+    inject(DestroyRef).onDestroy(() => {
+      this.title.status.set(null);
+      this.realtime.leave();
+    });
+  }
+
+  /**
+   * Sounds for each new move and for the end of the game, and a fresh header rating once a
+   * game this player was in is over. Nothing plays for the moves already there on arrival.
+   */
+  private soundsAndRating(): void {
+    let seen: { id: string; plies: number; status: string } | null = null;
+    effect(() => {
+      const game = this.game();
+      if (!game) return;
+      const plies = game.moves.length;
+      const before = seen?.id === game.id ? seen : null;
+      seen = { id: game.id, plies, status: game.status };
+      if (!before) return;
+      untracked(() => {
+        if (game.status === 'FINISHED' && before.status !== 'FINISHED') {
+          this.sounds.play('end');
+          if (this.myColor()) this.lifecycle.refreshUser().subscribe({ error: () => undefined });
+        } else if (game.status === 'ACTIVE' && before.status === 'WAITING') {
+          this.sounds.play('notify');
+        } else if (plies > before.plies) {
+          this.sounds.play(moveSound(game.moves[plies - 1].notation));
+        }
+      });
+    });
   }
 
   play(move: BoardMove): void {
     const game = this.game();
     if (!game || !this.canPlay()) return;
-    if (this.realtime.move(move.from, move.to, move.promotion))
+    if (this.preferences.confirmMoves()) {
+      this.unconfirmed.set(move);
+      return;
+    }
+    this.send(move);
+  }
+
+  /** Sends the move kept for confirmation. */
+  confirmMove(): void {
+    const move = this.unconfirmed();
+    this.unconfirmed.set(null);
+    if (move && this.canPlay()) this.send(move);
+  }
+
+  private send(move: BoardMove): void {
+    const game = this.game();
+    if (game && this.realtime.move(move.from, move.to, move.promotion))
       this.proposed.set({ base: game.board.fen, move });
+  }
+
+  /**
+   * Another game against the same opponent: the bot at the same level with the colours
+   * swapped, or a person challenged with the same time control and rating choice.
+   */
+  rematch(): void {
+    const game = this.game();
+    const opponent = this.opponent();
+    const color = this.myColor();
+    if (!game || !opponent || !color || this.rematching()) return;
+    this.rematching.set(true);
+    const failed = (error: unknown) => {
+      this.rematching.set(false);
+      this.toasts.error(
+        error instanceof ApiError
+          ? error.message
+          : 'The rematch could not be started. Check your connection, then try again.',
+      );
+    };
+    if (opponent.botDifficulty) {
+      this.games
+        .createBot({
+          difficulty: opponent.botDifficulty,
+          color: color === 'WHITE' ? 'BLACK' : 'WHITE',
+          timeControl: game.timeControl,
+        })
+        .subscribe({
+          next: ({ gameId }) => {
+            this.rematching.set(false);
+            void this.router.navigate(['/game', gameId]);
+          },
+          error: failed,
+        });
+      return;
+    }
+    this.challenges
+      .send(opponent.id, { timeControl: game.timeControl, rated: !!game.rated })
+      .subscribe({ next: () => this.rematching.set(false), error: failed });
+  }
+
+  /** The game as PGN, for any chess program. */
+  pgn(): string {
+    const game = this.game();
+    return game ? gamePgn(game, this.moves(), this.browser ? location.host : '42 Chess') : '';
+  }
+
+  downloadPgn(): void {
+    const game = this.game();
+    if (!game) return;
+    const names = [game.whitePlayer, game.blackPlayer].map((player) =>
+      player?.botDifficulty ? 'computer' : (player?.username ?? 'player'),
+    );
+    downloadPgn(this.pgn(), `42chess_${names.join('_vs_')}_${game.id.slice(0, 8)}`, this.document);
+  }
+
+  async copyPgn(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.pgn());
+      this.toasts.success('PGN copied to the clipboard.');
+    } catch {
+      this.toasts.error('The PGN could not be copied. Use Download PGN instead.');
+    }
   }
 
   abort(): void {
@@ -312,6 +525,8 @@ export class GamePage {
 
   private open(id: string, watch: boolean): void {
     this.proposed.set(null);
+    this.unconfirmed.set(null);
+    this.rematching.set(false);
     this.confirmingResign.set(false);
     this.copied.set(false);
     this.retryError.set(null);
@@ -334,7 +549,10 @@ export class GamePage {
       if (running) remaining -= this.now() - this.realtime.clocksAt();
       remaining = Math.max(0, remaining);
     }
-    return { color, player, remaining, running };
+    const changes = game?.ratingChanges;
+    const change = changes ? (color === 'WHITE' ? changes.white : changes.black) : null;
+    const eloChange = change === null ? null : change > 0 ? `+${change}` : String(change);
+    return { color, player, remaining, running, eloChange };
   }
 
   private outcome(): string {

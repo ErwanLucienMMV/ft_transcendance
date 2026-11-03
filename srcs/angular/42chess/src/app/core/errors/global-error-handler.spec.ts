@@ -1,6 +1,6 @@
 import { ErrorHandler } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ErrorState } from './error-state';
+import { Toasts } from '../../shared/ui/toasts';
 import { GlobalErrorHandler } from './global-error-handler';
 
 describe('Global error handling', () => {
@@ -14,7 +14,8 @@ describe('Global error handling', () => {
     const failure = new Error('private diagnostic information');
     TestBed.inject(ErrorHandler).handleError(failure);
     expect(log).toHaveBeenCalledWith(failure);
-    expect(TestBed.inject(ErrorState).message()).toBe('Something went wrong. Please try again.');
-    expect(TestBed.inject(ErrorState).message()).not.toContain(failure.message);
+    const [toast] = TestBed.inject(Toasts).items();
+    expect(toast).toMatchObject({ tone: 'error', text: 'Something went wrong. Please try again.' });
+    expect(toast.text).not.toContain(failure.message);
   });
 });

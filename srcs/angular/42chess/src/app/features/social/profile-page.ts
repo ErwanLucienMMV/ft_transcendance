@@ -25,6 +25,10 @@ import {
   socialEvents,
   UsersApi,
 } from './users-api';
+import { Alert } from '../../shared/ui/alert';
+import { EmptyState } from '../../shared/ui/empty-state';
+import { Spinner } from '../../shared/ui/spinner';
+import { isUuid } from '../../core/api/ids';
 
 /**
  * What the signed-in visitor can do about a friendship with this player: `sent` and
@@ -41,7 +45,17 @@ export const PROFILE_RECENT_GAMES = 5;
 /** Public profile (spec §4); the owner also sees their results and links to their account. */
 @Component({
   selector: 'app-profile-page',
-  imports: [DatePipe, EloChart, PlayerStatsPanel, PresenceBadge, RouterLink, UserAvatar],
+  imports: [
+    Spinner,
+    EmptyState,
+    Alert,
+    DatePipe,
+    EloChart,
+    PlayerStatsPanel,
+    PresenceBadge,
+    RouterLink,
+    UserAvatar,
+  ],
   templateUrl: './profile-page.html',
   styleUrl: './profile-page.css',
 })
@@ -95,6 +109,12 @@ export class ProfilePage {
       const mine = this.mine();
       const visitor = this.signedInId();
       untracked(() => {
+        if (!isUuid(id)) {
+          // A mistyped address: no request can find this player.
+          this.reset();
+          this.error.set('This player does not exist.');
+          return;
+        }
         this.load(id, mine);
         this.loadFriendship(id, Boolean(visitor) && !mine);
       });
@@ -290,13 +310,17 @@ export class ProfilePage {
     });
   }
 
-  private load(id: string, mine: boolean): void {
+  private reset(): void {
     this.profile.set(null);
     this.error.set(null);
     this.pushed.set(null);
     this.ratings.set(null);
     this.recent.set(null);
     this.sideFailed.set({ ratings: false, recent: false });
+  }
+
+  private load(id: string, mine: boolean): void {
+    this.reset();
     this.users.profile(id).subscribe({
       next: (profile) => this.profile.set(profile),
       error: (error: unknown) => {

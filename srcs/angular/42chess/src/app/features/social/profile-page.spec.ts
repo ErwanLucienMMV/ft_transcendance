@@ -12,8 +12,16 @@ import { ProgressionApi } from '../progression/progression-api';
 import { ProfilePage } from './profile-page';
 import { PublicProfile, UsersApi } from './users-api';
 
+/** Profiles are addressed by UUID. */
+const ID = {
+  alice: '0b8f2c4e-1d3a-4f5b-9c6d-7e8f9a0b1c2d',
+  bob: '1c9a3d5f-2e4b-4a6c-8d7e-8f9a0b1c2d3e',
+  me: '2d0b4e6a-3f5c-4b7d-9e8f-9a0b1c2d3e4f',
+  ghost: '3e1c5f7b-4a6d-4c8e-8f9a-0b1c2d3e4f5a',
+} as const;
+
 const alice: PublicProfile = {
-  id: 'alice',
+  id: ID.alice,
   username: 'alice',
   avatarUrl: null,
   elo: 1452,
@@ -162,9 +170,9 @@ describe('Player profile page', () => {
   });
   afterEach(() => TestBed.inject(AuthSession).clear());
 
-  function signIn(id: string) {
+  function signIn(name: 'alice' | 'me') {
     TestBed.inject(AuthSession).establish({
-      user: { id, username: id, elo: 1200 },
+      user: { id: ID[name], username: name, elo: 1200 },
       accessToken: `x.${btoa(JSON.stringify({ exp: Date.now() / 1000 + 3600 }))}.x`,
     });
   }
@@ -176,12 +184,12 @@ describe('Player profile page', () => {
   }
 
   it('shows a public profile with Elo, presence, rating changes and recent games', async () => {
-    const { element } = await open('/players/alice');
-    expect(profile).toHaveBeenCalledWith('alice');
-    expect(ratingHistory).toHaveBeenCalledWith('alice', 100);
-    expect(history).toHaveBeenCalledWith('alice', 5, 0);
+    const { element } = await open(`/players/${ID.alice}`);
+    expect(profile).toHaveBeenCalledWith(ID.alice);
+    expect(ratingHistory).toHaveBeenCalledWith(ID.alice, 100);
+    expect(history).toHaveBeenCalledWith(ID.alice, 5, 0);
     expect(refreshUser).not.toHaveBeenCalled();
-    expect(element.querySelector('h2')?.textContent).toBe('alice');
+    expect(element.querySelector('h1')?.textContent).toBe('alice');
     expect(element.querySelector('.initial')?.textContent?.trim()).toBe('A');
     expect(element.querySelector('app-presence-badge')?.textContent?.trim()).toBe('Online');
     const stats = [...element.querySelectorAll('.stats div')].map(
@@ -201,7 +209,7 @@ describe('Player profile page', () => {
     expect(
       element.querySelector('app-level-bar [role="progressbar"]')?.getAttribute('aria-valuetext'),
     ).toBe('150 XP to level 3');
-    expect(element.querySelector('#achievements h3')?.textContent).toContain('1 of 2 unlocked');
+    expect(element.querySelector('#achievements h2')?.textContent).toContain('1 of 2 unlocked');
     expect(element.querySelector('#achievements li.unlocked strong')?.textContent).toBe(
       'First victory',
     );
@@ -229,10 +237,10 @@ describe('Player profile page', () => {
     // Like the real one, the refresh replaces the session user with a new object.
     const session = TestBed.inject(AuthSession);
     refreshUser.mockImplementation(() => {
-      session.updateUser({ id: 'alice', username: 'alice', elo: 1452 }, session.token()!);
+      session.updateUser({ id: ID.alice, username: 'alice', elo: 1452 }, session.token()!);
       return of(aliceAccount);
     });
-    const { harness, element } = await open('/players/alice');
+    const { harness, element } = await open(`/players/${ID.alice}`);
     await harness.fixture.whenStable();
     expect(refreshUser).toHaveBeenCalledTimes(1);
     expect(profile).toHaveBeenCalledTimes(1);
@@ -242,11 +250,11 @@ describe('Player profile page', () => {
   });
 
   it('follows pushed presence changes of the profile owner only', async () => {
-    const { harness, element } = await open('/players/alice');
-    events.next({ event: 'USER_STATUS_CHANGED', data: { userId: 'bob', status: 'OFFLINE' } });
+    const { harness, element } = await open(`/players/${ID.alice}`);
+    events.next({ event: 'USER_STATUS_CHANGED', data: { userId: ID.bob, status: 'OFFLINE' } });
     harness.detectChanges();
     expect(element.querySelector('app-presence-badge')?.textContent?.trim()).toBe('Online');
-    events.next({ event: 'USER_STATUS_CHANGED', data: { userId: 'alice', status: 'IN_GAME' } });
+    events.next({ event: 'USER_STATUS_CHANGED', data: { userId: ID.alice, status: 'IN_GAME' } });
     harness.detectChanges();
     expect(element.querySelector('app-presence-badge')?.textContent?.trim()).toBe('In a game');
   });
@@ -263,23 +271,33 @@ describe('Player profile page', () => {
           ),
       ),
     );
-    const missing = await open('/players/ghost');
+    const missing = await open(`/players/${ID.ghost}`);
     expect(missing.element.querySelector('[role="alert"]')?.textContent).toBe(
       'This player does not exist.',
     );
   });
 
+  it('answers a mistyped address without asking the server', async () => {
+    const { element } = await open('/players/not-an-id');
+    expect(element.querySelector('[role="alert"]')?.textContent).toBe(
+      'This player does not exist.',
+    );
+    expect(profile).not.toHaveBeenCalled();
+    expect(ratingHistory).not.toHaveBeenCalled();
+    expect(history).not.toHaveBeenCalled();
+  });
+
   it('still shows the profile when rating and game lists cannot be read', async () => {
     ratingHistory.mockReturnValue(throwError(() => new Error('down')));
     history.mockReturnValue(throwError(() => new Error('down')));
-    const { element } = await open('/players/alice');
-    expect(element.querySelector('h2')?.textContent).toBe('alice');
+    const { element } = await open(`/players/${ID.alice}`);
+    expect(element.querySelector('h1')?.textContent).toBe('alice');
     expect(element.textContent).toContain('Rating changes could not be loaded.');
     expect(element.textContent).toContain('Recent games could not be loaded.');
   });
 
   it('offers no friend action to visitors who are signed out or on their own profile', async () => {
-    const { element } = await open('/players/alice');
+    const { element } = await open(`/players/${ID.alice}`);
     expect(friends).not.toHaveBeenCalled();
     expect(element.textContent).not.toContain('Add friend');
     expect(element.querySelector('a[href^="/messages"]')).toBeNull();
@@ -287,22 +305,24 @@ describe('Player profile page', () => {
 
   it('links a signed-in visitor to a conversation, but not on their own profile', async () => {
     signIn('me');
-    const { harness, element } = await open('/players/alice');
-    expect(element.querySelector('a[href="/messages/alice"]')?.textContent?.trim()).toBe('Message');
-    await harness.navigateByUrl('/players/me');
+    const { harness, element } = await open(`/players/${ID.alice}`);
+    expect(element.querySelector(`a[href="/messages/${ID.alice}"]`)?.textContent?.trim()).toBe(
+      'Message',
+    );
+    await harness.navigateByUrl(`/players/${ID.me}`);
     harness.detectChanges();
     expect(element.querySelector('a[href^="/messages"]')).toBeNull();
   });
 
   it('sends a friend request from the profile of a non-friend', async () => {
     signIn('me');
-    const { harness, element } = await open('/players/alice');
+    const { harness, element } = await open(`/players/${ID.alice}`);
     const add = [...element.querySelectorAll('button')].find(
       (item) => item.textContent?.trim() === 'Add friend',
     ) as HTMLButtonElement;
     add.click();
     harness.detectChanges();
-    expect(sendFriendRequest).toHaveBeenCalledWith('alice');
+    expect(sendFriendRequest).toHaveBeenCalledWith(ID.alice);
     expect(element.querySelector('[role="status"]')?.textContent?.trim()).toBe(
       'Friend request sent.',
     );
@@ -311,9 +331,9 @@ describe('Player profile page', () => {
   it('knows an existing friend and explains a request already pending', async () => {
     signIn('me');
     friends.mockReturnValue(
-      of({ friends: [{ id: 'alice', username: 'alice', elo: 1452, status: 'ONLINE' }] }),
+      of({ friends: [{ id: ID.alice, username: 'alice', elo: 1452, status: 'ONLINE' }] }),
     );
-    const friend = await open('/players/alice');
+    const friend = await open(`/players/${ID.alice}`);
     expect(friend.element.textContent).toContain('You are friends.');
     expect(friend.element.textContent).not.toContain('Add friend');
   });
@@ -331,7 +351,7 @@ describe('Player profile page', () => {
           ),
       ),
     );
-    const { harness, element } = await open('/players/alice');
+    const { harness, element } = await open(`/players/${ID.alice}`);
     (
       [...element.querySelectorAll('button')].find(
         (item) => item.textContent?.trim() === 'Add friend',
@@ -356,8 +376,8 @@ describe('Player profile page', () => {
 
   it('cancels a request this visitor sent', async () => {
     signIn('me');
-    sentFriendRequests.mockReturnValue(of({ requests: [pendingRequest('r1', 'me', 'alice')] }));
-    const { harness, element } = await open('/players/alice');
+    sentFriendRequests.mockReturnValue(of({ requests: [pendingRequest('r1', ID.me, ID.alice)] }));
+    const { harness, element } = await open(`/players/${ID.alice}`);
     expect(element.textContent).toContain('Friend request sent.');
     button(element, 'Cancel request').click();
     harness.detectChanges();
@@ -367,8 +387,8 @@ describe('Player profile page', () => {
 
   it('answers a request from the profile owner', async () => {
     signIn('me');
-    friendRequests.mockReturnValue(of({ requests: [pendingRequest('r2', 'alice', 'me')] }));
-    const { harness, element } = await open('/players/alice');
+    friendRequests.mockReturnValue(of({ requests: [pendingRequest('r2', ID.alice, ID.me)] }));
+    const { harness, element } = await open(`/players/${ID.alice}`);
     expect(element.textContent).toContain('alice sent you a friend request.');
     button(element, 'Accept').click();
     harness.detectChanges();
@@ -379,7 +399,7 @@ describe('Player profile page', () => {
   it('says so when a request answered theirs and made you friends at once', async () => {
     signIn('me');
     sendFriendRequest.mockReturnValue(of({ id: 'r3', status: 'ACCEPTED' }));
-    const { harness, element } = await open('/players/alice');
+    const { harness, element } = await open(`/players/${ID.alice}`);
     button(element, 'Add friend').click();
     harness.detectChanges();
     expect(element.textContent).toContain('alice had already asked: you are now friends.');
@@ -398,7 +418,7 @@ describe('Player profile page', () => {
           ),
       ),
     );
-    const { harness, element } = await open('/players/alice');
+    const { harness, element } = await open(`/players/${ID.alice}`);
     button(element, 'Add friend').click();
     harness.detectChanges();
     expect(element.querySelector('[role="alert"]')?.textContent).toContain(
@@ -408,47 +428,47 @@ describe('Player profile page', () => {
 
   it('follows a request answered by the profile owner while the page is open', async () => {
     signIn('me');
-    sentFriendRequests.mockReturnValue(of({ requests: [pendingRequest('r1', 'me', 'alice')] }));
-    const { harness, element } = await open('/players/alice');
+    sentFriendRequests.mockReturnValue(of({ requests: [pendingRequest('r1', ID.me, ID.alice)] }));
+    const { harness, element } = await open(`/players/${ID.alice}`);
     events.next({
       event: 'FRIEND_ADDED',
       data: {
         requestId: 'r1',
-        friend: { id: 'alice', username: 'alice', avatarUrl: null, elo: 1452, status: 'ONLINE' },
+        friend: { id: ID.alice, username: 'alice', avatarUrl: null, elo: 1452, status: 'ONLINE' },
       },
     });
     harness.detectChanges();
     expect(element.textContent).toContain('You are friends.');
-    events.next({ event: 'FRIEND_REMOVED', data: { userId: 'alice' } });
+    events.next({ event: 'FRIEND_REMOVED', data: { userId: ID.alice } });
     harness.detectChanges();
     expect(button(element, 'Add friend')).toBeDefined();
   });
 
   it('blocks after confirmation and hides every contact action until unblocked', async () => {
     signIn('me');
-    const { harness, element } = await open('/players/alice');
+    const { harness, element } = await open(`/players/${ID.alice}`);
     button(element, 'Block player').click();
     harness.detectChanges();
     expect(block).not.toHaveBeenCalled();
     expect(element.textContent).toContain('They are not told.');
     button(element, 'Block').click();
     harness.detectChanges();
-    expect(block).toHaveBeenCalledWith('alice');
+    expect(block).toHaveBeenCalledWith(ID.alice);
     expect(element.textContent).toContain('You blocked this player.');
     expect(button(element, 'Add friend')).toBeUndefined();
-    expect(element.querySelector('a[href="/messages/alice"]')).toBeNull();
+    expect(element.querySelector(`a[href="/messages/${ID.alice}"]`)).toBeNull();
     button(element, 'Unblock').click();
     harness.detectChanges();
-    expect(unblock).toHaveBeenCalledWith('alice');
+    expect(unblock).toHaveBeenCalledWith(ID.alice);
     expect(button(element, 'Add friend')).toBeDefined();
   });
 
   it('knows a player this visitor blocked', async () => {
     signIn('me');
     blocked.mockReturnValue(
-      of({ users: [{ id: 'alice', username: 'alice', avatarUrl: null, blockedAt: '' }] }),
+      of({ users: [{ id: ID.alice, username: 'alice', avatarUrl: null, blockedAt: '' }] }),
     );
-    const { element } = await open('/players/alice');
+    const { element } = await open(`/players/${ID.alice}`);
     expect(element.textContent).toContain('You blocked this player.');
     expect(button(element, 'Unblock')).toBeDefined();
   });

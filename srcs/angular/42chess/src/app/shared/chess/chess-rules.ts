@@ -304,3 +304,116 @@ function castlingMoves(position: Position, king: number): number[] {
     result.push(home - 2);
   return result;
 }
+
+const SAN_LETTERS: Record<PieceType, string> = { p: '', n: 'N', b: 'B', r: 'R', q: 'Q', k: 'K' };
+
+/**
+ * Standard algebraic notation of a legal move ("Nbd7", "exd5", "O-O", "e8=Q#"), for the
+ * analysis board and for a PGN of an old game whose moves were stored without it.
+ */
+export function sanOf(position: Position, move: Move): string {
+  const from = squareIndex(move.from);
+  const to = squareIndex(move.to);
+  const piece = position.board[from];
+  if (!piece) throw new Error(`No piece on ${move.from}.`);
+  const after = applyMove(position, move);
+  const suffix = isInCheck(after) ? (legalMoves(after).length ? '+' : '#') : '';
+  if (piece.type === 'k' && Math.abs(to - from) === 2)
+    return (to > from ? 'O-O' : 'O-O-O') + suffix;
+  const capture = !!position.board[to] || (piece.type === 'p' && to === position.enPassant);
+  let text = SAN_LETTERS[piece.type];
+  if (piece.type === 'p') {
+    if (capture) text = move.from[0];
+  } else {
+    // Another piece of the same kind that could also reach the square needs telling apart.
+    const rivals = legalMoves(position).filter(
+      (other) =>
+        other.to === move.to &&
+        other.from !== move.from &&
+        position.board[squareIndex(other.from)]?.type === piece.type,
+    );
+    if (rivals.length) {
+      const sameFile = rivals.some((other) => other.from[0] === move.from[0]);
+      const sameRank = rivals.some((other) => other.from[1] === move.from[1]);
+      text += !sameFile ? move.from[0] : !sameRank ? move.from[1] : move.from;
+    }
+  }
+  if (capture) text += 'x';
+  text += move.to;
+  if (move.promotion) text += '=' + move.promotion.toUpperCase();
+  return text + suffix;
+}
+
+/**
+ * Squares a piece could reach once the opponent has moved, whatever they play: the shape of
+ * its moves on an otherwise empty board, plus pawn captures and castling. A premove is only
+ * played if it is legal when the turn comes.
+ */
+export function premoveTargets(position: Position, square: string): string[] {
+  const from = squareIndex(square);
+  const piece = position.board[from];
+  if (!piece) return [];
+  const targets = new Set<number>();
+  const reach = (directions: number[][], slide: boolean) => {
+    for (const [f, r] of directions)
+      for (let to = offset(from, f, r); to !== null; to = slide ? offset(to, f, r) : null)
+        targets.add(to);
+  };
+  if (piece.type === 'p') {
+    const forward = piece.color === 'w' ? 1 : -1;
+    const one = offset(from, 0, forward);
+    if (one !== null) targets.add(one);
+    const start = Math.floor(from / 8) === (piece.color === 'w' ? 6 : 1);
+    const two = offset(from, 0, 2 * forward);
+    if (start && two !== null) targets.add(two);
+    for (const side of [-1, 1]) {
+      const capture = offset(from, side, forward);
+      if (capture !== null) targets.add(capture);
+    }
+  }
+  if (piece.type === 'n') reach(KNIGHT, false);
+  if (piece.type === 'b' || piece.type === 'q') reach(BISHOP, true);
+  if (piece.type === 'r' || piece.type === 'q') reach(ROOK, true);
+  if (piece.type === 'k') {
+    reach(KING, false);
+    const home = piece.color === 'w' ? 60 : 4;
+    const [short, long] = piece.color === 'w' ? ['K', 'Q'] : ['k', 'q'];
+    if (from === home && position.castling.includes(short)) targets.add(home + 2);
+    if (from === home && position.castling.includes(long)) targets.add(home - 2);
+  }
+  // A square held by one of the player's own pieces is fine: the opponent may capture it.
+  return [...targets].map(squareName);
+}
+
+const PIECE_VALUES: Record<PieceType, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+const FULL_SET: Record<PieceType, number> = { p: 8, n: 2, b: 2, r: 2, q: 1, k: 1 };
+const CAPTURE_ORDER: PieceType[] = ['q', 'r', 'b', 'n', 'p'];
+
+export interface Material {
+  /** Pieces each side has taken from the other, most valuable first. */
+  captured: Record<Color, PieceType[]>;
+  /** Material balance in pawns: positive when White is ahead. */
+  balance: number;
+}
+
+/**
+ * Captured pieces read from a position: whatever is missing from a full set. A promoted
+ * pawn counts as its new piece, so a side may show fewer captures than it made.
+ */
+export function material(position: Position): Material {
+  const count = (color: Color, type: PieceType) =>
+    position.board.filter((piece) => piece?.color === color && piece.type === type).length;
+  const takenFrom = (color: Color) =>
+    CAPTURE_ORDER.flatMap((type) =>
+      Array<PieceType>(Math.max(0, FULL_SET[type] - count(color, type))).fill(type),
+    );
+  const value = (color: Color) =>
+    position.board.reduce(
+      (sum, piece) => sum + (piece?.color === color ? PIECE_VALUES[piece.type] : 0),
+      0,
+    );
+  return {
+    captured: { w: takenFrom('b'), b: takenFrom('w') },
+    balance: value('w') - value('b'),
+  };
+}

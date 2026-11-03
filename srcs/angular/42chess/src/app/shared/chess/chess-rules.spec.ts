@@ -2,9 +2,12 @@ import {
   applyMove,
   isInCheck,
   legalMoves,
+  material,
   parseFen,
   Position,
   positionStatus,
+  premoveTargets,
+  sanOf,
   squareIndex,
   squareName,
   toFen,
@@ -110,5 +113,46 @@ describe('Display chess rules', () => {
     expect(toFen(applyMove(parseFen(START), { from: 'e2', to: 'e4' }))).toBe(
       'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
     );
+  });
+});
+
+describe('Notation, premoves and material', () => {
+  const position = (fen: string) => parseFen(fen);
+
+  it('writes standard algebraic notation', () => {
+    const start = position('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+    expect(sanOf(start, { from: 'g1', to: 'f3' })).toBe('Nf3');
+    expect(sanOf(start, { from: 'e2', to: 'e4' })).toBe('e4');
+    const knights = position('4k3/8/8/8/8/8/8/1N2KN2 w - - 0 1');
+    expect(sanOf(knights, { from: 'b1', to: 'd2' })).toBe('Nbd2');
+    const rooks = position('4k3/8/R7/8/R7/8/8/4K3 w - - 0 1');
+    expect(sanOf(rooks, { from: 'a6', to: 'a5' })).toBe('R6a5');
+    const capture = position('4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1');
+    expect(sanOf(capture, { from: 'e4', to: 'd5' })).toBe('exd5');
+    const castle = position('4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1');
+    expect(sanOf(castle, { from: 'e1', to: 'g1' })).toBe('O-O');
+    expect(sanOf(castle, { from: 'e1', to: 'c1' })).toBe('O-O-O');
+    const promote = position('7k/4P3/8/8/8/8/8/4K3 w - - 0 1');
+    expect(sanOf(promote, { from: 'e7', to: 'e8', promotion: 'q' })).toBe('e8=Q+');
+    const mate = position('6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1');
+    expect(sanOf(mate, { from: 'a1', to: 'a8' })).toBe('Ra8#');
+    const passant = position('4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1');
+    expect(sanOf(passant, { from: 'e5', to: 'd6' })).toBe('exd6');
+  });
+
+  it('offers premoves by the shape of the piece, whatever stands in the way', () => {
+    const start = position('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1');
+    expect(premoveTargets(start, 'e2').sort()).toEqual(['d3', 'e3', 'e4', 'f3']);
+    expect(premoveTargets(start, 'a1').length).toBe(14);
+    expect(premoveTargets(start, 'e1').sort()).toEqual(['c1', 'd1', 'd2', 'e2', 'f1', 'f2', 'g1']);
+    expect(premoveTargets(start, 'e5')).toEqual([]);
+  });
+
+  it('counts captured pieces and the material balance', () => {
+    const start = position('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+    expect(material(start)).toEqual({ captured: { w: [], b: [] }, balance: 0 });
+    // White took a knight and a pawn, Black took a bishop.
+    const middle = position('r1bqkbnr/ppp1pppp/8/8/8/8/PPPPPPPP/RN1QKBNR w KQkq - 0 1');
+    expect(material(middle)).toEqual({ captured: { w: ['n', 'p'], b: ['b'] }, balance: 1 });
   });
 });

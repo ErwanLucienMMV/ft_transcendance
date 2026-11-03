@@ -12,7 +12,7 @@
   justify-items: start;
   min-width: 0;
 }
-.who h2 {
+.who h1 {
   margin: 0;
   font-size: clamp(26px, 3vw, 34px);
   letter-spacing: -0.025em;

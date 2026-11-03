@@ -100,7 +100,7 @@ describe('Puzzle page', () => {
   it('shows the daily position read-only and invites anonymous visitors to sign in', () => {
     const { element } = setup();
     expect(text(element, '#puzzle-title')).toBe('Find the best move for White.');
-    expect(element.querySelector('.square:not([disabled])')).toBeNull();
+    expect(element.querySelector('.square:not([aria-disabled="true"])')).toBeNull();
     expect(element.querySelector('a[href^="/login"]')?.getAttribute('href')).toBe(
       '/login?returnUrl=%2Fpuzzle',
     );
@@ -179,7 +179,7 @@ describe('Puzzle page', () => {
     expect(api.start).toHaveBeenCalledTimes(1);
     expect(api.play).toHaveBeenLastCalledWith('attempt-1', 'f3f4', 1);
     expect(text(element, '#puzzle-title')).toBe('Out of tries.');
-    expect(element.querySelector('.square:not([disabled])')).toBeNull();
+    expect(element.querySelector('.square:not([aria-disabled="true"])')).toBeNull();
   });
 
   it('shows the reward, the time and the wrong tries once solved, then practises', () => {
@@ -206,7 +206,7 @@ describe('Puzzle page', () => {
     expect(text(element, '[data-result="mistakes"]')).toBe('2');
     expect(text(element, '.reward')).toBe('+35 XP · 3-day streak');
     expect(text(element, '.details div:nth-child(3) dd')).toBe('3 days');
-    expect(element.querySelector('.square:not([disabled])')).toBeNull();
+    expect(element.querySelector('.square:not([aria-disabled="true"])')).toBeNull();
     api.start.mockReturnValue(of({ ...attempt, attemptId: 'attempt-2', practice: true }));
     button('Solve it again')!.click();
     render();

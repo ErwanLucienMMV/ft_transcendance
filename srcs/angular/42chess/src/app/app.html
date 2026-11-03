@@ -7,7 +7,6 @@
       ></span>
       <span class="brand-name">42<span>chess</span></span>
     </a>
-    <h1 class="sr-only">Hello, {{ title() }}</h1>
     <nav class="main-nav" aria-label="Main navigation">
       <a routerLink="/play" routerLinkActive="active" ariaCurrentWhenActive="page">Play</a>
       <a routerLink="/puzzle" routerLinkActive="active" ariaCurrentWhenActive="page">Puzzle</a>
@@ -20,8 +19,13 @@
         <a routerLink="/history" routerLinkActive="active" ariaCurrentWhenActive="page">History</a>
         <a routerLink="/friends" routerLinkActive="active" ariaCurrentWhenActive="page">Friends</a>
         <a routerLink="/messages" routerLinkActive="active" ariaCurrentWhenActive="page"
-          >Messages</a
-        >
+          >Messages
+          @if (unread.total(); as count) {
+            <app-badge tone="accent" class="nav-count" data-unread
+              >{{ count }}<span class="sr-only"> unread</span></app-badge
+            >
+          }
+        </a>
       }
     </nav>
     <nav class="account" aria-label="Account">
@@ -76,17 +80,9 @@
   </div>
 </header>
 <main id="main-content" tabindex="-1">
-  @if (errors.message(); as message) {
-    <section class="global-error" role="alert" aria-label="Application error">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3 2 21h20L12 3zm0 6v6m0 3v.01" />
-      </svg>
-      <p>{{ message }}</p>
-      <button type="button" class="small secondary" (click)="errors.dismiss()">Dismiss</button>
-    </section>
-  }
   <router-outlet />
 </main>
+<app-toasts />
 @if (session.user()) {
   <app-social-notices />
 }
@@ -98,7 +94,15 @@
     <nav class="footer-links" aria-label="Help">
       <a routerLink="/rules">Game rules</a>
       <a routerLink="/status">Service status</a>
+      <a routerLink="/design">Design system</a>
     </nav>
+    <app-segmented
+      class="footer-theme"
+      label="Theme"
+      [options]="themes"
+      [value]="preferences.theme()"
+      (valueChange)="preferences.setTheme($event)"
+    />
     <nav class="footer-links" aria-label="Legal">
       <a routerLink="/privacy">Privacy Policy</a>
       <a routerLink="/terms">Terms of Service</a>

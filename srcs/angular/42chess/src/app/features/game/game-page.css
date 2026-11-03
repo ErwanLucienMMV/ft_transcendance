@@ -14,11 +14,41 @@
   font-weight: 700;
 }
 .player {
+  display: grid;
   min-width: 0;
   font-weight: 600;
+}
+.player-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.elo-change {
+  margin-left: 6px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--error);
+}
+.elo-change[data-sign='+'] {
+  color: var(--success);
+}
+.rating-result {
+  margin: 0;
+}
+.confirm-move {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.confirm-move p {
+  margin: 0;
+}
+.pgn {
+  gap: 4px;
 }
 .connection {
   display: flex;
@@ -34,7 +64,7 @@
 .game-panel .eyebrow {
   justify-self: start;
 }
-.game-panel h2,
+.game-panel h1,
 .watchers {
   margin: 0;
 }

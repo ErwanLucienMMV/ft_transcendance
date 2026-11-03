@@ -217,12 +217,16 @@ describe('Friends page', () => {
     const { harness, element } = await open();
     (element.querySelector('button[aria-label="Remove bob"]') as HTMLButtonElement).click();
     harness.detectChanges();
+    const dialog = element.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.hasAttribute('open')).toBe(true);
+    expect(dialog.querySelector('h2')?.textContent).toBe('Remove bob from your friends?');
     button(element, 'Cancel').click();
     harness.detectChanges();
+    expect(dialog.hasAttribute('open')).toBe(false);
     expect(removeFriend).not.toHaveBeenCalled();
     (element.querySelector('button[aria-label="Remove bob"]') as HTMLButtonElement).click();
     harness.detectChanges();
-    button(element, 'Confirm removal').click();
+    button(element, 'Remove friend').click();
     harness.detectChanges();
     expect(removeFriend).toHaveBeenCalledWith('bob');
     expect(rows(element, 'Friends')).toEqual(['carol 1500 Offline']);

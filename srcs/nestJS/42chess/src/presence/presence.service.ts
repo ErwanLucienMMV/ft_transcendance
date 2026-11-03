@@ -4,6 +4,11 @@ import { DataSource } from 'typeorm';
 import { isUUID } from 'class-validator';
 
 export type PresenceStatus = 'ONLINE' | 'IN_GAME' | 'OFFLINE';
+/** A game that started (active) or ended, for the list of live games. */
+export interface LiveGameChange {
+  gameId: string;
+  active: boolean;
+}
 export interface UserPresence {
   userId: string;
   status: PresenceStatus;
@@ -18,6 +23,7 @@ export class PresenceService implements OnModuleInit, OnModuleDestroy {
   private readonly listeners = new Set<
     (state: UserPresence, previous: PresenceStatus) => void
   >();
+  private readonly gameListeners = new Set<(change: LiveGameChange) => void>();
   private readonly sessions = new Map<string, Set<string>>();
   private readonly seen = new Map<string, Date>();
   private readonly dirtySeen = new Map<string, Date>();
@@ -117,6 +123,14 @@ export class PresenceService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  /** Games that start or end, after their transaction committed. */
+  subscribeGames(listener: (change: LiveGameChange) => void): () => void {
+    this.gameListeners.add(listener);
+    return () => {
+      this.gameListeners.delete(listener);
+    };
+  }
+
   /** Called only after the game transaction has committed. */
   setGameStatus(
     gameId: string,
@@ -133,6 +147,13 @@ export class PresenceService implements OnModuleInit, OnModuleDestroy {
       if (games.size) this.games.set(id, games);
       else this.games.delete(id);
       this.publish(id, before);
+    }
+    for (const listener of this.gameListeners) {
+      try {
+        listener({ gameId: game, active });
+      } catch (error: unknown) {
+        this.logger.error('Live game listener failed', error);
+      }
     }
   }
 

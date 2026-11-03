@@ -1,0 +1,100 @@
+.design-page {
+  display: grid;
+  gap: 20px;
+}
+.page-head {
+  align-items: end;
+}
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 14px 18px;
+}
+section.card {
+  display: grid;
+  gap: 14px;
+  scroll-margin-top: calc(var(--header-height) + 16px);
+}
+h2,
+h3 {
+  margin: 0;
+}
+h3 {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.swatches,
+.icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.swatches li {
+  display: grid;
+  gap: 6px;
+}
+.swatch {
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.icons {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+.icons li {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+.type-scale p {
+  margin: 0 0 10px;
+}
+.type-scale .h1,
+.type-scale .h2,
+.type-scale .h3 {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 650;
+}
+.type-scale .h1 {
+  font-size: 28px;
+}
+.type-scale .h2 {
+  font-size: 17px;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+.stack {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.split,
+.chess {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.chess app-chess-board {
+  max-width: 420px;
+}

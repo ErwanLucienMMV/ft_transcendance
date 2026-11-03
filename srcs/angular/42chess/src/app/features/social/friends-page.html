@@ -2,7 +2,7 @@
   <header class="page-head">
     <div>
       <span class="eyebrow">Community</span>
-      <h2 id="friends-title">Friends</h2>
+      <h1 id="friends-title">Friends</h1>
       <p>Find players, answer friend requests and challenge your friends.</p>
     </div>
     <div class="head-links">
@@ -13,7 +13,7 @@
   </header>
 
   <section class="panel card" aria-labelledby="search-title">
-    <h3 id="search-title" class="section-title">Find players</h3>
+    <h2 id="search-title" class="section-title">Find players</h2>
     <form class="search" role="search" [formGroup]="form" (ngSubmit)="submit()">
       <label class="sr-only" for="player-search">Username</label>
       <input
@@ -27,7 +27,7 @@
       <button type="submit">Search</button>
     </form>
     @if (searchFailed()) {
-      <p class="alert" role="alert">The search failed. Try again.</p>
+      <app-alert><p>The search failed. Try again.</p></app-alert>
     } @else if (results(); as players) {
       @if (players.length === 0) {
         <p class="muted" role="status">No player matches “{{ query() }}”.</p>
@@ -54,14 +54,16 @@
   </section>
 
   @if (actionError(); as message) {
-    <p class="alert" role="alert">{{ message }}</p>
+    <app-alert
+      ><p>{{ message }}</p></app-alert
+    >
   }
 
   @if (requests()?.length) {
     <section class="panel" aria-labelledby="requests-title">
-      <h3 id="requests-title" class="section-title">
+      <h2 id="requests-title" class="section-title">
         Friend requests <span class="count">{{ requests()?.length }}</span>
-      </h3>
+      </h2>
       <ul class="people rows" aria-label="Friend requests">
         @for (request of requests(); track request.id) {
           <li class="request">
@@ -99,9 +101,9 @@
 
   @if (sent()?.length) {
     <section class="panel" aria-labelledby="sent-title">
-      <h3 id="sent-title" class="section-title">
+      <h2 id="sent-title" class="section-title">
         Sent requests <span class="count">{{ sent()?.length }}</span>
-      </h3>
+      </h2>
       <ul class="people rows" aria-label="Sent requests">
         @for (request of sent(); track request.id) {
           <li class="request">
@@ -134,22 +136,22 @@
   }
 
   <section class="panel" aria-labelledby="list-title">
-    <h3 id="list-title" class="section-title">Your friends</h3>
+    <h2 id="list-title" class="section-title">Your friends</h2>
     @if (challengeError(); as message) {
-      <p class="alert" role="alert">{{ message }}</p>
+      <app-alert
+        ><p>{{ message }}</p></app-alert
+      >
     }
     @if (friendsFailed()) {
-      <div class="alert" role="alert">
+      <app-alert>
         <p>Your friends could not be loaded.</p>
         <button type="button" class="button secondary" (click)="loadFriends()">Try again</button>
-      </div>
+      </app-alert>
     } @else if (friends(); as list) {
       @if (list.length === 0) {
-        <div class="empty">
-          <svg viewBox="0 0 64 64" aria-hidden="true"><use href="/chess-pieces.svg#knight" /></svg>
-          <strong>No friends yet.</strong>
+        <app-empty-state piece="knight" heading="No friends yet.">
           <p>Search for a player above, open their profile and send a friend request.</p>
-        </div>
+        </app-empty-state>
       } @else {
         <ul class="people rows" aria-label="Friends">
           @for (friend of list; track friend.id) {
@@ -173,39 +175,35 @@
                 >
                   Challenge
                 </button>
-                @if (confirmingRemoval() === friend.id) {
-                  <button
-                    type="button"
-                    class="danger small"
-                    [disabled]="busy().has(friend.id)"
-                    (click)="remove(friend)"
-                  >
-                    Confirm removal
-                  </button>
-                  <button
-                    type="button"
-                    class="secondary small"
-                    (click)="confirmingRemoval.set(null)"
-                  >
-                    Cancel
-                  </button>
-                } @else {
-                  <button
-                    type="button"
-                    class="ghost small"
-                    [attr.aria-label]="'Remove ' + friend.username"
-                    (click)="confirmingRemoval.set(friend.id)"
-                  >
-                    Remove
-                  </button>
-                }
+                <button
+                  type="button"
+                  class="ghost small"
+                  [attr.aria-label]="'Remove ' + friend.username"
+                  [disabled]="busy().has(friend.id)"
+                  (click)="askRemoval(friend)"
+                >
+                  Remove
+                </button>
               </span>
             </li>
           }
         </ul>
       }
     } @else {
-      <p class="empty" role="status">Loading your friends…</p>
+      <app-empty-state [loading]="true"><p>Loading your friends…</p></app-empty-state>
     }
   </section>
+  <app-confirm-dialog
+    #removal
+    [heading]="'Remove ' + (removing()?.username ?? '') + ' from your friends?'"
+    confirmLabel="Remove friend"
+    tone="danger"
+    (confirmed)="removeConfirmed()"
+    (cancelled)="removing.set(null)"
+  >
+    <p>
+      You will no longer see each other online or in your friend lists. Either of you can send a new
+      request later.
+    </p>
+  </app-confirm-dialog>
 </section>

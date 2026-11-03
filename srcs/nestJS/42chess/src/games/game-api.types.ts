@@ -37,6 +37,8 @@ export interface GameResponse {
   // A pre-clock historical record has unknown balances, never fabricated ones.
   clocks: { white: number; black: number } | null;
   result: { winner: PlayerColor | null; reason: GameEndReason | null } | null;
+  /** Elo won or lost by each side, once a rated game is over; null otherwise. */
+  ratingChanges: { white: number; black: number } | null;
   drawOffer: { playerId: UUID } | null;
   /** Number of plies from which each side may offer a draw again. */
   drawOfferAllowedFrom: { white: number; black: number };

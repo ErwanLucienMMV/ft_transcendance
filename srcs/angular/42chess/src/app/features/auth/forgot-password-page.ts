@@ -14,7 +14,7 @@ import { AUTH_FIELD_LIMITS } from './auth-form.models';
   imports: [AuthFrame, ReactiveFormsModule, RouterLink],
   template: `
     <app-auth-frame>
-      <h2>Forgot your password?</h2>
+      <h1>Forgot your password?</h1>
       <p class="auth-intro">
         Enter the email address of your account. We will send you a link to choose a new password.
       </p>

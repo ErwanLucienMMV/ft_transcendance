@@ -1,5 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 
+export const LOW_TIME_MS = 10_000;
+
 /** Formats a clock; under ten seconds tenths matter, so they are shown unless turned off. */
 export function formatClock(ms: number, tenths = true): string {
   const safe = Math.max(0, ms);
@@ -42,9 +44,14 @@ export function formatClock(ms: number, tenths = true): string {
       border-color: var(--accent);
       color: var(--accent-ink);
     }
+    .low {
+      color: var(--error);
+      border-color: var(--error-border);
+    }
     .low.running {
       background: var(--error);
       border-color: var(--error);
+      color: var(--danger-ink);
     }
   `,
 })
@@ -58,7 +65,8 @@ export class GameClock {
     const ms = this.remaining();
     return ms === null ? '--:--' : formatClock(ms);
   });
-  readonly low = computed(() => (this.remaining() ?? Infinity) < 20_000);
+  /** Under ten seconds the clock turns red, whoever is to move. */
+  readonly low = computed(() => (this.remaining() ?? Infinity) < LOW_TIME_MS);
   readonly spoken = computed(() => {
     const ms = this.remaining();
     if (ms === null) return 'no clock';

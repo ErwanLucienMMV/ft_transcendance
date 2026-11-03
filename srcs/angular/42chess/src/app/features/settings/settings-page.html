@@ -2,8 +2,11 @@
   <header class="page-head">
     <div>
       <span class="eyebrow">Account</span>
-      <h2 id="settings-title">Settings</h2>
-      <p>Your name and picture, who can reach you, how you sign in, and your data.</p>
+      <h1 id="settings-title">Settings</h1>
+      <p>
+        Your name and picture, how the site looks, who can reach you, how you sign in, and your
+        data.
+      </p>
     </div>
     @if (session.user(); as user) {
       <a class="button secondary" [routerLink]="['/players', user.id]">View your profile</a>
@@ -18,6 +21,7 @@
   }
 
   <app-profile-settings />
+  <app-appearance-settings />
   <app-privacy-settings />
   <app-security-settings
     [status]="security()"

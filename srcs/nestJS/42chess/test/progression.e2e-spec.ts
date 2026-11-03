@@ -171,6 +171,35 @@ describe('Progression from finished games', () => {
     expect((await stats(black)).progression.xp).toBe(150);
   });
 
+  it('tells both players what a rated game changed in their Elo', async () => {
+    const white = await player();
+    const black = await player();
+    const rated = await foolsMate(white, black);
+    const casual = await foolsMate(white, black, false);
+    const { body } = await http().get(`/v1/games/${rated}`).expect(200);
+    const history: {
+      userId: string;
+      ratingBefore: number;
+      ratingAfter: number;
+    }[] = await source.query(
+      'SELECT "userId", "ratingBefore", "ratingAfter" FROM rating_history WHERE "gameId" = $1',
+      [rated],
+    );
+    const change = (id: string) => {
+      const row = history.find((entry) => entry.userId === id)!;
+      return row.ratingAfter - row.ratingBefore;
+    };
+    expect(body.ratingChanges).toEqual({
+      white: change(white.id),
+      black: change(black.id),
+    });
+    expect(body.ratingChanges.black).toBeGreaterThan(0);
+    expect(body.ratingChanges.white).toBeLessThan(0);
+    expect(
+      (await http().get(`/v1/games/${casual}`).expect(200)).body.ratingChanges,
+    ).toBeNull();
+  });
+
   it('shows rated, casual and computer results with the rank of the player', async () => {
     const white = await player();
     const black = await player();

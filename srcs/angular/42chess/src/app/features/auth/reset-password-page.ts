@@ -27,7 +27,7 @@ function samePasswords(group: AbstractControl): ValidationErrors | null {
   imports: [AuthFrame, ReactiveFormsModule, RouterLink],
   template: `
     <app-auth-frame>
-      <h2>Choose a new password</h2>
+      <h1>Choose a new password</h1>
       @if (done()) {
         <p role="status">
           Your password was changed and every device was signed out. Sign in with the new password.

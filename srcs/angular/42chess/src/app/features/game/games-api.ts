@@ -26,6 +26,20 @@ export const TIME_CONTROLS: readonly TimeControlChoice[] = [
   { label: '30 + 0', category: 'Classical', initialTime: 1_800_000, increment: 0 },
 ];
 
+export type TimeCategory = 'Bullet' | 'Blitz' | 'Rapid' | 'Classical';
+
+/**
+ * The usual family of a time control, from the expected length of a 40-move game:
+ * the starting time plus forty increments.
+ */
+export function timeCategory({ initialTime, increment }: TimeControl): TimeCategory {
+  const seconds = (initialTime + 40 * increment) / 1000;
+  if (seconds < 180) return 'Bullet';
+  if (seconds < 480) return 'Blitz';
+  if (seconds < 1500) return 'Rapid';
+  return 'Classical';
+}
+
 /** "10 + 0": minutes plus increment seconds, as the time control buttons read. */
 export function timeControlLabel({ initialTime, increment }: TimeControl): string {
   return `${initialTime / 60_000} + ${increment / 1000}`;

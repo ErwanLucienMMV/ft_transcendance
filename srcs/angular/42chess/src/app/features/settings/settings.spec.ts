@@ -5,7 +5,10 @@ import { provideRouter, Router } from '@angular/router';
 import { apiErrorInterceptor } from '../../core/api/api-error.interceptor';
 import { AuthSession } from '../../core/auth/auth-session';
 import { authInterceptor } from '../../core/auth/auth.interceptor';
+import { Preferences } from '../../core/preferences/preferences';
+import { Sounds } from '../../core/sound/sounds';
 import { downloadName } from './account-api';
+import { AppearanceSettings } from './appearance-settings';
 import { DataSettings } from './data-settings';
 import { PrivacySettings } from './privacy-settings';
 import { avatarProblem, ProfileSettings } from './profile-settings';
@@ -52,6 +55,48 @@ describe('Account settings', () => {
       (candidate) => candidate.textContent?.trim() === text,
     )!;
   }
+
+  describe('appearance', () => {
+    it('saves the theme and sound to the account, the move options to this device', async () => {
+      const play = vi.spyOn(TestBed.inject(Sounds), 'play').mockImplementation(() => {});
+      const fixture = TestBed.createComponent(AppearanceSettings);
+      await fixture.whenStable();
+      http
+        .expectOne('/api/v1/users/me')
+        .flush(own({ preferences: { theme: 'dark', soundEnabled: false, language: 'en' } }));
+      await fixture.whenStable();
+      const element: HTMLElement = fixture.nativeElement;
+      const preferences = TestBed.inject(Preferences);
+      expect(element.querySelector('[data-value="dark"]')?.getAttribute('aria-checked')).toBe(
+        'true',
+      );
+      const sound = element.querySelector<HTMLInputElement>('[data-setting="sound"]')!;
+      expect(sound.checked).toBe(false);
+
+      (element.querySelector('[data-value="light"]') as HTMLButtonElement).click();
+      const theme = http.expectOne('/api/v1/users/me');
+      expect(theme.request.method).toBe('PATCH');
+      expect(theme.request.body).toEqual({ preferences: { theme: 'light' } });
+      theme.flush(own());
+      await fixture.whenStable();
+      expect(document.documentElement.dataset['theme']).toBe('light');
+
+      sound.click();
+      const soundRequest = http.expectOne('/api/v1/users/me');
+      expect(soundRequest.request.body).toEqual({ preferences: { soundEnabled: true } });
+      soundRequest.flush(own());
+      expect(play).toHaveBeenCalledWith('move');
+
+      element.querySelector<HTMLInputElement>('[data-setting="confirm-moves"]')!.click();
+      element.querySelector<HTMLInputElement>('[data-setting="premoves"]')!.click();
+      expect(preferences.confirmMoves()).toBe(true);
+      expect(preferences.premoves()).toBe(false);
+      preferences.setConfirmMoves(false);
+      preferences.setPremoves(true);
+      preferences.setTheme('system');
+      http.match('/api/v1/users/me').forEach((request) => request.flush(own()));
+    });
+  });
 
   describe('profile', () => {
     it('checks a picture before sending it', () => {

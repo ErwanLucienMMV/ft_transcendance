@@ -1,9 +1,9 @@
 .summary {
   display: grid;
 }
-.overall h3,
+.overall h2,
 .overall p,
-.card h3,
+.card h2,
 .backup p {
   margin: 0;
 }

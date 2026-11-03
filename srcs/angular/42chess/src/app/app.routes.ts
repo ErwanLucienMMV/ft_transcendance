@@ -153,6 +153,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/help/rules-page').then((m) => m.RulesPage),
   },
   {
+    path: 'design',
+    title: 'Design system | 42 Chess',
+    loadComponent: () => import('./features/design/design-page').then((m) => m.DesignPage),
+  },
+  {
     path: 'privacy',
     title: 'Privacy Policy | 42 Chess',
     loadComponent: () => import('./features/legal/privacy-page').then((m) => m.PrivacyPage),

@@ -80,14 +80,6 @@
   width: 28px;
   height: 28px;
 }
-.pager {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  color: var(--muted);
-  font-size: 14px;
-}
 @media (max-width: 560px) {
   .wide {
     display: none;

@@ -1,5 +1,19 @@
 @if (position()) {
-  <div class="board" role="group" aria-label="Chessboard">
+  <div
+    #board
+    class="board"
+    role="group"
+    aria-label="Chessboard"
+    [attr.aria-describedby]="id + '-help'"
+    [class.dragging]="!!dragFrom()"
+    (pointerdown)="pointerDown($event)"
+    (pointermove)="pointerMove($event)"
+    (pointerup)="pointerUp($event)"
+    (pointercancel)="pointerCancel()"
+    (contextmenu)="contextMenu($event)"
+    (keydown)="keyDown($event)"
+    (focusin)="focusIn($event)"
+  >
     @for (square of squares(); track square.name) {
       <button
         type="button"
@@ -11,15 +25,15 @@
         [class.hint]="hint() === square.name"
         [class.target]="targets().has(square.name)"
         [class.capture]="targets().has(square.name) && !!square.piece"
+        [class.movable]="movable(square.name)"
+        [class.premove]="premove()?.from === square.name || premove()?.to === square.name"
+        [class.drag-origin]="dragFrom() === square.name"
         [attr.data-square]="square.name"
         [attr.aria-label]="label(square)"
         [attr.aria-pressed]="selected() === square.name"
-        [attr.draggable]="movable(square.name)"
-        [disabled]="!canMove()"
-        (click)="choose(square.name)"
-        (dragstart)="drag($event, square.name)"
-        (dragover)="$event.preventDefault()"
-        (drop)="drop($event, square.name)"
+        [attr.aria-disabled]="!active()"
+        [attr.tabindex]="tabSquare() === square.name ? 0 : -1"
+        (click)="click($event, square.name)"
       >
         @if (square.piece; as piece) {
           <svg viewBox="0 0 64 64" aria-hidden="true" [class]="'piece ' + piece.color">
@@ -33,6 +47,36 @@
           <span class="coord file" aria-hidden="true">{{ square.fileLabel }}</span>
         }
       </button>
+    }
+    @if (shapes().length) {
+      <svg class="shapes" viewBox="0 0 8 8" aria-hidden="true">
+        @for (shape of shapes(); track shape.key) {
+          @if (shape.circle; as circle) {
+            <circle [attr.cx]="circle.x" [attr.cy]="circle.y" r="0.44" />
+          } @else if (shape.arrow; as arrow) {
+            <line
+              [attr.x1]="arrow.x1"
+              [attr.y1]="arrow.y1"
+              [attr.x2]="arrow.x2"
+              [attr.y2]="arrow.y2"
+            />
+            <polygon [attr.points]="arrow.head" />
+          }
+        }
+      </svg>
+    }
+    @if (ghost(); as piece) {
+      <svg
+        viewBox="0 0 64 64"
+        aria-hidden="true"
+        [class]="'piece ghost ' + piece.color"
+        [style.left.px]="piece.x"
+        [style.top.px]="piece.y"
+        [style.width.px]="piece.size"
+        [style.height.px]="piece.size"
+      >
+        <use [attr.href]="'/chess-pieces.svg#' + piece.name" />
+      </svg>
     }
     @if (promotion()) {
       <div class="overlay" role="dialog" aria-label="Choose a promotion piece">
@@ -58,6 +102,12 @@
       </div>
     }
   </div>
+  <p class="sr-only" [id]="id + '-help'">
+    Arrow keys move between squares. Enter picks a piece, then its destination.
+    @if (annotations()) {
+      Right-click draws circles and arrows.
+    }
+  </p>
 } @else {
   <p class="invalid" role="alert">This position cannot be displayed.</p>
 }

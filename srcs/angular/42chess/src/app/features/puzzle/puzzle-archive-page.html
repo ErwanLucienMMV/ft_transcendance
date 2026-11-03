@@ -2,7 +2,7 @@
   <header class="page-head">
     <div>
       <span class="eyebrow">Puzzles</span>
-      <h2 id="archive-title">Earlier puzzles</h2>
+      <h1 id="archive-title">Earlier puzzles</h1>
       <p>
         Every daily puzzle since the first one. A puzzle from the archive earns XP on your first
         attempt, but no streak. <a routerLink="/puzzle">Today's puzzle</a>
@@ -11,17 +11,16 @@
   </header>
 
   @if (failed()) {
-    <div class="alert" role="alert">
+    <app-alert>
       <p>The archive could not be loaded.</p>
       <button type="button" class="button secondary" (click)="retry()">Try again</button>
-    </div>
+    </app-alert>
   } @else if (items(); as list) {
     @if (total() === 0) {
-      <div class="empty">
-        <strong>No earlier puzzle yet.</strong>
+      <app-empty-state heading="No earlier puzzle yet.">
         <p>Each day's puzzle joins the archive the next day.</p>
         <a class="button" routerLink="/puzzle">Play today's puzzle</a>
-      </div>
+      </app-empty-state>
     } @else {
       <ol class="puzzles rows" [attr.aria-busy]="loading()">
         @for (item of list; track item.date) {
@@ -36,29 +35,9 @@
           </li>
         }
       </ol>
-      @if (pages() > 1) {
-        <nav class="pager" aria-label="Pages">
-          <button
-            type="button"
-            class="button secondary"
-            [disabled]="page() <= 1"
-            (click)="go(page() - 1)"
-          >
-            Previous
-          </button>
-          <span aria-current="page">Page {{ page() }} of {{ pages() }}</span>
-          <button
-            type="button"
-            class="button secondary"
-            [disabled]="page() >= pages()"
-            (click)="go(page() + 1)"
-          >
-            Next
-          </button>
-        </nav>
-      }
+      <app-pager [page]="page()" [pages]="pages()" (pageChange)="go($event)" />
     }
   } @else if (loading()) {
-    <p class="empty" role="status">Loading the archive…</p>
+    <app-empty-state [loading]="true"><p>Loading the archive…</p></app-empty-state>
   }
 </section>

@@ -1,5 +1,7 @@
 :host {
   display: block;
+  --premove: rgba(92, 160, 235, 0.55);
+  --drawing: rgba(232, 125, 26, 0.82);
   --light-square: #f4f1dc;
   --dark-square: #5f7a66;
   --last-move: rgba(196, 235, 92, 0.42);
@@ -38,9 +40,23 @@
 .square.dark:hover {
   background: var(--dark-square);
 }
-.square:disabled {
+.square[aria-disabled='true'] {
   cursor: default;
-  opacity: 1;
+}
+/* A finger on a movable piece drags it rather than scrolling the page. */
+.square.movable {
+  touch-action: none;
+  cursor: grab;
+}
+.dragging,
+.dragging .square {
+  cursor: grabbing;
+}
+.square.moving {
+  z-index: 2;
+}
+.drag-origin .piece {
+  opacity: 0.35;
 }
 .square:focus-visible {
   outline: 3px solid var(--accent);
@@ -55,6 +71,9 @@
 }
 .square.selected {
   box-shadow: inset 0 0 0 999px var(--selected);
+}
+.square.premove {
+  box-shadow: inset 0 0 0 999px var(--premove);
 }
 .square.check {
   background-image: radial-gradient(circle, var(--check) 0%, var(--check) 35%, transparent 72%);
@@ -91,6 +110,30 @@
   color: #fffde9;
   stroke: #243329;
   stroke-width: 1.8;
+}
+.ghost {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+}
+.shapes {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  fill: none;
+  stroke: var(--drawing);
+}
+.shapes circle {
+  stroke-width: 0.07;
+}
+.shapes line {
+  stroke-width: 0.16;
+  stroke-linecap: round;
+}
+.shapes polygon {
+  fill: var(--drawing);
+  stroke: none;
 }
 .coord {
   position: absolute;

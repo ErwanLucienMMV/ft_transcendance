@@ -21,11 +21,11 @@
   padding-top: 22px;
   border-top: 1px solid var(--border);
 }
-.play-card h3,
+.play-card h2,
 .play-card p {
   margin: 0;
 }
-.online .play-card h3 {
+.online .play-card h2 {
   font-size: 16px;
 }
 .play-card > p {
@@ -190,11 +190,11 @@ legend {
   gap: 8px;
   width: 100%;
 }
-.invitations h4,
+.invitations h3,
 .invitations p {
   margin: 0;
 }
-.invitations h4 {
+.invitations h3 {
   font-size: 14px;
 }
 .invitations p {

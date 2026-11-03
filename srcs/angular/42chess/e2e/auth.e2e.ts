@@ -36,9 +36,14 @@ test('registers, refuses unverified login, verifies email and signs in against t
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL(/\/session$/);
   await expect(page.getByRole('status')).toHaveText(`Welcome, ${username}.`);
-  expect(
-    await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })),
-  ).toEqual({ local: 0, session: 0 });
+  // The browser keeps display preferences (theme, sound) and never a token.
+  const stored = await page.evaluate(() => ({
+    local: Object.keys(localStorage).filter((key) => key !== '42chess.preferences'),
+    session: sessionStorage.length,
+    values: Object.values(localStorage).join(' '),
+  }));
+  expect(stored).toMatchObject({ local: [], session: 0 });
+  expect(stored.values).not.toMatch(/eyJ|token/i);
   // The access token stays in memory; the httpOnly refresh cookie restores it on reload.
   await page.reload();
   await expect(page).toHaveURL(/\/session$/);
