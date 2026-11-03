@@ -17,7 +17,8 @@ import { UpdateProfileDto } from '../users/dto/update-profile.dto.js';
 import { PaginationQueryDto } from './pagination.js';
 import { createValidationPipe } from './validation.js';
 
-const timeControl = { initialTime: 300000, increment: 2000 };
+// One of the offered time controls (5+0): the API refuses the others.
+const timeControl = { initialTime: 300000, increment: 0 };
 const uuid = '00000000-0000-4000-8000-000000000001';
 const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.signature';
 const cases: [
