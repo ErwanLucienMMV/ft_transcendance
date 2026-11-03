@@ -2,7 +2,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Account self-service: 2FA set-up and recovery codes, password reset, account deletion,
- * and new OAuth accounts that the front invites to pick a username.
+ * new OAuth accounts that the front invites to pick a username, and 42 sign-in.
  */
 export class AddAccountManagement1793600000000 implements MigrationInterface {
   name = 'AddAccountManagement1793600000000';
@@ -33,9 +33,25 @@ export class AddAccountManagement1793600000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "oauth_flows" ADD "created" boolean NOT NULL DEFAULT false`,
     );
+    // The 42 intranet joins Google and GitHub.
+    await queryRunner.query(
+      `ALTER TABLE "oauth_flows" DROP CONSTRAINT "oauth_flows_provider_check"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "oauth_flows" ADD CONSTRAINT "oauth_flows_provider_check" CHECK (provider IN ('google', 'github', 'fortytwo'))`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `DELETE FROM "oauth_flows" WHERE provider = 'fortytwo'`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "oauth_flows" DROP CONSTRAINT "oauth_flows_provider_check"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "oauth_flows" ADD CONSTRAINT "oauth_flows_provider_check" CHECK (provider IN ('google', 'github'))`,
+    );
     await queryRunner.query(`ALTER TABLE "oauth_flows" DROP COLUMN "created"`);
     await queryRunner.query(
       `ALTER TABLE "users" DROP CONSTRAINT "CHK_users_deleted"`,

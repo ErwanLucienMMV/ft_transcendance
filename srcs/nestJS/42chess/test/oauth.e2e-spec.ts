@@ -39,7 +39,9 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
       JSON.stringify(
         url.includes('googleapis')
           ? { sub: identity.id, email: identity.email, email_verified: true }
-          : { id: identity.id, login: identity.login },
+          : url.includes('intra.42.fr')
+            ? { id: identity.id, login: identity.login, email: identity.email }
+            : { id: identity.id, login: identity.login },
       ),
     );
   });
@@ -49,6 +51,8 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
     OAUTH_GOOGLE_CLIENT_SECRET: 'test-google-secret',
     OAUTH_GITHUB_CLIENT_ID: 'test-github-id',
     OAUTH_GITHUB_CLIENT_SECRET: 'test-github-secret',
+    OAUTH_FORTYTWO_CLIENT_ID: 'test-fortytwo-id',
+    OAUTH_FORTYTWO_CLIENT_SECRET: 'test-fortytwo-secret',
   };
   const original = Object.fromEntries(
     Object.keys(env).map((key) => [key, process.env[key]]),
@@ -100,7 +104,7 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
   }
   const exchange = (agent: ReturnType<typeof request.agent>) =>
     agent.post('/v1/auth/oauth/exchange').set('x-oauth-exchange', '1').send({});
-  it.each(['google', 'github'])(
+  it.each(['google', 'github', 'fortytwo'])(
     'creates and reuses a %s account, hands tokens off only through JSON and prevents replay',
     async (provider) => {
       identity = {
