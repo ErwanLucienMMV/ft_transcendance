@@ -249,8 +249,10 @@ describe('Game REST contract (real PostgreSQL and C++ engine)', () => {
     expect(response.body.startedAt).toMatch(/Z$/);
     expect(response.body.createdAt).toMatch(/Z$/);
     expect(response.body.endedAt).toBeNull();
+    // The starting position is public: draw claims count repetitions from it.
+    expect(response.body.initialFen).toBe(response.body.board.fen);
     expect(JSON.stringify(response.body)).not.toMatch(
-      /password|email|joinedAt|updatedAt|initialFen|invitedOpponent|clockDeadline|"moves"/,
+      /password|email|joinedAt|updatedAt|invitedOpponent|clockDeadline|"moves"/,
     );
   });
 
