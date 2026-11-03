@@ -83,6 +83,9 @@ export class Preferences {
     return theme === 'system' ? (this.systemDark() ? 'dark' : 'light') : theme;
   });
 
+  /** How many times the player chose each account setting, to keep a recent choice. */
+  private readonly choices = { theme: 0, soundEnabled: 0 };
+
   constructor() {
     if (this.browser && typeof matchMedia === 'function') {
       const query = matchMedia('(prefers-color-scheme: dark)');
@@ -99,19 +102,25 @@ export class Preferences {
         .querySelector('meta[name="theme-color"]')
         ?.setAttribute('content', THEME_COLORS[theme]);
     });
-    // Signing in brings the account's choices to this browser.
+    // Signing in brings the account's choices to this browser, except one made meanwhile.
     let adopted: string | null = null;
     effect(() => {
       const id = this.session.user()?.id ?? null;
       if (!id) adopted = null;
       if (!this.browser || !id || id === adopted) return;
       adopted = id;
+      const before = { ...this.choices };
       untracked(() =>
         this.api.get<CurrentUser>('users/me').subscribe({
           next: (user) => {
             const preferences = user.preferences;
-            if (preferences && this.session.user()?.id === id)
-              this.save({ theme: preferences.theme, soundEnabled: preferences.soundEnabled });
+            if (!preferences || this.session.user()?.id !== id) return;
+            this.save({
+              ...(this.choices.theme === before.theme && { theme: preferences.theme }),
+              ...(this.choices.soundEnabled === before.soundEnabled && {
+                soundEnabled: preferences.soundEnabled,
+              }),
+            });
           },
           error: () => undefined,
         }),
@@ -120,11 +129,13 @@ export class Preferences {
   }
 
   setTheme(theme: ThemeChoice): void {
+    this.choices.theme++;
     this.save({ theme });
     this.saveToAccount({ theme });
   }
 
   setSoundEnabled(soundEnabled: boolean): void {
+    this.choices.soundEnabled++;
     this.save({ soundEnabled });
     this.saveToAccount({ soundEnabled });
   }

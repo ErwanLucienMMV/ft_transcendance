@@ -452,6 +452,47 @@ describe('Live game page', () => {
     }
   });
 
+  it('drops the move waiting for confirmation when the game ends', () => {
+    const preferences = TestBed.inject(Preferences);
+    preferences.setConfirmMoves(true);
+    try {
+      const { element, click, state } = setup();
+      state();
+      click('[data-square="g1"]');
+      click('[data-square="f3"]');
+      expect(element.querySelector('[data-confirm-move]')).not.toBeNull();
+      // Same position, but the clock ran out.
+      state({ status: 'FINISHED', result: { winner: 'BLACK', reason: 'TIMEOUT' } });
+      expect(element.querySelector('[data-confirm-move]')).toBeNull();
+    } finally {
+      preferences.setConfirmMoves(false);
+    }
+  });
+
+  it('drops a queued move when the player turns premoves off', () => {
+    const preferences = TestBed.inject(Preferences);
+    try {
+      const { click, state, render } = setup();
+      state({
+        board: {
+          fen: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+          turn: 'BLACK',
+          halfmoveClock: 0,
+          fullmoveNumber: 1,
+        },
+        moves: [opening.moves[0]],
+      });
+      click('[data-square="g1"]');
+      click('[data-square="f3"]');
+      preferences.setPremoves(false);
+      render();
+      state(opening);
+      expect(transport.send).not.toHaveBeenCalledWith('MAKE_MOVE', expect.anything());
+    } finally {
+      preferences.setPremoves(true);
+    }
+  });
+
   it('shows what a rated game changed in both ratings and refreshes the header', () => {
     const refresh = vi
       .spyOn(TestBed.inject(SessionLifecycle), 'refreshUser')

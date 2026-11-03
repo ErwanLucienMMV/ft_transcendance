@@ -76,6 +76,10 @@ describe('PGN export', () => {
     expect(pgnResult({ winner: null, reason: 'STALEMATE' })).toBe('1/2-1/2');
     expect(pgnResult({ winner: 'BLACK', reason: 'TIMEOUT' })).toBe('0-1');
     expect(pgnResult({ winner: null, reason: 'ABORTED' })).toBe('*');
+    // Nobody lost an aborted game.
+    expect(gamePgn({ ...game, result: { winner: null, reason: 'ABORTED' } }, [])).toContain(
+      '[Termination "unterminated"]',
+    );
   });
 });
 

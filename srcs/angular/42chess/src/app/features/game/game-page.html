@@ -225,7 +225,9 @@
           @if (eloChange() !== null) {
             <p class="rating-result" data-elo-change>
               Your rating: <strong class="stat-value">{{ myRating() }}</strong>
-              <span class="elo-change" [attr.data-sign]="eloChange()! > 0 ? '+' : '-'"
+              <span
+                class="elo-change"
+                [attr.data-sign]="eloChange()! > 0 ? '+' : eloChange()! < 0 ? '-' : '0'"
                 >{{ eloChange()! > 0 ? '+' : '' }}{{ eloChange() }}</span
               >
             </p>

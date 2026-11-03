@@ -16,7 +16,7 @@ export interface PgnGame {
 const TERMINATIONS: Record<string, string> = {
   TIMEOUT: 'time forfeit',
   ABANDONED: 'abandoned',
-  ABORTED: 'abandoned',
+  ABORTED: 'unterminated',
 };
 
 function quoted(value: string): string {
@@ -110,5 +110,6 @@ export function downloadPgn(pgn: string, name: string, document: Document): void
   document.body.appendChild(link);
   link.click();
   link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
+  // Some browsers read the file after click() returns.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

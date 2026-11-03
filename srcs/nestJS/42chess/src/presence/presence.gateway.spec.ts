@@ -67,6 +67,14 @@ describe('Private presence delivery on shared authenticated connections', () => 
       send: vi.fn(),
     };
     const closed = { ...open, connected: () => false, send: vi.fn() };
+    // A socket whose send throws does not keep the news from the others.
+    const broken = {
+      ...open,
+      send: vi.fn(() => {
+        throw new Error('closing');
+      }),
+    };
+    gateway.connect('broken', broken);
     gateway.connect('open', open);
     gateway.connect('closed', closed);
     await gateway.flushNotifications();

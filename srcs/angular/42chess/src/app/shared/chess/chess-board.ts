@@ -309,6 +309,12 @@ export class ChessBoard {
   });
 
   constructor() {
+    // Premoves turned off during the opponent's turn: the queued move is dropped. When the
+    // turn comes, premoves go off too but the board can move, and the effect below plays it.
+    effect(() => {
+      if (this.premoves() || this.canMove()) return;
+      if (untracked(this.premove)) untracked(() => this.premove.set(null));
+    });
     // A queued move is played as soon as the turn comes, if it is legal then.
     effect(() => {
       const premove = this.premove();

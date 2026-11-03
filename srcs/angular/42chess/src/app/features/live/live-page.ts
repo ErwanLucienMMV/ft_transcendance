@@ -30,6 +30,7 @@ export const LIVE_EVENT_DELAY_MS = 300;
 type Filter = 'All' | TimeCategory;
 export const LIVE_FILTERS: readonly SegmentOption<Filter>[] = [
   { value: 'All', label: 'All' },
+  { value: 'Bullet', label: 'Bullet' },
   { value: 'Blitz', label: 'Blitz' },
   { value: 'Rapid', label: 'Rapid' },
   { value: 'Classical', label: 'Classical' },

@@ -110,7 +110,8 @@ export class GamePage {
   readonly copied = signal(false);
   /** With move confirmation on, the move waiting for "Confirm", in the position it was chosen in. */
   readonly unconfirmed = linkedSignal<string | undefined, BoardMove | null>({
-    source: () => this.game()?.board.fen,
+    // A new position or the end of the game (flag, resignation) drops it.
+    source: () => (this.active() ? this.game()?.board.fen : undefined),
     computation: () => null,
   });
   /** "Nf3": the move waiting for confirmation, as the move list will show it. */

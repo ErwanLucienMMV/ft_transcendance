@@ -54,8 +54,14 @@ export class PresenceGateway implements OnModuleInit, OnModuleDestroy {
 
   /** Public news (a game id and whether it is live): no session check needed per socket. */
   private broadcast(event: string, change: LiveGameChange): void {
-    for (const client of this.clients.values())
-      if (client.connected()) client.send(event, change);
+    for (const client of this.clients.values()) {
+      if (!client.connected()) continue;
+      try {
+        client.send(event, change);
+      } catch (error) {
+        this.logger.warn(`Live game event not sent: ${String(error)}`);
+      }
+    }
   }
 
   connect(connectionId: string, client: PresenceConnection): void {
