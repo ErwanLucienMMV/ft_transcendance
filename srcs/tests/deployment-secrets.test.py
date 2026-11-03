@@ -11,6 +11,8 @@ import tempfile
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+# Secrets that init-env.sh generates when they are missing or empty.
+GENERATED = ["DATABASE_PASSWORD", "POSTGRES_BACKUP_PASSWORD", "JWT_SECRET", "GF_SECURITY_ADMIN_PASSWORD", "ALERT_WEBHOOK_TOKEN"]
 
 
 class DeploymentSecretsTest(unittest.TestCase):
@@ -26,7 +28,7 @@ class DeploymentSecretsTest(unittest.TestCase):
         # Exercise a permissive caller umask; the script must restrict new files.
         result = subprocess.run(["sh", "-c", 'umask 022; sh "$1"', "fixture", str(self.root / "init-env.sh")], check=True, capture_output=True, text=True)
         values = dict(re.findall(r"^(\w+)=(.*)$", self.env.read_text(), re.M))
-        for key in ["DATABASE_PASSWORD", "POSTGRES_BACKUP_PASSWORD", "JWT_SECRET", "GF_SECURITY_ADMIN_PASSWORD"]:
+        for key in GENERATED:
             self.assertRegex(values[key], r"^[0-9a-f]{64}$")
             self.assertNotIn(values[key], result.stdout + result.stderr)
         self.assertFalse((self.root / ".env.tmp").exists())
@@ -35,8 +37,8 @@ class DeploymentSecretsTest(unittest.TestCase):
     def test_new_secrets_are_private_distinct_and_preserved_on_rerun(self):
         values = self.generate()
         self.assertEqual(stat.S_IMODE(self.env.stat().st_mode), 0o600)
-        secrets = [values[key] for key in ["DATABASE_PASSWORD", "POSTGRES_BACKUP_PASSWORD", "JWT_SECRET", "GF_SECURITY_ADMIN_PASSWORD"]]
-        self.assertEqual(len(set(secrets)), 4)
+        secrets = [values[key] for key in GENERATED]
+        self.assertEqual(len(set(secrets)), len(GENERATED))
         before = self.env.read_bytes()
         self.generate()
         self.assertEqual(self.env.read_bytes(), before)
@@ -49,7 +51,7 @@ class DeploymentSecretsTest(unittest.TestCase):
         self.assertTrue(self.env.read_text().startswith(existing + "\n"))
 
     def test_existing_secret_values_are_never_rotated(self):
-        content = "\n".join(f"{key}=keep-{key}" for key in ["DATABASE_PASSWORD", "POSTGRES_BACKUP_PASSWORD", "JWT_SECRET", "GF_SECURITY_ADMIN_PASSWORD", "GF_SECURITY_ADMIN_USER"])
+        content = "\n".join(f"{key}=keep-{key}" for key in [*GENERATED, "GF_SECURITY_ADMIN_USER"])
         self.env.write_text(content)
         subprocess.run(["sh", str(self.root / "init-env.sh")], check=True, capture_output=True)
         self.assertEqual(self.env.read_text(), content)
