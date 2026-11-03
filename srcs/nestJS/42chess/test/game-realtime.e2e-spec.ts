@@ -314,6 +314,53 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
     await a.take('ERROR');
     expect((await games.get(id)).moves).toHaveLength(0);
   });
+  it('rejects accepting your own draw offer and preserves it for the opponent', async () => {
+    const { id, a, b } = await active();
+    a.send('OFFER_DRAW', { gameId: id });
+    await b.take('DRAW_OFFERED');
+    a.send('ACCEPT_DRAW', { gameId: id });
+    expect((await a.take('ERROR')).data.code).toBe('OWN_DRAW_OFFER');
+    const offered = await games.get(id);
+    expect(offered.game).toMatchObject({
+      status: 'ACTIVE',
+      drawOffer: 'WHITE',
+      result: null,
+    });
+    expect(offered.moves).toHaveLength(0);
+    b.send('ACCEPT_DRAW', { gameId: id });
+    await a.take('GAME_ENDED');
+    await b.take('GAME_ENDED');
+    await b.close();
+    const reconnect = await connect('fixture-black');
+    reconnect.send('JOIN_GAME', { gameId: id });
+    expect((await reconnect.take('GAME_STATE')).data).toMatchObject({
+      status: 'FINISHED',
+      drawOffer: null,
+      result: { winner: null, reason: 'DRAW_AGREEMENT' },
+      moves: [],
+    });
+    expect((await games.get(id)).players).toHaveLength(2);
+  });
+
+  it('clears a draw offer after a legal move and rejects stale acceptance over WS', async () => {
+    const { id, a, b } = await active();
+    b.send('OFFER_DRAW', { gameId: id });
+    await a.take('DRAW_OFFERED');
+    a.send('MAKE_MOVE', { gameId: id, from: 'e2', to: 'e4' });
+    await a.take('MOVE_PLAYED');
+    await b.take('MOVE_PLAYED');
+    a.send('ACCEPT_DRAW', { gameId: id });
+    expect((await a.take('ERROR')).data.code).toBe('DRAW_NOT_OFFERED');
+    const state = await games.get(id);
+    expect(state.game).toMatchObject({
+      status: 'ACTIVE',
+      drawOffer: null,
+      result: null,
+    });
+    expect(state.moves).toHaveLength(1);
+    expect(state.moves[0].notation).toBe('e4');
+  });
+
   it('persists resignation and restores a terminal result on reconnect', async () => {
     const { id, a, b } = await active();
     a.send('RESIGN', { gameId: id });

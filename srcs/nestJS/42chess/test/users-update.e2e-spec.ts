@@ -83,6 +83,27 @@ describe('SCRUM-96 profile patch (real JWT and database)', () => {
       await source.getRepository(User).findOneByOrFail({ id: owner.id }),
     ).toEqual(before);
   });
+  it.each([
+    { preferences: { theme: 'dark', elo: 9999 } },
+    { preferences: { language: 'fr' }, elo: null },
+    { preferences: { soundEnabled: false }, elo: { set: 9999 } },
+  ])(
+    'refuses rating injection mixed with valid profile changes: %j',
+    async (input) => {
+      const users = source.getRepository(User);
+      const beforeOwner = await users.findOneByOrFail({ id: owner.id });
+      const beforeOther = await users.findOneByOrFail({ id: other.id });
+      const response = await patch(input).expect(400);
+      expect(response.body.code).toBe('VALIDATION_ERROR');
+      expect(await users.findOneByOrFail({ id: owner.id })).toEqual(
+        beforeOwner,
+      );
+      expect(await users.findOneByOrFail({ id: other.id })).toEqual(
+        beforeOther,
+      );
+    },
+  );
+
   it('requires authentication before any mutation', async () => {
     await request(app.getHttpServer())
       .patch('/v1/users/me')

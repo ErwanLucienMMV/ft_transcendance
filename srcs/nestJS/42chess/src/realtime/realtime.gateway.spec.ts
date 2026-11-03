@@ -310,6 +310,37 @@ describe('Realtime gateway over actual sockets', () => {
     }
   });
 
+  it('bounds a complete fragmented message before authentication or dispatch', async () => {
+    const socket = await open();
+    const closed = once(socket, 'close');
+    socket.send('x'.repeat(9000), { fin: false });
+    socket.send('x'.repeat(9000), { fin: true });
+    expect((await closed)[0]).toBe(1009);
+    expect(auth.authenticate).not.toHaveBeenCalled();
+    expect(messages.handle).not.toHaveBeenCalled();
+  });
+  it('measures the payload bound in UTF-8 bytes', async () => {
+    const socket = await open();
+    const closed = once(socket, 'close');
+    socket.send('💡'.repeat(5000)); // 20,000 wire bytes.
+    expect((await closed)[0]).toBe(1009);
+    expect(auth.authenticate).not.toHaveBeenCalled();
+    expect(messages.handle).not.toHaveBeenCalled();
+  });
+  it('accepts a valid JSON payload at exactly the byte limit', async () => {
+    const socket = await open();
+    await request(socket, 'AUTHENTICATE', { accessToken: 'valid' });
+    const base = JSON.stringify({ event: 'JOIN_GAME', data: { padding: '' } });
+    const padding = 'x'.repeat(16384 - Buffer.byteLength(base));
+    const frame = JSON.stringify({ event: 'JOIN_GAME', data: { padding } });
+    expect(Buffer.byteLength(frame)).toBe(16384);
+    const reply = once(socket, 'message');
+    socket.send(frame);
+    expect(JSON.parse((await reply)[0].toString())).toMatchObject({
+      event: 'ACK',
+    });
+    expect(socket.readyState).toBe(WebSocket.OPEN);
+  });
   it('bounds messages per connection', async () => {
     const socket = await open();
     await request(socket, 'AUTHENTICATE', { accessToken: 'valid' });
