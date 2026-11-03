@@ -20,6 +20,7 @@ import type { LoginDto } from './dto/login.dto.js';
 import type { RegisterDto } from './dto/register.dto.js';
 import type { VerifyTwoFactorDto } from './dto/verify-two-factor.dto.js';
 import {
+  EMAIL_VERIFICATION_TTL_MS,
   generateVerificationToken,
   hashVerificationToken,
   verificationExpiry,
@@ -60,6 +61,8 @@ export interface AccessTokenPayload {
 // With 3 codes valid at a time, 5 tries per 15 minutes make guessing hopeless.
 export const TWO_FACTOR_MAX_ATTEMPTS = 5;
 export const TWO_FACTOR_LOCK_MS = 15 * 60 * 1000;
+/** Minimum delay between two verification emails for the same account. */
+export const VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
 
 const CONFLICT_CODES: Record<UniqueUserField, string> = {
   username: 'USERNAME_ALREADY_EXISTS',
@@ -136,7 +139,9 @@ export class AuthService {
   async resendVerification(email: string): Promise<void> {
     await this.users.deleteExpiredUnverified();
     const user = await this.users.findUnverifiedByEmail(email);
-    if (!user) {
+    if (!user || recentlySent(user.emailVerificationExpiresAt)) {
+      // A link sent less than a minute ago is still on its way: sending
+      // another would only let someone flood the inbox.
       return;
     }
 
@@ -258,6 +263,13 @@ export class AuthService {
 }
 
 // Explicit whitelist: the entity itself is never sent to the client.
+/** The current link was issued less than a cooldown ago (expiry = issue + TTL). */
+function recentlySent(expiresAt: Date | null | undefined): boolean {
+  if (!expiresAt) return false;
+  const issuedAt = expiresAt.getTime() - EMAIL_VERIFICATION_TTL_MS;
+  return Date.now() - issuedAt < VERIFICATION_RESEND_COOLDOWN_MS;
+}
+
 function toResponse(user: User): AuthUserResponse {
   return { user: { id: user.id, username: user.username, elo: user.elo } };
 }

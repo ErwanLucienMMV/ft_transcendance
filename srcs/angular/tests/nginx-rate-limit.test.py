@@ -1,4 +1,5 @@
-"""Exercise the production Nginx configuration with a local fixture upstream.
+"""Exercise the production Nginx configuration with a local fixture upstream:
+rate limits, the hidden metrics and the forwarded client address.
 
 Requires nginx, openssl and Python 3. No application services or data are used.
 Run: python3 srcs/angular/tests/nginx-rate-limit.test.py
@@ -27,7 +28,10 @@ def free_port():
 
 class Upstream(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
-        body = json.dumps({"path": self.path}).encode()
+        body = json.dumps({
+            "path": self.path,
+            "forwardedFor": self.headers.get("X-Forwarded-For"),
+        }).encode()
         self.send_response(200)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -55,25 +59,36 @@ class RateLimitTest(unittest.TestCase):
             "-keyout", str(key), "-out", str(cert), "-days", "1",
             "-subj", "/CN=localhost",
         ], check=True, capture_output=True)
-        config = (pathlib.Path(__file__).resolve().parents[1] / "conf/nginx.conf").read_text()
+        conf = pathlib.Path(__file__).resolve().parents[1] / "conf"
+        config = (conf / "nginx.conf").read_text()
         # Change only fixture plumbing; production locations, maps and limits
         # are exercised verbatim, including shared zones across two workers.
         config = re.sub(r"^user .*?;", "", config, flags=re.M)
         config = config.replace("worker_processes auto;", "worker_processes 2;")
         config = config.replace("/run/nginx.pid", str(root / "nginx.pid"))
-        config = config.replace("/etc/nginx/ssl/inception.crt", str(cert))
-        config = config.replace("/etc/nginx/ssl/inception.key", str(key))
+        config = config.replace("/etc/nginx/ssl/transcendence.crt", str(cert))
+        config = config.replace("/etc/nginx/ssl/transcendence.key", str(key))
+        config = config.replace("/etc/nginx/security-headers.conf", str(conf / "security-headers.conf"))
         config = config.replace("/var/log/nginx/access.log", str(root / "access.log"))
         config = config.replace("/var/log/nginx/error.log", str(root / "error.log"))
+        # Temporary files in the fixture folder, so that nginx runs without root.
+        temp_paths = "".join(
+            f"    {name}_temp_path {root / name};\n"
+            for name in ("client_body", "proxy", "fastcgi", "uwsgi", "scgi")
+        )
+        config = config.replace("http {\n", "http {\n" + temp_paths, 1)
         config = config.replace("listen 443 ssl;", f"listen 127.0.0.1:{cls.port} ssl;")
         config = config.replace("listen 80;", f"listen 127.0.0.1:{redirect_port};")
         config = config.replace("${APPPORT}", str(cls.port))
-        config = config.replace("http://nestjs:3000", f"http://127.0.0.1:{cls.backend.server_port}")
+        config = config.replace("http://nestjs:${APIPORT}", f"http://127.0.0.1:{cls.backend.server_port}")
         config = config.replace("http://grafana:3000", f"http://127.0.0.1:{cls.backend.server_port}")
         cls.config = root / "nginx.conf"
         cls.config.write_text(config)
-        subprocess.run(["nginx", "-t", "-c", str(cls.config)], check=True)
-        cls.nginx = subprocess.Popen(["nginx", "-c", str(cls.config), "-g", "daemon off;"])
+        startup_log = str(root / "startup.log")
+        subprocess.run(["nginx", "-t", "-e", startup_log, "-c", str(cls.config)], check=True)
+        cls.nginx = subprocess.Popen(
+            ["nginx", "-e", startup_log, "-c", str(cls.config), "-g", "daemon off;"],
+        )
         def stop():
             cls.nginx.terminate()
             cls.nginx.wait(timeout=10)
@@ -94,7 +109,10 @@ class RateLimitTest(unittest.TestCase):
         try:
             conn.request("GET", path, headers=headers or {})
             response = conn.getresponse()
-            return response.status, dict(response.getheaders()), json.loads(response.read())
+            body = response.read()
+            if response.getheader("Content-Type", "").startswith("text/html"):
+                return response.status, dict(response.getheaders()), body
+            return response.status, dict(response.getheaders()), json.loads(body)
         finally:
             conn.close()
 
@@ -110,6 +128,7 @@ class RateLimitTest(unittest.TestCase):
             self.assertEqual(headers["Retry-After"], "6")
             self.assertEqual(headers["Cache-Control"], "no-store")
             self.assertEqual(body["code"], "TOO_MANY_REQUESTS")
+            self.assertEqual(headers["X-Content-Type-Options"], "nosniff")
         self.assertEqual(self.call("/api/v1/auth/login", "127.0.0.3")[0], 200)
         self.assertEqual(self.call("/api/v1/health", "127.0.0.2")[0], 200)
         self.assertEqual(self.call("/api/v1/auth/refresh", "127.0.0.2")[0], 200)
@@ -130,6 +149,21 @@ class RateLimitTest(unittest.TestCase):
         self.assertEqual(results[-1], 429)
         time.sleep(6.1)
         self.assertEqual(self.call("/api/v1/auth/login", "127.0.0.6")[0], 200)
+
+    def test_metrics_stay_inside_the_network(self):
+        for path in [
+            "/api/v1/metrics", "/api/metrics", "/api/v1/METRICS/", "/api//v1/metrics?x=1",
+            "/grafana/metrics", "/grafana//Metrics",
+        ]:
+            self.assertEqual(self.call(path, "127.0.0.7")[0], 404, path)
+
+    def test_forwards_the_peer_address_not_the_client_header(self):
+        status, headers, body = self.call(
+            "/api/v1/health", "127.0.0.8", {"X-Forwarded-For": "198.51.100.9"},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body["forwardedFor"], "127.0.0.8")
+        self.assertEqual(headers["X-Frame-Options"], "DENY")
 
 
 if __name__ == "__main__":

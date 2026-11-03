@@ -19,9 +19,11 @@ describe('SCRUM-239 authenticated native WebSocket connections', () => {
   const clients: WebSocket[] = [];
   const jwt = new JwtService();
   const sign = async (sub: string, options = {}) => {
-    const { iat: _iat, exp: _exp, ...claims } = jwt.decode<Record<string, unknown>>(
-      await sessionToken(app, user.id),
-    );
+    const {
+      iat: _iat,
+      exp: _exp,
+      ...claims
+    } = jwt.decode<Record<string, unknown>>(await sessionToken(app, user.id));
     return jwt.signAsync(
       { ...claims, sub },
       { secret: process.env.JWT_SECRET, expiresIn: 120, ...options },
@@ -98,8 +100,11 @@ describe('SCRUM-239 authenticated native WebSocket connections', () => {
       if (kind === 'no-expiry')
         accessToken = await jwt.signAsync(
           (() => {
-            const { exp: _exp, iat: _iat, ...claims } =
-              jwt.decode<Record<string, unknown>>(accessToken);
+            const {
+              exp: _exp,
+              iat: _iat,
+              ...claims
+            } = jwt.decode<Record<string, unknown>>(accessToken);
             return claims;
           })(),
           { secret: process.env.JWT_SECRET },

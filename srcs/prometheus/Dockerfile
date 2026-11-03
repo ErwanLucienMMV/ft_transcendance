@@ -1,3 +1,6 @@
 FROM docker.io/prom/prometheus:v3.13.3
 
-COPY prometheus.yml /etc/prometheus/prometheus.yml
+COPY prometheus.yml /etc/prometheus/prometheus.yml.template
+COPY entrypoint.sh /etc/prometheus/entrypoint.sh
+
+ENTRYPOINT ["/bin/sh", "/etc/prometheus/entrypoint.sh"]

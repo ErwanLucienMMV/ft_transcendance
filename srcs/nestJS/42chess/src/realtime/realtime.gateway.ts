@@ -183,7 +183,9 @@ export class RealtimeGateway
               socket.close(1003, 'Text JSON messages required');
               return;
             }
-            const message = parseRealtimeMessage(raw.toString());
+            const message = parseRealtimeMessage(
+              (raw as Buffer).toString('utf8'),
+            );
             command = message.event;
             if (!principal) {
               if (message.event !== 'AUTHENTICATE')

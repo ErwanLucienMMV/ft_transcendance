@@ -14,14 +14,19 @@ echo "Starting PostgreSQL backup... Please do not down this container during thi
 
 TEMP=$(mktemp "${BACKUP}.XXXXXX.partial")
 
-# Supprime le fichier incomplet si le script échoue.
+# Removes the incomplete file when the script fails.
 trap 'rm -f -- "$TEMP"' EXIT
 
-pg_dump --no-password | gzip > "$TEMP"
+# Plain SQL without owners or grants: restore.sh replays it as the database
+# owner into an emptied schema.
+pg_dump --no-password --no-owner --no-privileges | gzip > "$TEMP"
 gzip -t "$TEMP"
 
-# Le fichier devient une sauvegarde disponible après réussite.
+# The file becomes an available backup only once it is complete.
 mv -- "$TEMP" "$BACKUP"
+
+# Read by the status page and the monitoring alert on stale backups.
+date -u +"%Y-%m-%dT%H:%M:%SZ" > /backups/last-success
 
 echo "Backup created: $BACKUP"
 

@@ -102,12 +102,10 @@ describe('SCRUM-95 current user (real JWT and PostgreSQL)', () => {
       .expect(401);
   });
   it('does not return an arbitrary account for a deleted token subject', async () => {
-    const deleted = await source
-      .getRepository(User)
-      .save({
-        username: `deleted_${randomUUID().slice(0, 8)}`,
-        emailVerifiedAt: new Date(),
-      });
+    const deleted = await source.getRepository(User).save({
+      username: `deleted_${randomUUID().slice(0, 8)}`,
+      emailVerifiedAt: new Date(),
+    });
     const { accessToken } = await sessions.issue(deleted);
     await source.getRepository(User).delete(deleted.id);
     const response = await request(app.getHttpServer())

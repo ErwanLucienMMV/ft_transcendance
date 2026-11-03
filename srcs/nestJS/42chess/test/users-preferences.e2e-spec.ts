@@ -16,12 +16,10 @@ describe('SCRUM-99 persisted preferences', () => {
     ).createNestApplication();
     await app.init();
     source = app.get(DataSource);
-    user = await source
-      .getRepository(User)
-      .save({
-        username: `prefs_${randomUUID().slice(0, 8)}`,
-        emailVerifiedAt: new Date(),
-      });
+    user = await source.getRepository(User).save({
+      username: `prefs_${randomUUID().slice(0, 8)}`,
+      emailVerifiedAt: new Date(),
+    });
     token = await sessionToken(app, user.id);
   });
   afterAll(async () => {

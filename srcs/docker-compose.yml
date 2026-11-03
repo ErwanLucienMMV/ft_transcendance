@@ -38,6 +38,7 @@ services:
           condition: service_healthy
       environment:
         APPPORT: ${APPPORT}
+        APIPORT: ${APIPORT}
 
     postgres:
       container_name: postgres
@@ -52,26 +53,29 @@ services:
         POSTGRES_BACKUP_PASSWORD: ${POSTGRES_BACKUP_PASSWORD}
       volumes:
         - postgres_data:/var/lib/postgresql/data
-      ports:
-        - "${DATABASE_PORT}:5432"
+      # No published port: only the services of the transcendence network
+      # reach the database (the subject requires HTTPS for any outside access).
       networks:
         - transcendence
+      restart: unless-stopped
       healthcheck:
-        test: ["CMD-SHELL", "pg_isready -U transcendence -d transcendence"]
+        test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
         interval: 5s
         timeout: 5s
         retries: 5
 
+    # No published port: Grafana queries Prometheus inside the network.
     prometheus:
       container_name: prometheus
       build:
         context: ./prometheus
-      ports:
-      - "9090:9090"
+      environment:
+        APIPORT: ${APIPORT}
       volumes:
         - prometheus_data:/prometheus
       networks:
         - transcendence
+      restart: unless-stopped
 
     nestjs:
       container_name: nestjs
@@ -90,6 +94,7 @@ services:
         DATABASE_USER: ${DATABASE_USER}
         DATABASE_PASSWORD: ${DATABASE_PASSWORD}
         JWT_SECRET: ${JWT_SECRET}
+        RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
         JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-3600}
         REFRESH_EXPIRES_IN: ${REFRESH_EXPIRES_IN:-604800}
         APPURL: ${APPURL:-}
@@ -109,7 +114,7 @@ services:
         forgemail:
           condition: service_healthy
       healthcheck:
-        test: ["CMD", "curl", "-f", "http://localhost:3000/v1/health"]
+        test: ["CMD-SHELL", "curl -fsS \"http://localhost:$${APIPORT}/v1/health\" > /dev/null"]
         interval: 5s
         timeout: 5s
         retries: 5

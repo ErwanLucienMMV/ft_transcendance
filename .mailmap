@@ -1,0 +1,21 @@
+# One identity per team member for `git shortlog -sne` and the GitHub
+# contribution views. Format: Canonical Name <canonical@email> Commit Name <commit@email>
+
+Erwan Maigne-Montamat <ultimemmv@gmail.com> ErwanLucienMMV <ultimemmv@gmail.com>
+Erwan Maigne-Montamat <ultimemmv@gmail.com> Erwan Maigne <ultimemmv@gmail.com>
+Erwan Maigne-Montamat <ultimemmv@gmail.com> <86140130+ErwanLucienMMV@users.noreply.github.com>
+Erwan Maigne-Montamat <ultimemmv@gmail.com> <emaigne@f2r7s18.paris.42.school>
+
+Tatoub (hcombaud) <lagriffeytb03@gmail.com> Ta2b <lagriffeytb03@gmail.com>
+Tatoub (hcombaud) <lagriffeytb03@gmail.com> Tatoub <lagriffeytb03@gmail.com>
+Tatoub (hcombaud) <lagriffeytb03@gmail.com> <hcombaud@student.42.fr>
+Tatoub (hcombaud) <lagriffeytb03@gmail.com> <101102791+Ta2b@users.noreply.github.com>
+Tatoub (hcombaud) <lagriffeytb03@gmail.com> <hcombaud@f2r2s21.paris.42.school>
+
+Nicolas Tassin <nicoco23yt@gmail.com> nicoco23 <nicoco23yt@gmail.com>
+Nicolas Tassin <nicoco23yt@gmail.com> <ntassin@f2r4s17.paris.42.school>
+Nicolas Tassin <nicoco23yt@gmail.com> <33007317+nicoco23@users.noreply.github.com>
+
+# The six "testing basic github workflow" commits were made from the
+# deployment server; map them here once their author is confirmed:
+# Real Name <real@email> <transcendance@ns557072.ip-54-39-19.net>

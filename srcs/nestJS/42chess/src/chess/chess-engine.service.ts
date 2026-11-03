@@ -29,7 +29,10 @@ export class ChessEngineService {
     return this.request({ ...position, op: 'analyze' });
   }
 
-  validate(move: string, position: ChessPosition = {}): Promise<{ legal: boolean; fen: string }> {
+  validate(
+    move: string,
+    position: ChessPosition = {},
+  ): Promise<{ legal: boolean; fen: string }> {
     return this.request({ ...position, op: 'validate', move });
   }
 
@@ -42,42 +45,71 @@ export class ChessEngineService {
     // Open lazily so NestJS can start even if the engine is still starting.
     return new Promise<T>((resolve, reject) => {
       const id = randomUUID();
-      const socket = new WebSocket(process.env.CHESS_ENGINE_URL ?? 'ws://127.0.0.1:8081');
+      const socket = new WebSocket(
+        process.env.CHESS_ENGINE_URL ?? 'ws://127.0.0.1:8081',
+      );
       let settled = false;
       const finish = (error?: Error, result?: T) => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        if (
+          socket.readyState === WebSocket.OPEN ||
+          socket.readyState === WebSocket.CONNECTING
+        ) {
           socket.close();
         }
         if (error) reject(error);
         else resolve(result as T);
       };
-      const timer = setTimeout(() => finish(new Error('Chess engine request timed out')), 10_000);
+      const timer = setTimeout(
+        () => finish(new Error('Chess engine request timed out')),
+        10_000,
+      );
       socket.addEventListener('open', () => {
         if (settled) return;
-        try { socket.send(JSON.stringify({ ...payload, id })); }
-        catch { finish(new Error('Could not send chess engine request')); }
+        try {
+          socket.send(JSON.stringify({ ...payload, id }));
+        } catch {
+          finish(new Error('Could not send chess engine request'));
+        }
       });
       socket.addEventListener('message', (event) => {
         try {
-          if (typeof event.data !== 'string') throw new Error('Expected text response');
+          if (typeof event.data !== 'string')
+            throw new Error('Expected text response');
           const response = JSON.parse(event.data) as {
-            id?: string; ok?: boolean; result?: T; error?: { message?: string };
+            id?: string;
+            ok?: boolean;
+            result?: T;
+            error?: { message?: string };
           };
           if (response.id !== id || typeof response.ok !== 'boolean') {
             throw new Error('Invalid chess engine response');
           }
-          if (!response.ok) finish(new Error(response.error?.message ?? 'Chess engine rejected request'));
-          else if (response.result === undefined) throw new Error('Missing chess engine result');
+          if (!response.ok)
+            finish(
+              new Error(
+                response.error?.message ?? 'Chess engine rejected request',
+              ),
+            );
+          else if (response.result === undefined)
+            throw new Error('Missing chess engine result');
           else finish(undefined, response.result);
         } catch (error) {
-          finish(error instanceof Error ? error : new Error('Invalid chess engine response'));
+          finish(
+            error instanceof Error
+              ? error
+              : new Error('Invalid chess engine response'),
+          );
         }
       });
-      socket.addEventListener('error', () => finish(new Error('Chess engine connection failed')));
-      socket.addEventListener('close', () => finish(new Error('Chess engine closed before responding')));
+      socket.addEventListener('error', () =>
+        finish(new Error('Chess engine connection failed')),
+      );
+      socket.addEventListener('close', () =>
+        finish(new Error('Chess engine closed before responding')),
+      );
     });
   }
 }

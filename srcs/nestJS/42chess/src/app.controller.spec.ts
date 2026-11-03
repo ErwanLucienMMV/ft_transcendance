@@ -15,8 +15,11 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('names the API and its version', () => {
+      expect(appController.describe()).toEqual({
+        name: '42chess API',
+        version: 'v1',
+      });
     });
   });
 });

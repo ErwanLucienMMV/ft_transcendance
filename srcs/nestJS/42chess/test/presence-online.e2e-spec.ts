@@ -26,15 +26,13 @@ describe('SCRUM-241 ONLINE across WebSocket and public profiles', () => {
     await app.listen(0, '127.0.0.1');
     source = app.get(DataSource);
     presence = app.get(PresenceService);
-    [user, unverified] = await source
-      .getRepository(User)
-      .save([
-        {
-          username: `online_${randomUUID().slice(0, 8)}`,
-          emailVerifiedAt: new Date(),
-        },
-        { username: `unverified_${randomUUID().slice(0, 8)}` },
-      ]);
+    [user, unverified] = await source.getRepository(User).save([
+      {
+        username: `online_${randomUUID().slice(0, 8)}`,
+        emailVerifiedAt: new Date(),
+      },
+      { username: `unverified_${randomUUID().slice(0, 8)}` },
+    ]);
     url = (await app.getUrl()).replace('http:', 'ws:') + '/ws';
   });
   afterEach(async () => {

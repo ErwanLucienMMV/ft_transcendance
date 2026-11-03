@@ -15,7 +15,9 @@ import { ChatModule } from './chat/chat.module.js';
 import { RatingModule } from './rating/rating.module.js';
 import { PuzzlesModule } from './puzzles/puzzles.module.js';
 import { BotsModule } from './bots/bots.module.js';
-import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_PIPE } from '@nestjs/core';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { RateLimitModule } from './common/rate-limit.js';
 import { createValidationPipe } from './common/validation.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { PresenceModule } from './presence/presence.module.js';
@@ -25,6 +27,7 @@ import { OAuthModule } from './oauth/oauth.module.js';
 @Module({
   imports: [
     ConfigModule.forRoot(configurationOptions),
+    RateLimitModule,
     DatabaseModule,
     PresenceModule,
     MetricsModule,
@@ -46,6 +49,7 @@ import { OAuthModule } from './oauth/oauth.module.js';
     ChessEngineService,
     { provide: APP_PIPE, useFactory: createValidationPipe },
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

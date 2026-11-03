@@ -1,9 +1,9 @@
 #!/bin/sh
+set -eu
 
-envsubst '${APPPORT}' \
-    < /etc/nginx/nginx.conf \
-    > /tmp/nginx.conf
-
-mv /tmp/nginx.conf /etc/nginx/nginx.conf
+# Only these variables are replaced: nginx's own $variables stay untouched.
+envsubst '${APPPORT} ${APIPORT}' \
+    < /etc/nginx/nginx.conf.template \
+    > /etc/nginx/nginx.conf
 
 exec nginx -g "daemon off;"

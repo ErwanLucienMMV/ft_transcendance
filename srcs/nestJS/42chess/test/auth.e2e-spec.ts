@@ -225,6 +225,15 @@ describe('/v1/auth (e2e)', () => {
       await register(body({ username: again, email: againEmail })).expect(201);
       const first = mail.tokens.get(againEmail) as string;
 
+      // Within a minute of the first email, a resend sends nothing.
+      await resend(againEmail).expect(202);
+      expect(mail.tokens.get(againEmail)).toBe(first);
+
+      // The first link is now two minutes old.
+      await database.query(
+        `UPDATE users SET "emailVerificationExpiresAt" = "emailVerificationExpiresAt" - interval '2 minutes' WHERE username = $1`,
+        [again],
+      );
       await resend(againEmail.toUpperCase()).expect(202);
 
       const second = mail.tokens.get(againEmail) as string;

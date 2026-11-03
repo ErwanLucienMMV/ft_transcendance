@@ -19,7 +19,8 @@ describe('Real JWT identity across HTTP and WebSocket (SCRUM-178/179/533)', () =
   const clients: WebSocket[] = [],
     games: string[] = [];
   beforeAll(async () => {
-    process.env.CHESS_ENGINE_URL = process.env.TEST_CHESS_ENGINE_URL ?? 'ws://127.0.0.1:55433';
+    process.env.CHESS_ENGINE_URL =
+      process.env.TEST_CHESS_ENGINE_URL ?? 'ws://127.0.0.1:55433';
     const module = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -28,16 +29,12 @@ describe('Real JWT identity across HTTP and WebSocket (SCRUM-178/179/533)', () =
     url = `ws://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}/ws`;
     source = app.get(DataSource);
     sessions = app.get(SessionService);
-    user = await source
-      .getRepository(User)
-      .save(
-        source
-          .getRepository(User)
-          .create({
-            username: `jwt_${randomUUID().slice(0, 8)}`,
-            emailVerifiedAt: new Date(),
-          }),
-      );
+    user = await source.getRepository(User).save(
+      source.getRepository(User).create({
+        username: `jwt_${randomUUID().slice(0, 8)}`,
+        emailVerifiedAt: new Date(),
+      }),
+    );
   });
   afterAll(async () => {
     for (const client of clients) client.terminate();

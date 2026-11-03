@@ -26,7 +26,7 @@ loud: env
 	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) up --build
 
 dev: env
-	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) up
+	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) up --build
 
 # Creates srcs/.env with random secrets, or fills the ones it lacks, then
 # warns about settings that would break sign-in, emails or links.
@@ -52,6 +52,25 @@ backup-down:
 
 backup-logs:
 	@docker compose -f backup/docker-compose.yml logs -f
+
+# Takes a backup right now, outside the hourly schedule.
+backup-now:
+	@docker exec transcendence-backup /usr/local/bin/backup.sh
+
+# Lists the backups, newest first.
+backups:
+	@{ docker exec transcendence-backup ls -1t /backups 2>/dev/null || ls -1t "$${BACKUP_DIR:-backups}" 2>/dev/null; } \
+		| grep '^transcendence_.*\.sql\.gz$$' || echo "No backup yet (run make full or make backup)"
+
+# Restores one backup: make restore BACKUP=transcendence_<date>.sql.gz
+# The application is stopped meanwhile; the restore is all or nothing.
+restore:
+	@[ -n "$(BACKUP)" ] || { echo "Usage: make restore BACKUP=<file> (see make backups)"; exit 1; }
+	@$(MAKE) --no-print-directory stop-app
+	@docker exec $$([ -t 0 ] && echo -it || echo -i) transcendence-backup /usr/local/bin/restore.sh "$(BACKUP)" $(if $(YES),--yes); \
+	status=$$?; \
+	$(MAKE) --no-print-directory start-app; \
+	exit $$status
 
 full: all
 	@echo "Main stack is ready, starting the independent backup service"
@@ -86,12 +105,26 @@ test-puzzles:
 	docker compose -f $(TEST_COMPOSE) down; \
 	exit $$status
 
+# Rebuilds and restarts everything. Data (database, dashboards, backups) is kept.
 re: clean
 	$(MAKE)
 
+# Stops and removes the containers. Data (database, dashboards, backups) is kept.
 clean:
-	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) down -v
-	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down -v
-	docker compose -f ./backup/docker-compose.yml down -v
+	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) down --remove-orphans
+	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down --remove-orphans
+	docker compose -f ./backup/docker-compose.yml down --remove-orphans
 
-.PHONY: all puzzles loud dev env down backup backup-down backup-logs full stop-app start-app test test-bot test-puzzles re clean
+# Also deletes the database, Prometheus and Grafana volumes. The backups
+# folder is kept. Asks first, unless FORCE=1.
+fclean:
+	@if [ "$(FORCE)" != "1" ]; then \
+		printf "This deletes the database and every volume of the stack (backups are kept). Continue? [y/N] "; \
+		read answer; \
+		[ "$$answer" = "y" ] || [ "$$answer" = "Y" ] || { echo "Cancelled."; exit 1; }; \
+	fi
+	docker compose -f $(COMPOSE_DIR)/$(COMPOSE_FILE) down -v --remove-orphans
+	docker compose -f $(COMPOSE_DIR)/$(DEV_COMPOSE) down -v --remove-orphans
+	docker compose -f ./backup/docker-compose.yml down -v --remove-orphans
+
+.PHONY: all puzzles loud dev env down backup backup-down backup-logs backup-now backups restore full stop-app start-app test test-bot test-puzzles re clean fclean

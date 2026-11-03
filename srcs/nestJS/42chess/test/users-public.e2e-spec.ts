@@ -20,21 +20,19 @@ describe('SCRUM-100 public user profiles', () => {
     await app.init();
     source = app.get(DataSource);
     presence = app.get(PresenceService);
-    user = await source
-      .getRepository(User)
-      .save({
-        username: `public_${randomUUID().slice(0, 8)}`,
-        email: `private_${randomUUID()}@example.com`,
-        passwordHash: 'private-password',
-        emailVerifiedAt: new Date(),
-        twoFactorSecret: 'private-totp',
-        emailVerificationTokenHash: 'private-token',
-        gamesPlayed: 12,
-        gamesWon: 5,
-        gamesDraw: 3,
-        gamesLost: 4,
-        elo: 1300,
-      });
+    user = await source.getRepository(User).save({
+      username: `public_${randomUUID().slice(0, 8)}`,
+      email: `private_${randomUUID()}@example.com`,
+      passwordHash: 'private-password',
+      emailVerifiedAt: new Date(),
+      twoFactorSecret: 'private-totp',
+      emailVerificationTokenHash: 'private-token',
+      gamesPlayed: 12,
+      gamesWon: 5,
+      gamesDraw: 3,
+      gamesLost: 4,
+      elo: 1300,
+    });
   });
   afterAll(async () => {
     if (user) await source.getRepository(User).delete(user.id);

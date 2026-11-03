@@ -52,6 +52,8 @@ services:
       DATABASE_PASSWORD: browser_test_only
       JWT_SECRET: browser-tests-only-secret-at-least-32-characters
       JWT_EXPIRES_IN: '3600'
+      # The browser tests create many accounts from a single address.
+      RATE_LIMIT_ENABLED: 'false'
       MAIL_SERVICE_URL: http://mail-e2e:3002
       CHESS_ENGINE_URL: ws://chess-engine-e2e:8081
       BOT_ENGINE_URL: ws://bot-e2e:8082

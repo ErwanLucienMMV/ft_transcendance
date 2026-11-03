@@ -1,7 +1,7 @@
 name: Frontend validation
 on:
   push:
-    branches: [main, dev_test, 'feat/lot-*']
+    branches: [main, dev_test, 'feat/**', 'fix/**']
   pull_request:
     branches: [main, dev_test]
 jobs:
@@ -19,6 +19,7 @@ jobs:
           cache: npm
           cache-dependency-path: srcs/angular/42chess/package-lock.json
       - run: npm ci
+      - run: npx prettier --check "src/**/*.{ts,html,css}" "e2e/**/*.ts"
       - run: npm test -- --watch=false
       - run: npm run build
   browser:

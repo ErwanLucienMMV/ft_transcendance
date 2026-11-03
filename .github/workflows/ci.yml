@@ -5,14 +5,50 @@ on:
     branches:
       - main
       - dev_test
-      - workflow
-      - feat/puzzle
+      - 'feat/**'
+      - 'fix/**'
   pull_request:
     branches:
       - main
       - dev_test
 
 jobs:
+  lint:
+    name: Lint, formatting and Nginx
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            srcs/nestJS/42chess/package-lock.json
+            srcs/angular/42chess/package-lock.json
+
+      - name: Backend lint and formatting
+        working-directory: srcs/nestJS/42chess
+        run: |
+          npm ci
+          npm run lint
+          npx prettier --check "src/**/*.ts" "test/**/*.ts"
+
+      - name: Frontend formatting
+        working-directory: srcs/angular/42chess
+        run: |
+          npm ci
+          npx prettier --check "src/**/*.{ts,html,css}" "e2e/**/*.ts"
+
+      # The production nginx.conf against a local upstream: rate limits, hidden
+      # metrics, forwarded client address.
+      - name: Nginx limits
+        run: |
+          command -v nginx >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q nginx-core; }
+          python3 srcs/angular/tests/nginx-rate-limit.test.py
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -22,7 +58,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate Docker Compose
-        run: docker compose -f srcs/docker-compose.yml config
+        run: |
+          cp srcs/.env.ci srcs/.env
+          docker compose -f srcs/docker-compose.yml config -q
+          docker compose -f srcs/docker-compose.dev.yml config -q
 
       - name: Build Docker images
         run: docker compose -f srcs/docker-compose.yml build
@@ -60,6 +99,16 @@ jobs:
 
       - name: Verify API health and applied migrations
         run: docker compose -f srcs/docker-compose.yml exec -T nestjs node dist/database/run-readiness-check.js
+
+      - name: Verify that only nginx is published
+        run: |
+          declared=$(docker compose -f srcs/docker-compose.yml config --format json \
+            | jq -r '.services | to_entries[] | select(.key != "nginx" and ((.value.ports // []) | length) > 0) | .key')
+          running=$(docker compose -f srcs/docker-compose.yml ps -a --format '{{.Service}} {{.Publishers}}' | grep -v '^nginx ' | grep -E '0\.0\.0\.0|::' || true)
+          published="$declared$running"
+          if [ -n "$published" ]; then
+            echo "Unexpected published ports:"; echo "$published"; exit 1
+          fi
 
       - name: Show logs on failure
         if: failure()
