@@ -46,6 +46,10 @@ export const auth: Translation['auth'] = {
     unavailable: 'La creación de cuentas no está disponible por ahora.',
     submit: 'Crear una cuenta',
     submitting: 'Creando la cuenta…',
+    acceptStart: 'Acepto los',
+    acceptAnd: 'y la',
+    acceptError: 'Acepta los términos para crear tu cuenta.',
+    newTab: '(se abre en una pestaña nueva)',
   },
   verify: {
     title: 'Verifica tu correo',
@@ -84,6 +88,8 @@ export const auth: Translation['auth'] = {
   oauth: {
     others: 'Otras formas de iniciar sesión',
     continueWith: 'Continuar con {{provider}}',
+    acceptStart: 'Al crear una cuenta con un proveedor, aceptas los',
+    acceptAnd: 'y la',
     unavailable: 'Este método de inicio de sesión no está disponible ahora.',
     openFailed: 'No se pudo abrir la página de inicio de sesión. Inténtalo de nuevo.',
     title: 'Completando el inicio de sesión',

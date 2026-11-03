@@ -73,3 +73,8 @@ Under `src/app/shared/ui/` unless noted. Each is standalone; import it where use
 - A new colour is a new token in both palettes, never a literal in a component.
 - A new reusable piece goes in `shared/ui/`, gets a case in `ui.spec.ts` and a section on
   `/design`.
+- No text is written in a template or a component: every visible word, label and
+  `aria-label` comes from the dictionaries, in the three languages (see [Languages](i18n.md)).
+  Dates use the `localDate` pipe.
+- A checkbox with its text, for an agreement, uses `.checkbox`; an on/off setting uses
+  `.switch`.

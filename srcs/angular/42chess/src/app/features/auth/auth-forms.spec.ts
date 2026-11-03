@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { LoginForm } from './login-form';
 import { RegisterForm } from './register-form';
 
@@ -13,6 +14,11 @@ function enter(fixture: ComponentFixture<unknown>, values: Record<string, string
   fixture.detectChanges();
 }
 
+function acceptTerms(fixture: ComponentFixture<unknown>): void {
+  (fixture.nativeElement.querySelector('#register-terms') as HTMLInputElement).click();
+  fixture.detectChanges();
+}
+
 function submit(fixture: ComponentFixture<unknown>): void {
   fixture.nativeElement
     .querySelector('form')
@@ -21,7 +27,12 @@ function submit(fixture: ComponentFixture<unknown>): void {
 }
 
 describe('Authentication forms', () => {
-  beforeEach(() => TestBed.configureTestingModule({ imports: [LoginForm, RegisterForm] }));
+  beforeEach(() =>
+    TestBed.configureTestingModule({
+      imports: [LoginForm, RegisterForm],
+      providers: [provideRouter([])],
+    }),
+  );
 
   it('accepts a username or email for login and preserves the password exactly', () => {
     const fixture = TestBed.createComponent(LoginForm);
@@ -91,6 +102,7 @@ describe('Authentication forms', () => {
       password: '  secret  ',
       confirmPassword: '  secret  ',
     });
+    acceptTerms(fixture);
     submit(fixture);
     expect(received).toHaveBeenCalledExactlyOnceWith({
       username: 'Ta2b_42',
@@ -120,10 +132,47 @@ describe('Authentication forms', () => {
       confirmPassword: 'password',
       ...override,
     });
+    acceptTerms(fixture);
     submit(fixture);
     expect(received).not.toHaveBeenCalled();
     expect(fixture.componentInstance.form.invalid).toBe(true);
     expect(fixture.nativeElement.querySelector('[aria-invalid="true"]')).not.toBeNull();
+  });
+
+  it('requires accepting the terms, with links to both legal pages', () => {
+    const fixture = TestBed.createComponent(RegisterForm);
+    fixture.componentRef.setInput('submissionEnabled', true);
+    fixture.detectChanges();
+    const received = vi.fn();
+    fixture.componentInstance.submitted.subscribe(received);
+    enter(fixture, {
+      username: 'Ta2b',
+      email: 'player@example.com',
+      password: 'password',
+      confirmPassword: 'password',
+    });
+    submit(fixture);
+    expect(received).not.toHaveBeenCalled();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('#register-terms')?.getAttribute('aria-invalid')).toBe('true');
+    expect(element.querySelector('#terms-error')?.textContent).toBe(
+      'Accept the terms to create your account.',
+    );
+    const label = element.querySelector('label[for="register-terms"]')!;
+    expect(label.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'I accept the Terms of Service and the Privacy Policy',
+    );
+    expect(label.querySelector('a[href="/terms"]')?.getAttribute('target')).toBe('_blank');
+    // Screen readers hear that both links open a new tab.
+    for (const link of label.querySelectorAll('a'))
+      expect(element.querySelector(`#${link.getAttribute('aria-describedby')}`)?.textContent).toBe(
+        '(opens in a new tab)',
+      );
+    expect(label.querySelector('a[href="/privacy"]')).not.toBeNull();
+    acceptTerms(fixture);
+    submit(fixture);
+    expect(received).toHaveBeenCalledOnce();
+    expect(element.querySelector('#terms-error')).toBeNull();
   });
 
   // Lengths follow the backend's class-validator count, not UTF-16 code units.
@@ -155,6 +204,7 @@ describe('Authentication forms', () => {
       password,
       confirmPassword: password,
     });
+    acceptTerms(fixture);
     submit(fixture);
     if (accepted)
       expect(received).toHaveBeenCalledExactlyOnceWith({
@@ -211,6 +261,7 @@ describe('Authentication forms', () => {
       password: 'password',
       confirmPassword: 'password',
     });
+    acceptTerms(fixture);
     submit(fixture);
     fixture.componentRef.setInput('submissionEnabled', true);
     fixture.componentRef.setInput('pending', true);

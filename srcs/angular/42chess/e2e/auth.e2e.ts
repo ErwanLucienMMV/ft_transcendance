@@ -13,7 +13,13 @@ test('registers, refuses unverified login, verifies email and signs in against t
   await page.getByLabel('Email address', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByLabel('Confirm password', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Create an account', exact: true }).click();
+  const create = page.getByRole('button', { name: 'Create an account', exact: true });
+  await create.click();
+  await expect(page.getByText('Accept the terms to create your account.')).toBeVisible();
+  await page
+    .getByRole('checkbox', { name: 'I accept the Terms of Service and the Privacy Policy' })
+    .check();
+  await create.click();
   await expect(page.getByRole('status')).toContainText('Account created.');
   await page.getByRole('main').getByRole('link', { name: 'Sign in', exact: true }).click();
   await page.getByLabel('Username or email address').fill(email);

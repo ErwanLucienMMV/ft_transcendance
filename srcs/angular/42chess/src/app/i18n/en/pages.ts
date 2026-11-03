@@ -49,6 +49,7 @@ export const design = {
     link: 'A link as a button',
   },
   switch: 'A switch: an on/off setting',
+  checkbox: 'A checkbox: an agreement in a form',
   alerts: 'Alerts',
   tones: {
     error: {

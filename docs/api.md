@@ -2,8 +2,9 @@
 
 SCRUM-512 · Routes below are relative to `/api` through production Nginx or the
 Angular development proxy. Direct NestJS requests omit `/api`. Example public
-base: `https://localhost:8080/api`. This describes the controllers on `dev_test`
-at `062aaa6`.
+base: `https://localhost:8080/api`. This describes the controllers in
+`srcs/nestJS/42chess/src`; feature pages linked in each section give the
+response shapes.
 
 ## Common contract
 
@@ -16,8 +17,10 @@ parameters and nested DTOs are validated before domain mutations.
 Public errors use `{ statusCode, code, message }` and may include validation
 details. Handle `code` rather than matching translated prose. HTTP 400 means
 invalid input; 401 missing/expired credentials; 403 denied action; 404 absent
-resource; 409 a domain conflict; 503 unavailable dependency/configuration.
-Successful status codes below describe ordinary responses, not all errors.
+resource; 409 a domain conflict; 429 too many requests (`TOO_MANY_REQUESTS`,
+from Nginx or the API, see [HTTP rate limits](http-rate-limiting.md)); 503
+unavailable dependency/configuration. Successful status codes below describe
+ordinary responses, not all errors.
 
 Pagination where supported uses `limit` (1–100, default 20) and `offset`
 (non-negative integer, default 0). User search additionally accepts `q`.
@@ -31,11 +34,13 @@ Times are UTC ISO strings; game clock balances and time controls are millisecond
 | POST `/v1/auth/verify-email` | `{ token }` | 200, verified user |
 | POST `/v1/auth/resend-verification` | `{ email }` | 202 regardless of pending account existence |
 | POST `/v1/auth/login` | `{ login, password }` | 200, session or 2FA challenge |
-| POST `/v1/auth/2fa/verify` | `{ challengeToken, code }` | 200, session after TOTP verification |
+| POST `/v1/auth/2fa/verify` | `{ challengeToken, code }` | 200, session after a TOTP or recovery code |
 | POST `/v1/auth/refresh` | Refresh cookie and `X-Session-Refresh: 1` | 200 renewed session, or 204 when no valid session remains |
 | POST `/v1/auth/logout` | Refresh cookie | 204, revokes session and clears cookie |
+| POST `/v1/auth/forgot-password` | `{ email }` | Always 202; emails a 30-minute reset link when the address has an account |
+| POST `/v1/auth/reset-password` | `{ token, password }` | 204; every session is signed out |
 | GET `/v1/auth/oauth/providers` | none | Enabled provider names |
-| GET `/v1/auth/oauth/:provider` | google or github | Redirects browser to provider |
+| GET `/v1/auth/oauth/:provider` | google, github or fortytwo | Redirects browser to provider |
 | GET `/v1/auth/oauth/:provider/callback` | Provider query and flow cookie | Provider callback; browser flow only |
 | POST `/v1/auth/oauth/exchange` | Browser-bound handoff cookies; `X-OAuth-Exchange: 1` | 200, exchanges one-use handoff for session |
 | GET `/v1/auth/oauth/accounts` | Bearer | Linked providers |
@@ -49,32 +54,59 @@ not JSON. Browser clients use credentials for refresh/logout and the required
 header when renewing. OAuth state,
 PKCE verifier, provider tokens and application secrets remain server-side.
 
+## Account security and data
+
+Bearer routes of the signed-in account ([accounts](accounts.md)):
+
+| Method and route | Input | Behavior |
+| --- | --- | --- |
+| GET `/v1/auth/security` | none | `{ hasPassword, twoFactorEnabled, recoveryCodesLeft }` |
+| POST `/v1/auth/2fa/setup` | none | New pending secret with its QR code |
+| POST `/v1/auth/2fa/enable` | `{ code }` | Turns 2FA on; returns ten recovery codes, shown once |
+| POST `/v1/auth/2fa/recovery-codes` | `{ code }` | Replaces every recovery code |
+| POST `/v1/auth/2fa/disable` | `{ code }` | 204 |
+| POST `/v1/auth/password` | `{ currentPassword, newPassword }` | 204; other sessions are signed out |
+| GET `/v1/users/me/export` | none | JSON download of the account's data |
+| DELETE `/v1/users/me` | `{ confirmation, password?, code? }` | 204; anonymizes the account, finished games stay |
+
 ## Users and social
 
 | Method and route | Input / access | Behavior |
 | --- | --- | --- |
 | GET `/v1/users/me` | Bearer | Current private profile |
-| PATCH `/v1/users/me` | Bearer; `{ username?, avatarUrl?, preferences? }` | Update only caller-owned editable profile fields |
+| PATCH `/v1/users/me` | Bearer; `{ username?, preferences? }` | Update only caller-owned editable profile fields |
+| POST `/v1/users/me/avatar` | Bearer; multipart `avatar` file, PNG, JPEG or WebP, 2 MB | Stores the picture; returns the profile |
+| DELETE `/v1/users/me/avatar` | Bearer | Back to the default picture |
+| GET `/v1/avatars/:file` | Public | Serves a stored picture, cached as immutable |
 | GET `/v1/users/search` | `q`, `limit`, `offset` | Public user search |
 | GET `/v1/users/:id` | UUID | Public profile |
 | GET `/v1/users/:id/games` | UUID, pagination | Public game history |
 | GET `/v1/friends` | Bearer | Caller friendships |
 | GET `/v1/friends/requests` | Bearer | Incoming pending requests |
-| POST `/v1/friends/requests` | Bearer; `{ recipientId }` | Send request |
+| GET `/v1/friends/requests/sent` | Bearer | Outgoing pending requests |
+| POST `/v1/friends/requests` | Bearer; `{ recipientId }` | Send request; accepted at once when the recipient had already asked |
 | POST `/v1/friends/requests/:requestId/accept` | Bearer | Recipient accepts |
-| POST `/v1/friends/requests/:requestId/reject` | Bearer | Recipient rejects |
+| DELETE `/v1/friends/requests/:requestId` | Bearer | 204; the recipient declines, the sender withdraws |
 | DELETE `/v1/friends/:friendId` | Bearer | Remove caller's friendship |
+| GET `/v1/blocks` | Bearer | Players the caller blocked |
+| PUT `/v1/blocks/:userId` | Bearer | 204, idempotent; ends friendship, pending requests and waiting challenges, then refuses messages, challenges and requests both ways |
+| DELETE `/v1/blocks/:userId` | Bearer | 204, idempotent |
 
-Preferences include theme, language and sound settings; see
+Preferences are `theme`, `language` (`en`, `fr` or `es`), `soundEnabled` and
+`messagesFromFriendsOnly`; see
 [UpdatePreferencesDto](../srcs/nestJS/42chess/src/users/dto/update-preferences.dto.ts)
 for the exact allowlist. Profile updates reject server-owned rating/security
-properties, including nested injection. `avatarUrl: null` clears the avatar.
+properties, including nested injection. The picture changes only through the
+upload route: a free `avatarUrl` is refused. Blocking and privacy are described
+in [social](social.md).
 
 ## Games, bots and matchmaking
 
 | Method and route | Input / access | Behavior |
 | --- | --- | --- |
-| POST `/v1/games` | Bearer; `{ opponentId?, timeControl: { initialTime, increment } }` | 201 `{ gameId }`, waiting game; optional invited opponent |
+| POST `/v1/games` | Bearer; `{ opponentId?, timeControl: { initialTime, increment }, rated? }` | 201 `{ gameId }`, waiting game; optional invited opponent |
+| GET `/v1/games/waiting` | Bearer | Caller's open invitations (five at most) |
+| DELETE `/v1/games/:id` | Bearer | Cancels one of the caller's waiting games |
 | GET `/v1/games/live` | Public | Active game list |
 | GET `/v1/games/:id` | Public UUID | Board, seats, clocks and terminal result |
 | GET `/v1/games/:id/moves` | Public UUID | Ordered persisted SAN move history |
@@ -86,9 +118,24 @@ properties, including nested injection. `avatarUrl: null` clears the avatar.
 | POST `/v1/matchmaking/heartbeat` | Bearer | Refresh queue liveness |
 | POST `/v1/matchmaking/leave` | Bearer | Leave queue |
 
-Human game moves, resignation and draw offers use WebSockets. Public game
-reads support spectating; this does not grant mutation permission. Invitations
-reserve the second seat, while clocks, legality and Elo are server-controlled.
+Human game moves, resignation, draw offers and claims use WebSockets. Public
+game reads support spectating; this does not grant mutation permission.
+Invitations reserve the second seat, while clocks, legality and Elo are
+server-controlled. Only rated games change Elo: matchmaking games are rated,
+games against a friend are casual unless created with `rated: true`, bot games
+never are. Time controls are limited to the ones the front offers.
+
+## Progression and ratings
+
+| Method and route | Input / access | Behavior |
+| --- | --- | --- |
+| GET `/v1/leaderboard` | Public; pagination | Ranked players with Elo, results and level |
+| GET `/v1/users/:id/rating-history` | Public UUID | Elo after each rated game |
+| GET `/v1/users/:id/stats` | Public UUID | Rank, results by kind of game, progression, puzzles |
+| GET `/v1/users/:id/achievements` | Public UUID | Every achievement with progress and unlock date |
+| GET `/v1/progression/rules` | Public | Experience, levels and achievements rules |
+
+See [progression](progression.md).
 
 ## Chat and puzzles
 
@@ -96,18 +143,24 @@ reserve the second seat, while clocks, legality and Elo are server-controlled.
 | --- | --- | --- |
 | GET `/v1/conversations` | Bearer | Actor-scoped private conversation summaries |
 | GET `/v1/conversations/:userId/messages` | Bearer; peer UUID, pagination | Caller's history with peer |
+| POST `/v1/conversations/:userId/read` | Bearer; peer UUID | 204; marks the peer's messages read |
 | GET `/v1/games/:id/messages` | Bearer; UUID, pagination | Game chat history with access checks |
 | GET `/v1/puzzles/daily` | Public | Daily puzzle metadata without future solution |
+| GET `/v1/puzzles/archive` | Bearer; pagination | Earlier daily puzzles with the caller's result |
+| GET `/v1/puzzles/:id` | Public UUID | A published daily puzzle |
+| GET `/v1/puzzles/:id/progress` | Bearer | Latest attempt, to resume on any device |
 | POST `/v1/puzzles/:id/attempts` | Bearer; puzzle UUID | Start/resume owned attempt |
 | GET `/v1/puzzles/attempts/:id` | Bearer; attempt UUID | Caller-owned attempt state |
 | POST `/v1/puzzles/:id/move` | Bearer; `{ from, to, promotion? }` | Play on latest unfinished attempt; 200 |
 | POST `/v1/puzzles/attempts/:id/moves` | Bearer; `{ move, version }` | Versioned UCI attempt move; 200 |
+| POST `/v1/puzzles/attempts/:id/hint` | Bearer | Square of the piece to move; marks the attempt |
+| POST `/v1/puzzles/attempts/:id/solution` | Bearer | Reveals the line and ends an unsolved attempt |
 
 Square moves use lowercase `a1`–`h8`; optional promotion is QUEEN, ROOK,
 BISHOP or KNIGHT. UCI promotion uses the lowercase suffix. Future puzzle moves
-remain private; accepted player moves and an immediate opponent reply can be
-returned. Private sends and game chat sends use realtime events rather than a
-REST send endpoint.
+remain private until the owner asks for the solution; accepted player moves and
+an immediate opponent reply can be returned. Private sends and game chat sends
+use realtime events rather than a REST send endpoint.
 
 ## WebSocket and health
 
@@ -118,24 +171,35 @@ Connect to `/ws` on the public origin with `wss:` in production. First send:
 ```
 
 Wait for `AUTHENTICATED` before commands. Game events include JOIN_GAME,
-LEAVE_GAME, MAKE_MOVE, RESIGN, OFFER_DRAW, ACCEPT_DRAW and DECLINE_DRAW.
-MAKE_MOVE uses `{ gameId, from, to, promotion? }`; other commands carry gameId.
-Server state/move/clock/result events are authoritative. An ERROR event contains
-the structured public error. Disconnects require reauthentication and fresh
-room state; never blindly replay a mutation.
+LEAVE_GAME, MAKE_MOVE, RESIGN, OFFER_DRAW, ACCEPT_DRAW, DECLINE_DRAW,
+CLAIM_DRAW, ABORT_GAME and CLAIM_VICTORY. MAKE_MOVE uses
+`{ gameId, from, to, promotion? }`; other commands carry gameId. Server
+state/move/clock/result events are authoritative. An ERROR event contains the
+structured public error. Disconnects require reauthentication and fresh room
+state; never blindly replay a mutation.
 
-Transport details and additional chat/spectator contracts are documented in
-[the backend realtime contract](../srcs/nestJS/42chess/README.md),
-[private messaging](private-messaging.md), [game chat](game-chat.md) and
-[spectator mode](spectator-mode.md). Incoming frames are limited to 16 KiB.
+Transport details, the game event table and additional chat/spectator contracts
+are documented in [the backend realtime contract](../srcs/nestJS/42chess/README.md),
+[private messaging](private-messaging.md), [game chat](game-chat.md),
+[spectator mode](spectator-mode.md) and [social](social.md) (typing, read
+receipts, live friend and challenge notices). Incoming frames are limited to
+16 KiB.
 
-`GET /v1/health` is available directly, or `/api/v1/health` through Nginx.
-Operational metrics and Grafana are separate from the business API.
+`GET /v1/health` is available directly, or `/api/v1/health` through Nginx. It
+reports the database, rules engine, bot, mail service and the age of the last
+backup (`status` is `ok`, `degraded`, or `down` with HTTP 503), and feeds the
+`/status` page. Prometheus metrics (`/v1/metrics`) are scraped inside the Docker
+network; Nginx answers 404 for them. Grafana is separate from the business API.
 
 Source controllers: [auth](../srcs/nestJS/42chess/src/auth/auth.controller.ts),
+[account security](../srcs/nestJS/42chess/src/auth/account-security.controller.ts),
+[account data](../srcs/nestJS/42chess/src/auth/account-data.controller.ts),
 [session](../srcs/nestJS/42chess/src/auth/session.controller.ts),
 [OAuth](../srcs/nestJS/42chess/src/oauth/oauth.controller.ts),
 [users](../srcs/nestJS/42chess/src/users/users.controller.ts),
 [friends](../srcs/nestJS/42chess/src/friends/friends.controller.ts),
+[blocks](../srcs/nestJS/42chess/src/social/blocks.controller.ts),
 [games](../srcs/nestJS/42chess/src/games/games.controller.ts),
-[puzzles](../srcs/nestJS/42chess/src/puzzles/puzzles.controller.ts).
+[progression](../srcs/nestJS/42chess/src/progression/progression.controller.ts),
+[puzzles](../srcs/nestJS/42chess/src/puzzles/puzzles.controller.ts),
+[health](../srcs/nestJS/42chess/src/health/health.controller.ts).

@@ -116,6 +116,18 @@ erDiagram
         string code PK
         timestamptz unlockedAt
     }
+    auth_sessions {
+        uuid id PK
+        uuid userId FK
+        timestamptz expiresAt
+        timestamptz revokedAt
+    }
+    oauth_flows {
+        string id PK
+        string provider
+        string purpose
+        timestamptz expiresAt
+    }
     puzzles ||..o{ daily_puzzles : puzzleId
     users ||..o{ friend_requests : recipientId
     users ||..o{ friend_requests : senderId
@@ -142,6 +154,9 @@ erDiagram
     users ||..o{ xp_events : userId
     users ||..o{ user_achievements : userId
     achievements ||..o{ user_achievements : code
+    users ||..o{ auth_sessions : userId
+    users |o..o{ oauth_flows : userId
+    auth_sessions |o..o{ oauth_flows : sessionId
 ```
 
 `||` indique un parent obligatoire, `o|` zéro ou un, `o{` zéro ou plusieurs.

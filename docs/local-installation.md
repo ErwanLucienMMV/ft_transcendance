@@ -5,9 +5,9 @@ SCRUM-509 · Run commands from the repository root unless noted otherwise.
 ## Prerequisites
 
 - Git, Make and a running Docker engine with Compose v2 (or compatible Podman).
-- Free ports 8080 (HTTPS), 80 (HTTP redirect), 5432 (PostgreSQL) and 9090
-  (Prometheus) for production. Development additionally uses 4200 and 3000;
-  Grafana is published on 3001 in development.
+- Free ports 8080 (HTTPS) and 80 (HTTP redirect) for production: no other
+  service publishes a port. Development uses 4200, 3000, 3001 (Grafana), 9090
+  (Prometheus) and 5432 (PostgreSQL), bound to 127.0.0.1.
 - Node 22 and npm for running backend tools on the host; container builds bring
   their own Node toolchain. Use the Angular package's supported Node version if
   developing the frontend outside its Node 22 container.
@@ -26,10 +26,12 @@ secrets and preserves non-empty values. Edit that file before starting:
 - Set `APPURL=https://localhost:8080` for local use, or the actual public origin.
   `APPPORT` is the HTTPS host port. On rootless engines change `HTTPPORT=80` to
   a free unprivileged port such as 8088.
-- Set SMTP credentials and MAIL_FROM to deliver verification mail. Without a
-  complete SMTP login, forgemail logs mail instead; inspect its logs locally
-  for the verification link. Do not share those links or logs publicly.
-- OAuth credentials are optional; unconfigured providers have hidden buttons.
+- Set SMTP credentials and MAIL_FROM to deliver verification and
+  password-reset mail. Without a complete SMTP login, forgemail logs mail
+  instead; inspect its logs locally for the link. Do not share those links or
+  logs publicly. Set ALERT_EMAIL to receive monitoring alerts by email.
+- OAuth credentials (Google, GitHub, 42) are optional; unconfigured providers
+  have hidden buttons. `srcs/configure-oauth-local.sh` fills one provider in.
 
 ```sh
 docker compose -f srcs/docker-compose.yml config --quiet
@@ -39,9 +41,11 @@ curl -k https://localhost:8080/api/v1/health
 ```
 
 Open `https://localhost:8080`, accept the local self-signed certificate, register
-and verify your email. `make full` imports puzzles and starts the independent
-backup service after the application is healthy. `make` starts only the main
-stack and puzzle import. Use `-k` only for local certificate checks.
+(accepting the Terms of Service and the Privacy Policy) and verify your email.
+`make full` imports puzzles and starts the independent backup service after the
+application is healthy. `make` starts only the main stack and puzzle import.
+Grafana is at `https://localhost:8080/grafana/` and the public status page at
+`/status`. Use `-k` only for local certificate checks.
 
 ## Development with live reload
 
@@ -81,7 +85,10 @@ The last two require the isolated test services; E2E also needs a built backend.
 For frontend checks, run `npm ci`, `npm run build`, `npm test -- --watch=false`
 and `npm run test:e2e` from `srcs/angular/42chess`. Browser tests require the
 Playwright browsers and follow the configuration in
-[playwright.config.ts](../srcs/angular/42chess/playwright.config.ts).
+[playwright.config.ts](../srcs/angular/42chess/playwright.config.ts). The Nginx
+limits are checked by `python3 srcs/angular/tests/nginx-rate-limit.test.py`
+(needs `nginx` and `openssl`) and the monitoring files by
+`make check-monitoring`.
 
 ## Troubleshooting without losing data
 
@@ -90,12 +97,14 @@ Playwright browsers and follow the configuration in
 | Port already allocated | Inspect host listeners and stop the conflicting stack; avoid changing container-internal ports |
 | Nginx not started | `docker compose -f srcs/docker-compose.yml logs --tail 100 nestjs` and service health |
 | Registration email fails | `docker compose -f srcs/docker-compose.yml logs --tail 100 forgemail`; verify SMTP login/app password |
+| 429 Too many requests | Sign-in routes allow about ten attempts a minute per address; wait and retry (see [HTTP rate limits](http-rate-limiting.md)) |
 | OAuth button absent | Run `make env` and read NestJS startup diagnostics; provider id, secret and exact public callback must agree |
 | Database login fails after editing .env | Existing database roles retain their original password; coordinate a role update |
 | Build fails | Read `compose.log` and fix the reported step; do not bypass tests |
 
-`make clean` and `make re` remove persistent volumes. They are destructive and
-must not be used to fix installation problems. See [backup and recovery](../BACKUP.md)
+`make clean` and `make re` keep volumes and backups; `make fclean` deletes the
+volumes after a confirmation. It is destructive and must not be used to fix
+installation problems. See [backup and recovery](../BACKUP.md)
 before any database recovery operation.
 
 Sources: [Makefile](../Makefile), [example environment](../srcs/.env.example),

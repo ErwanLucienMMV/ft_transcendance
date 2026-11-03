@@ -44,6 +44,10 @@ export const auth = {
     unavailable: 'Account creation is temporarily unavailable.',
     submit: 'Create an account',
     submitting: 'Creating account…',
+    acceptStart: 'I accept the',
+    acceptAnd: 'and the',
+    acceptError: 'Accept the terms to create your account.',
+    newTab: '(opens in a new tab)',
   },
   verify: {
     title: 'Verify your email',
@@ -82,6 +86,8 @@ export const auth = {
   oauth: {
     others: 'Other sign-in methods',
     continueWith: 'Continue with {{provider}}',
+    acceptStart: 'Creating an account with a provider means you accept the',
+    acceptAnd: 'and the',
     unavailable: 'This sign-in method is currently unavailable.',
     openFailed: 'The sign-in page could not be opened. Please try again.',
     title: 'Completing sign-in',
