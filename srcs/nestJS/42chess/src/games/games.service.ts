@@ -127,7 +127,7 @@ export class GamesService {
         where: { id: userId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!user)
+      if (!user || user.deletedAt)
         throw new GameError('USER_NOT_FOUND', 'Player account does not exist.');
       if (
         (await this.store.waitingGamesOf(manager, userId)) >= MAX_WAITING_GAMES
@@ -202,7 +202,11 @@ export class GamesService {
         .orderBy('user.id', 'ASC')
         .setLock('pessimistic_write')
         .getMany();
-      if (!users.some((user) => user.id === userId))
+      if (
+        users.length !== 2 ||
+        users.some((user) => user.deletedAt) ||
+        !users.some((user) => user.id === userId)
+      )
         throw new GameError('USER_NOT_FOUND', 'Player account does not exist.');
       if (await this.store.activeGameOf(manager, ids)) throw activeGameExists();
       const color = players[0].color === 'WHITE' ? 'BLACK' : 'WHITE';

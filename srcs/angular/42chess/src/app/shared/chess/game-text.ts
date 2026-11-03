@@ -54,10 +54,16 @@ export function botName(difficulty: BotDifficulty): string {
 }
 
 /** "rival (1216)", or the bot level; the rating is left out when there is none. */
+/** Deleted accounts keep their games under an anonymous `deleted_<hex>` name. */
+export function displayName(username: string): string {
+  return username.startsWith('deleted_') ? 'Deleted player' : username;
+}
+
 export function playerLabel(player: GamePlayer | null): string {
   if (!player) return 'Unknown player';
   if (player.botDifficulty) return botName(player.botDifficulty);
-  return player.elo === null ? player.username : `${player.username} (${player.elo})`;
+  const name = displayName(player.username);
+  return player.elo === null || name !== player.username ? name : `${name} (${player.elo})`;
 }
 
 /** The colour a user plays in a game, or null when they are not seated. */

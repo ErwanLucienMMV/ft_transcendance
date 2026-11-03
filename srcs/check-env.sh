@@ -42,7 +42,7 @@ elif [ -n "$smtp_user" ]; then
     "$(value SMTP_HOST)" "$(value SMTP_PORT)" "$smtp_user"
 fi
 
-for provider in google github; do
+for provider in google github fortytwo; do
   upper=$(printf '%s' "$provider" | tr a-z A-Z)
   id=$(value "${upper}_CLIENT_ID")
   [ -n "$id" ] || id=$(value "OAUTH_${upper}_CLIENT_ID")

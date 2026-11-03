@@ -6,12 +6,30 @@ import { API_BASE_URL } from '../api/api-base-url';
 import { AuthService, TwoFactorChallenge } from './auth.service';
 import { AuthTokenResponse } from './auth-session';
 
-export type OAuthProvider = 'google' | 'github';
+export type OAuthProvider = 'google' | 'github' | 'fortytwo';
+
+/** Every provider the API may offer, in the order the buttons appear. */
+export const OAUTH_PROVIDERS: readonly OAuthProvider[] = ['fortytwo', 'google', 'github'];
+
+/** The name shown on buttons. */
+export const OAUTH_LABELS: Readonly<Record<OAuthProvider, string>> = {
+  google: 'Google',
+  github: 'GitHub',
+  fortytwo: '42',
+};
+
+/** The only host each provider's authorization page may live on. */
+const AUTHORIZATION_HOSTS: Readonly<Record<OAuthProvider, string>> = {
+  google: 'accounts.google.com',
+  github: 'github.com',
+  fortytwo: 'api.intra.42.fr',
+};
 export const OAUTH_NAVIGATE = new InjectionToken<(url: string) => void>('OAUTH_NAVIGATE', {
   providedIn: 'root',
   factory: () => (url) => window.location.assign(url),
 });
-const isProvider = (p: unknown): p is OAuthProvider => p === 'google' || p === 'github';
+const isProvider = (p: unknown): p is OAuthProvider =>
+  typeof p === 'string' && (OAUTH_PROVIDERS as readonly string[]).includes(p);
 @Injectable({ providedIn: 'root' })
 export class OAuthService {
   private readonly api = inject(ApiClient);
@@ -25,7 +43,9 @@ export class OAuthService {
     if (!this.browser) return of([]);
     return this.api.get<{ providers: unknown[] }>('auth/oauth/providers').pipe(
       map((response) =>
-        Array.isArray(response.providers) ? response.providers.filter(isProvider) : [],
+        Array.isArray(response.providers)
+          ? OAUTH_PROVIDERS.filter((provider) => response.providers.includes(provider))
+          : [],
       ),
       catchError(() => of([])),
       tap((providers) => this.providers.set(providers)),
@@ -46,7 +66,7 @@ export class OAuthService {
     this.auth.cancelChallenge();
     this.auth.session.clear();
     return this.api
-      .post<AuthTokenResponse | TwoFactorChallenge>(
+      .post<(AuthTokenResponse & { newAccount?: boolean }) | TwoFactorChallenge>(
         'auth/oauth/exchange',
         {},
         { headers: { 'x-oauth-exchange': '1' } },
@@ -70,7 +90,7 @@ export class OAuthService {
       .pipe(
         tap((response) => {
           const url = new URL(response.authorizationUrl);
-          const host = provider === 'google' ? 'accounts.google.com' : 'github.com';
+          const host = AUTHORIZATION_HOSTS[provider];
           if (
             url.protocol !== 'https:' ||
             url.hostname !== host ||

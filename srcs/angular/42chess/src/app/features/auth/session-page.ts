@@ -5,11 +5,10 @@ import { Router } from '@angular/router';
 import { AuthSession } from '../../core/auth/auth-session';
 import { AuthFrame } from '../../shared/auth-frame';
 import { RouterLink } from '@angular/router';
-import { OAuthAccounts } from './oauth-accounts';
 
 @Component({
   selector: 'app-session-page',
-  imports: [AuthFrame, RouterLink, OAuthAccounts],
+  imports: [AuthFrame, RouterLink],
   templateUrl: './session-page.html',
 })
 export class SessionPage {

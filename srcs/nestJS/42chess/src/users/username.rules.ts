@@ -28,8 +28,14 @@ export const RESERVED_USERNAMES: ReadonlySet<string> = new Set([
   'undefined',
 ]);
 
+/** Deleted accounts are renamed `deleted_<hex>`: nobody can take such a name. */
+export const DELETED_USERNAME_PREFIX = 'deleted_';
+
 export function isReservedUsername(username: string): boolean {
-  return RESERVED_USERNAMES.has(username.toLowerCase());
+  const name = username.toLowerCase();
+  return (
+    RESERVED_USERNAMES.has(name) || name.startsWith(DELETED_USERNAME_PREFIX)
+  );
 }
 
 /** class-validator rule: the value must not be a reserved username. */

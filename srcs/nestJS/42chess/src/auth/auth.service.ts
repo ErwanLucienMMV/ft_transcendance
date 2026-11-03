@@ -29,13 +29,11 @@ import { PasswordService } from './password.service.js';
 import { TotpService } from './totp.service.js';
 import { TwoFactorChallengeService } from './two-factor-challenge.service.js';
 import { SessionService } from './session.service.js';
+import { authUser } from './auth-user.js';
+import type { AuthUser } from './auth-user.js';
+import { hashRecoveryCode } from './recovery-codes.js';
 
-/** Public part of a user returned by the auth endpoints. */
-export interface AuthUser {
-  id: string;
-  username: string;
-  elo: number;
-}
+export type { AuthUser } from './auth-user.js';
 
 export interface AuthUserResponse {
   user: AuthUser;
@@ -154,7 +152,10 @@ export class AuthService {
     try {
       await this.mail.sendEmailVerification(email, user.username, token);
     } catch (error: unknown) {
-      throw toHttpError(error);
+      throw toHttpError(
+        error,
+        'The verification email could not be sent, try again later.',
+      );
     }
   }
 
@@ -211,28 +212,43 @@ export class AuthService {
     if (!user?.twoFactorEnabledAt || !user.twoFactorSecret) {
       throw invalidChallenge();
     }
+    await this.checkSecondFactor(user, dto.code);
+    return this.issueAccessToken(user);
+  }
+
+  /**
+   * Accepts an authenticator code or an unused recovery code for an account with 2FA. Each
+   * code works once, and too many wrong codes lock the check for a while: the same rules hold
+   * at sign-in and before turning 2FA off.
+   */
+  async checkSecondFactor(user: User, code: string): Promise<void> {
     if (user.twoFactorLockedUntil && user.twoFactorLockedUntil > new Date()) {
       throw tooManyTwoFactorAttempts();
     }
-
-    const timeStep = await this.totp.verify(
-      user.twoFactorSecret,
-      dto.code,
-      user.twoFactorLastTimeStep,
+    if (/^\d{6}$/.test(code)) {
+      const timeStep = user.twoFactorSecret
+        ? await this.totp.verify(
+            user.twoFactorSecret,
+            code,
+            user.twoFactorLastTimeStep,
+          )
+        : null;
+      if (timeStep !== null) {
+        if (await this.users.consumeTwoFactorStep(user.id, timeStep)) return;
+        // Another request used this code in the meantime.
+        throw invalidTwoFactorCode();
+      }
+    } else if (
+      await this.users.consumeRecoveryCode(user.id, hashRecoveryCode(code))
+    ) {
+      return;
+    }
+    await this.users.recordTwoFactorFailure(
+      user.id,
+      TWO_FACTOR_MAX_ATTEMPTS,
+      new Date(Date.now() + TWO_FACTOR_LOCK_MS),
     );
-    if (timeStep === null) {
-      await this.users.recordTwoFactorFailure(
-        user.id,
-        TWO_FACTOR_MAX_ATTEMPTS,
-        new Date(Date.now() + TWO_FACTOR_LOCK_MS),
-      );
-      throw invalidTwoFactorCode();
-    }
-    if (!(await this.users.consumeTwoFactorStep(user.id, timeStep))) {
-      // Another request used this code in the meantime.
-      throw invalidTwoFactorCode();
-    }
-    return this.issueAccessToken(user);
+    throw invalidTwoFactorCode();
   }
 
   private async issueAccessToken(user: User): Promise<AuthTokenResponse> {
@@ -271,7 +287,7 @@ function recentlySent(expiresAt: Date | null | undefined): boolean {
 }
 
 function toResponse(user: User): AuthUserResponse {
-  return { user: { id: user.id, username: user.username, elo: user.elo } };
+  return { user: authUser(user) };
 }
 
 function invalidCredentials(): UnauthorizedException {
@@ -290,7 +306,7 @@ function invalidChallenge(): UnauthorizedException {
   });
 }
 
-function invalidTwoFactorCode(): UnauthorizedException {
+export function invalidTwoFactorCode(): UnauthorizedException {
   return new UnauthorizedException({
     statusCode: 401,
     code: 'INVALID_2FA_CODE',
@@ -317,12 +333,16 @@ function invalidVerificationToken(): BadRequestException {
   });
 }
 
-function toHttpError(error: unknown): unknown {
+/** By default, a failed registration: its username and email stay free for a new try. */
+export function toHttpError(
+  error: unknown,
+  message = 'The verification email could not be sent, so the account was not created. Try again in a moment.',
+): unknown {
   if (error instanceof MailUnavailableError) {
     return new ServiceUnavailableException({
       statusCode: 503,
       code: 'EMAIL_SERVICE_UNAVAILABLE',
-      message: 'The verification email could not be sent, try again later',
+      message,
     });
   }
   return error;

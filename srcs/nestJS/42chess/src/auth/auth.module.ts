@@ -5,6 +5,10 @@ import type { Environment } from '../config/environment.js';
 import { UsersModule } from '../users/users.module.js';
 import { AccessTokenGuard } from './access-token.guard.js';
 import { AuthController } from './auth.controller.js';
+import { AccountSecurityController } from './account-security.controller.js';
+import { AccountSecurityService } from './account-security.service.js';
+import { AccountDataController } from './account-data.controller.js';
+import { AccountDataService } from './account-data.service.js';
 import { AuthService } from './auth.service.js';
 import { PasswordService } from './password.service.js';
 import { TotpService } from './totp.service.js';
@@ -40,9 +44,15 @@ import { SessionModule } from './session.module.js';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [
+    AuthController,
+    AccountSecurityController,
+    AccountDataController,
+  ],
   providers: [
     AuthService,
+    AccountSecurityService,
+    AccountDataService,
     AccessTokenGuard,
     PasswordService,
     TotpService,

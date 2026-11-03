@@ -118,7 +118,12 @@ describe('Session HTTP contract (SCRUM-77/78/79/80/91/92)', () => {
       const response = await refresh(token).expect(200);
       expect(response.body).toEqual({
         accessToken: expect.any(String),
-        user: { id: user.id, username: user.username, elo: 1200 },
+        user: {
+          id: user.id,
+          username: user.username,
+          elo: 1200,
+          avatarUrl: null,
+        },
       });
       const rotated = cookieValue(response);
       expect(rotated).toBeTruthy();

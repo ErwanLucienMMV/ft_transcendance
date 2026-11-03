@@ -95,7 +95,12 @@ describe('AuthService', () => {
                 sub: user.id,
                 username: user.username,
               }),
-              user: { id: user.id, username: user.username, elo: user.elo },
+              user: {
+                id: user.id,
+                username: user.username,
+                elo: user.elo,
+                avatarUrl: null,
+              },
             }),
           },
         },
@@ -140,7 +145,7 @@ describe('AuthService', () => {
 
     it('emails the token and returns only the public user fields', async () => {
       await expect(auth.register(DTO)).resolves.toEqual({
-        user: { id: 'uuid', username: 'alice', elo: 1200 },
+        user: { id: 'uuid', username: 'alice', elo: 1200, avatarUrl: null },
       });
       expect(mail.sendEmailVerification).toHaveBeenCalledWith(
         'alice@example.com',
@@ -183,7 +188,7 @@ describe('AuthService', () => {
       });
 
       await expect(auth.verifyEmail('the-token')).resolves.toEqual({
-        user: { id: 'uuid', username: 'alice', elo: 1200 },
+        user: { id: 'uuid', username: 'alice', elo: 1200, avatarUrl: null },
       });
       expect(users.findByVerificationTokenHash).toHaveBeenCalledWith(
         hashVerificationToken('the-token'),
@@ -290,6 +295,7 @@ describe('AuthService', () => {
         id: 'uuid',
         username: 'alice',
         elo: 1200,
+        avatarUrl: null,
       });
       const claims = await jwt.verifyAsync(response.accessToken);
       expect(claims).toMatchObject({ sub: 'uuid', username: 'alice' });
@@ -425,6 +431,7 @@ describe('AuthService', () => {
         id: 'uuid',
         username: 'alice',
         elo: 1200,
+        avatarUrl: null,
       });
       await expect(
         jwt.verifyAsync(response.accessToken),

@@ -96,6 +96,24 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/session-page').then((m) => m.SessionPage),
   },
   {
+    path: 'settings',
+    title: 'Settings | 42 Chess',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/settings/settings-page').then((m) => m.SettingsPage),
+  },
+  {
+    path: 'forgot-password',
+    title: 'Forgot your password | 42 Chess',
+    loadComponent: () =>
+      import('./features/auth/forgot-password-page').then((m) => m.ForgotPasswordPage),
+  },
+  {
+    path: 'reset-password',
+    title: 'Choose a new password | 42 Chess',
+    loadComponent: () =>
+      import('./features/auth/reset-password-page').then((m) => m.ResetPasswordPage),
+  },
+  {
     path: 'oauth/callback',
     title: 'Completing sign-in | 42 Chess',
     loadComponent: () =>

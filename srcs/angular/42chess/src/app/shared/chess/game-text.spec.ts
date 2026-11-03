@@ -1,5 +1,5 @@
 import type { GameMove, GamePlayer } from '../../core/realtime/game-realtime';
-import { moveRows, playerLabel, resultText, seatOf } from './game-text';
+import { displayName, moveRows, playerLabel, resultText, seatOf } from './game-text';
 
 const player = (id: string, color: 'WHITE' | 'BLACK', elo: number | null = 1200): GamePlayer => ({
   id,
@@ -33,6 +33,10 @@ describe('Shared game wording', () => {
       'Computer · Hard',
     );
     expect(playerLabel(null)).toBe('Unknown player');
+    // A deleted account keeps its games, without its name or rating.
+    expect(playerLabel(player('deleted_0123456789abcdef', 'WHITE', 1300))).toBe('Deleted player');
+    expect(displayName('deleted_0123456789abcdef')).toBe('Deleted player');
+    expect(displayName('deleted')).toBe('deleted');
     const game = { whitePlayer: player('a', 'WHITE'), blackPlayer: player('b', 'BLACK') };
     expect(seatOf(game, 'a')).toBe('WHITE');
     expect(seatOf(game, 'b')).toBe('BLACK');

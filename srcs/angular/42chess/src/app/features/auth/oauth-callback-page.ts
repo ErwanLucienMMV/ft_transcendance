@@ -32,7 +32,7 @@ export class OAuthCallbackPage implements OnInit {
     if (error) {
       this.error.set(
         error === 'existing-account'
-          ? 'An account already uses this email. Sign in normally, then link your provider from your session page.'
+          ? 'An account already uses this email. Sign in normally, then link this provider from your settings.'
           : 'External sign-in was cancelled or expired. Please try again.',
       );
       return;
@@ -41,10 +41,15 @@ export class OAuthCallbackPage implements OnInit {
       .exchange()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () =>
-          void this.router.navigateByUrl(this.auth.needsTwoFactor() ? '/two-factor' : '/session', {
-            replaceUrl: true,
-          }),
+        next: (response) =>
+          void this.router.navigateByUrl(
+            this.auth.needsTwoFactor()
+              ? '/two-factor'
+              : 'newAccount' in response && response.newAccount
+                ? '/settings?welcome=1'
+                : '/session',
+            { replaceUrl: true },
+          ),
         error: () =>
           this.error.set('This sign-in expired or could not be verified. Please start again.'),
       });

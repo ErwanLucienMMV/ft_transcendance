@@ -8,12 +8,14 @@ describe('SEC-14 OAuth deployment configuration', () => {
     GOOGLE_CLIENT_SECRET: 'fixture-google-secret',
     GITHUB_CLIENT_ID: 'fixture-github-id',
     GITHUB_CLIENT_SECRET: 'fixture-github-secret',
+    FORTYTWO_CLIENT_ID: 'fixture-fortytwo-id',
+    FORTYTWO_CLIENT_SECRET: 'fixture-fortytwo-secret',
   };
   const http = vi.fn();
   const providers = (values: Record<string, unknown>) =>
     new OAuthProviders(new ConfigService(values), http as typeof fetch);
 
-  it.each(['google', 'github'] as const)(
+  it.each(['google', 'github', 'fortytwo'] as const)(
     'accepts Compose legacy variables for %s',
     (name) => {
       expect(providers(config).settings(name)).toEqual({
@@ -23,7 +25,7 @@ describe('SEC-14 OAuth deployment configuration', () => {
       });
     },
   );
-  it.each(['google', 'github'] as const)(
+  it.each(['google', 'github', 'fortytwo'] as const)(
     'prefers explicit OAUTH_ credentials for %s',
     (name) => {
       const prefix = `OAUTH_${name.toUpperCase()}`;
@@ -40,7 +42,7 @@ describe('SEC-14 OAuth deployment configuration', () => {
     'disables an incomplete provider missing %s without hiding another provider',
     (suffix) => {
       const p = providers({ ...config, [`GOOGLE_${suffix}`]: '' });
-      expect(p.enabled()).toEqual(['github']);
+      expect(p.enabled()).toEqual(['github', 'fortytwo']);
       expect(() => p.settings('google')).toThrow('not configured');
       expect(http).not.toHaveBeenCalled();
     },
@@ -91,7 +93,7 @@ describe('SEC-14 OAuth deployment configuration', () => {
       }).enabled(),
     ).toEqual([]);
   });
-  it.each(['google', 'github'] as const)(
+  it.each(['google', 'github', 'fortytwo'] as const)(
     'requires an optional %s callback to exactly match the public callback',
     (name) => {
       const key = `${name.toUpperCase()}_CALLBACK_URL`;

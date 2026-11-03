@@ -20,7 +20,7 @@ export interface GameMessageResponse {
   createdAt: ISODateString;
 }
 export interface ConversationResponse {
-  user: { id: UUID; username: string };
+  user: { id: UUID; username: string; avatarUrl: string | null };
   lastMessage: PrivateMessageResponse;
   unreadCount: number;
 }

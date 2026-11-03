@@ -47,6 +47,7 @@ describe('SCRUM-103 case-insensitive username search', () => {
       id: users[0].id,
       username: users[0].username,
       elo: 1200,
+      avatarUrl: null,
       online: false,
     });
     expect(

@@ -15,6 +15,8 @@ export const serverRoutes: ServerRoute[] = [
   { path: 'messages', renderMode: RenderMode.Client },
   { path: 'messages/:userId', renderMode: RenderMode.Client },
   { path: 'oauth/callback', renderMode: RenderMode.Client },
+  { path: 'settings', renderMode: RenderMode.Client },
+  { path: 'reset-password', renderMode: RenderMode.Client },
   {
     path: '**',
     renderMode: RenderMode.Prerender,

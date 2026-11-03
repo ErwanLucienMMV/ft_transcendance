@@ -11,10 +11,20 @@ import { ConfigService } from '@nestjs/config';
 import { isEmail } from 'class-validator';
 import { createHash } from 'node:crypto';
 
-export type Provider = 'google' | 'github';
+export const PROVIDERS = ['google', 'github', 'fortytwo'] as const;
+export type Provider = (typeof PROVIDERS)[number];
+const LABELS: Record<Provider, string> = {
+  google: 'Google',
+  github: 'GitHub',
+  fortytwo: '42',
+};
 export interface ProviderIdentity {
   id: string;
   email: string | null;
+  /** The provider's login or first name, to suggest a username for a new account. */
+  username: string | null;
+  /** The provider's https profile picture, used as the first avatar of a new account. */
+  avatarUrl: string | null;
 }
 export const OAUTH_FETCH = Symbol('OAUTH_FETCH');
 export interface ProviderConfig {
@@ -35,15 +45,22 @@ const endpoints = {
     profile: 'https://api.github.com/user',
     scope: 'read:user user:email',
   },
+  // The 42 intranet (school login). Its emails are school addresses, verified by the school.
+  fortytwo: {
+    authorize: 'https://api.intra.42.fr/oauth/authorize',
+    token: 'https://api.intra.42.fr/oauth/token',
+    profile: 'https://api.intra.42.fr/v2/me',
+    scope: 'public',
+  },
 };
 export function providerName(value: string): Provider {
-  if (value !== 'google' && value !== 'github')
+  if (!(PROVIDERS as readonly string[]).includes(value))
     throw new UnauthorizedException({
       statusCode: 401,
       code: 'OAUTH_INVALID_PROVIDER',
       message: 'Unsupported sign-in provider.',
     });
-  return value;
+  return value as Provider;
 }
 function providerFailure(): UnauthorizedException {
   return new UnauthorizedException({
@@ -51,6 +68,25 @@ function providerFailure(): UnauthorizedException {
     code: 'OAUTH_PROVIDER_FAILED',
     message: 'The provider could not verify this sign-in.',
   });
+}
+
+function text(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 && value.length <= 255
+    ? value
+    : null;
+}
+
+/** Only an https picture of reasonable length is kept; anything else means no avatar. */
+function httpsUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length > 2048) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password
+      ? url.toString()
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Fixed vendor endpoints; credentials and provider access tokens never reach the browser. */
@@ -68,8 +104,8 @@ export class OAuthProviders implements OnApplicationBootstrap {
   }
 
   diagnose(): string[] {
-    return (['google', 'github'] as const).map((name) => {
-      const label = name === 'google' ? 'Google' : 'GitHub';
+    return PROVIDERS.map((name) => {
+      const label = LABELS[name];
       try {
         this.settings(name);
         return `${label} sign-in enabled (callback ${this.publicOrigin()}/api/v1/auth/oauth/${name}/callback)`;
@@ -117,7 +153,7 @@ export class OAuthProviders implements OnApplicationBootstrap {
     }
   }
   enabled(): Provider[] {
-    return (['google', 'github'] as const).filter((name) => {
+    return PROVIDERS.filter((name) => {
       try {
         this.settings(name);
         return true;
@@ -206,7 +242,7 @@ export class OAuthProviders implements OnApplicationBootstrap {
       if (
         (typeof id !== 'string' &&
           !(
-            name === 'github' &&
+            name !== 'google' &&
             typeof id === 'number' &&
             Number.isSafeInteger(id)
           )) ||
@@ -226,12 +262,22 @@ export class OAuthProviders implements OnApplicationBootstrap {
           (e: any) => e?.primary === true && e?.verified === true,
         )?.email;
       }
+      if (name === 'fortytwo') email = profile.email;
       return {
         id: String(id),
         email:
           typeof email === 'string' && email.length <= 254 && isEmail(email)
             ? email.toLowerCase()
             : null,
+        // Never derived from the email address, which stays private.
+        username: text(name === 'google' ? profile.given_name : profile.login),
+        avatarUrl: httpsUrl(
+          name === 'google'
+            ? profile.picture
+            : name === 'github'
+              ? profile.avatar_url
+              : (profile.image?.link ?? profile.image_url),
+        ),
       };
     } catch {
       throw providerFailure();

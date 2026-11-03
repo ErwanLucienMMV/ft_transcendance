@@ -12,4 +12,6 @@ export class OAuthFlow {
   @Column({ type: 'uuid', nullable: true }) userId: string | null;
   @Column({ type: 'uuid', nullable: true }) sessionId: string | null;
   @Column('timestamptz') expiresAt: Date;
+  /** The sign-in created the account: the front invites to pick a username. */
+  @Column({ type: 'boolean', default: false }) created: boolean;
 }

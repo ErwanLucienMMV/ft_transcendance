@@ -27,6 +27,10 @@ export { INITIAL_ELO } from '../rating/rating.constants.js';
 // Registration lowercases emails; this makes the database enforce it for
 // every other path too (OAuth, scripts), so uniqueness cannot be bypassed.
 @Check('CHK_users_email_lowercase', `"email" = LOWER("email")`)
+@Check(
+  'CHK_users_deleted',
+  `"deletedAt" IS NULL OR ("email" IS NULL AND "passwordHash" IS NULL AND "twoFactorSecret" IS NULL AND "passwordResetTokenHash" IS NULL AND "emailVerifiedAt" IS NULL)`,
+)
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -103,6 +107,32 @@ export class User {
 
   @Column({ type: 'timestamptz', nullable: true })
   twoFactorLockedUntil: Date | null;
+
+  // Secret shown during set-up, until the first code confirms the app has it.
+  @Column({ type: 'varchar', length: 64, nullable: true, select: false })
+  twoFactorPendingSecret: string | null;
+
+  // SHA-256 of each unused recovery code; a used code is removed.
+  @Column({ type: 'text', array: true, nullable: true, select: false })
+  twoFactorRecoveryCodes: string[] | null;
+
+  // SHA-256 of the pending password reset token, never the token itself.
+  @Column({
+    type: 'varchar',
+    length: 64,
+    unique: true,
+    nullable: true,
+    select: false,
+  })
+  passwordResetTokenHash: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  passwordResetExpiresAt: Date | null;
+
+  // Set when the owner deleted the account: the row stays, anonymized, so that the games of
+  // other players keep their opponent.
+  @Column({ type: 'timestamptz', nullable: true })
+  deletedAt: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

@@ -6,17 +6,7 @@
     <a class="button secondary" routerLink="/friends">Find players</a>
   } @else if (profile(); as player) {
     <header class="identity card">
-      @if (player.avatarUrl && !avatarFailed()) {
-        <img
-          class="avatar"
-          [src]="player.avatarUrl"
-          alt=""
-          referrerpolicy="no-referrer"
-          (error)="avatarFailed.set(true)"
-        />
-      } @else {
-        <span class="avatar initial" aria-hidden="true">{{ initial() }}</span>
-      }
+      <app-avatar class="avatar initial" [username]="player.username" [url]="player.avatarUrl" />
       <div class="who">
         <span class="eyebrow">{{ mine() ? 'Your profile' : 'Player' }}</span>
         <h2 id="profile-title">{{ player.username }}</h2>
@@ -75,7 +65,7 @@
         @if (mine()) {
           <p class="actions">
             <a class="button secondary" routerLink="/history">All your games</a>
-            <a class="button secondary" routerLink="/session">Account settings</a>
+            <a class="button secondary" routerLink="/settings">Account settings</a>
           </p>
         }
       </div>

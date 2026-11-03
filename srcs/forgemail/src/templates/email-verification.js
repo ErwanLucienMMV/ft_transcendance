@@ -6,7 +6,7 @@ const HTML_ESCAPES = {
   "'": '&#39;',
 };
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => HTML_ESCAPES[char]);
 }
 

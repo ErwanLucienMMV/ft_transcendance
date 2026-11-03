@@ -5,6 +5,8 @@ import { UsersService } from './users.service.js';
 import { SessionModule } from '../auth/session.module.js';
 import { AccessTokenGuard } from '../auth/access-token.guard.js';
 import { UsersController } from './users.controller.js';
+import { AvatarsController } from './avatars.controller.js';
+import { AvatarStorage } from './avatar-storage.js';
 import { PresenceModule } from '../presence/presence.module.js';
 
 /**
@@ -17,8 +19,8 @@ import { PresenceModule } from '../presence/presence.module.js';
  */
 @Module({
   imports: [PresenceModule, TypeOrmModule.forFeature([User]), SessionModule],
-  controllers: [UsersController],
-  providers: [UsersService, AccessTokenGuard],
-  exports: [UsersService],
+  controllers: [UsersController, AvatarsController],
+  providers: [UsersService, AccessTokenGuard, AvatarStorage],
+  exports: [UsersService, AvatarStorage],
 })
 export class UsersModule {}

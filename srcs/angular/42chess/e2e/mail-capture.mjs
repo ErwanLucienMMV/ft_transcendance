@@ -5,12 +5,16 @@ createServer(async (request, response) => {
   const url = new URL(request.url, 'http://mail-capture');
   response.setHeader('Content-Type', 'application/json');
   if (request.method === 'GET' && url.pathname === '/health') return response.end('{}');
+  // The last mail of a kind sent to an address: email-verification (default), password-reset,
+  // or notice (whose `kind` field says which one).
   if (request.method === 'GET' && url.pathname === '/_test/message') {
-    const message = messages.get(url.searchParams.get('to'));
+    const kind = url.searchParams.get('kind') ?? 'email-verification';
+    const message = messages.get(`${kind}:${url.searchParams.get('to')}`);
     response.statusCode = message ? 200 : 404;
     return response.end(JSON.stringify(message ?? {}));
   }
-  if (request.method === 'POST' && url.pathname === '/v1/mails/email-verification') {
+  const kind = /^\/v1\/mails\/(email-verification|password-reset|notice)$/.exec(url.pathname)?.[1];
+  if (request.method === 'POST' && kind) {
     let body = '';
     for await (const chunk of request) {
       body += chunk;
@@ -21,9 +25,12 @@ createServer(async (request, response) => {
     }
     try {
       const message = JSON.parse(body);
-      if (typeof message.to !== 'string' || typeof message.token !== 'string')
+      if (
+        typeof message.to !== 'string' ||
+        (kind === 'notice' ? typeof message.kind !== 'string' : typeof message.token !== 'string')
+      )
         throw new Error('Invalid mail');
-      messages.set(message.to, message);
+      messages.set(`${kind}:${message.to}`, message);
       response.statusCode = 202;
       return response.end('{}');
     } catch {

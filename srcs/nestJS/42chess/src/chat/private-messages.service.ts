@@ -112,6 +112,7 @@ export class PrivateMessagesService {
     const rows: (Message & {
       peerId: string;
       username: string;
+      avatarUrl: string | null;
       unreadCount: number;
     })[] = await this.messages.query(
       `
@@ -125,13 +126,17 @@ export class PrivateMessagesService {
             CASE WHEN "senderId" = $1 THEN "recipientId" ELSE "senderId" END))::int AS "unreadCount"
         FROM messages m WHERE "senderId" = $1 OR "recipientId" = $1
       )
-      SELECT r.*, u.username FROM ranked r JOIN users u ON u.id = r."peerId"
+      SELECT r.*, u.username, u."avatarUrl" FROM ranked r JOIN users u ON u.id = r."peerId"
       WHERE position = 1 ORDER BY r."createdAt" DESC, r.id DESC`,
       [actorId],
     );
     return {
       conversations: rows.map((row) => ({
-        user: { id: row.peerId, username: row.username },
+        user: {
+          id: row.peerId,
+          username: row.username,
+          avatarUrl: row.avatarUrl,
+        },
         lastMessage: toPrivateMessage(this.messages.create(row)),
         unreadCount: row.unreadCount,
       })),

@@ -13,6 +13,8 @@ import { IsNull, Repository } from 'typeorm';
 import { DEFAULT_REFRESH_EXPIRES_IN } from '../config/environment.js';
 import { User } from '../users/user.entity.js';
 import { AuthSession } from './auth-session.entity.js';
+import { authUser } from './auth-user.js';
+import type { AuthUser } from './auth-user.js';
 
 /**
  * Carries the refresh cookie value next to a token response. A symbol key is never
@@ -22,7 +24,7 @@ import { AuthSession } from './auth-session.entity.js';
 export const REFRESH_TOKEN = Symbol('refreshToken');
 export interface IssuedSession {
   accessToken: string;
-  user: { id: string; username: string; elo: number };
+  user: AuthUser;
   [REFRESH_TOKEN]?: string;
 }
 // A second tab may still send the cookie it read just before another tab rotated it.
@@ -206,7 +208,7 @@ export class SessionService {
     });
     const response: IssuedSession = {
       accessToken,
-      user: { id: user.id, username: user.username, elo: user.elo },
+      user: authUser(user),
     };
     if (secret) response[REFRESH_TOKEN] = `${sessionId}.${secret}`;
     return response;
@@ -225,6 +227,23 @@ export class SessionService {
       { revokedAt: new Date() },
     );
     this.revoked(sessionId);
+  }
+
+  /**
+   * Revokes every live session of an account, except `keep` (the one changing the password).
+   * Open sockets of those sessions close at once.
+   */
+  async revokeAll(userId: string, keep?: string): Promise<void> {
+    // One statement, so a session opened meanwhile cannot slip between a read
+    // and the updates; open sockets of each revoked session close at once.
+    const query = this.sessions
+      .createQueryBuilder()
+      .update()
+      .set({ revokedAt: () => 'CURRENT_TIMESTAMP' })
+      .where('"userId" = :userId AND "revokedAt" IS NULL', { userId });
+    if (keep) query.andWhere('id <> :keep', { keep });
+    const { raw } = await query.returning('id').execute();
+    for (const { id } of raw as { id: string }[]) this.revoked(id);
   }
 
   /**

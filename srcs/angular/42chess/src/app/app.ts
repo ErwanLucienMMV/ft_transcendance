@@ -5,9 +5,10 @@ import { SessionLifecycle } from './core/auth/session-lifecycle';
 import { AuthSession } from './core/auth/auth-session';
 import { ErrorState } from './core/errors/error-state';
 import { RealtimeService } from './core/realtime/realtime.service';
+import { UserAvatar } from './shared/user-avatar';
 
 @Component({
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, UserAvatar],
   selector: 'app-root',
   styleUrl: './app.css',
   templateUrl: './app.html',

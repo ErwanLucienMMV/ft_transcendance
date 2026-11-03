@@ -97,6 +97,7 @@ describe('/v1/auth (e2e)', () => {
         id: expect.stringMatching(/^[0-9a-f-]{36}$/),
         username: `alice_${suffix}`,
         elo: 1200,
+        avatarUrl: null,
       },
     });
   });
@@ -294,6 +295,7 @@ describe('/v1/auth (e2e)', () => {
           id: expect.stringMatching(/^[0-9a-f-]{36}$/),
           username: name,
           elo: 1200,
+          avatarUrl: null,
         },
       });
       expect(claims(response.body.accessToken)).toMatchObject({

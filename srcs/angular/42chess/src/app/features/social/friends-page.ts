@@ -18,6 +18,7 @@ import { errorText } from '../../core/api/error-text';
 import { AuthSession } from '../../core/auth/auth-session';
 import { RealtimeService } from '../../core/realtime/realtime.service';
 import { PresenceBadge } from '../../shared/presence-badge';
+import { UserAvatar } from '../../shared/user-avatar';
 import { Challenges } from './challenge';
 import {
   Friend,
@@ -50,7 +51,7 @@ const FRIEND_ERRORS: Record<string, string> = {
 };
 @Component({
   selector: 'app-friends-page',
-  imports: [PresenceBadge, ReactiveFormsModule, RouterLink],
+  imports: [PresenceBadge, ReactiveFormsModule, RouterLink, UserAvatar],
   templateUrl: './friends-page.html',
   styleUrl: './friends-page.css',
 })

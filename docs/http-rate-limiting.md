@@ -6,7 +6,8 @@ the same per-client budget across workers, before requests reach NestJS:
 | Scope | Sustained rate | Additional burst |
 | --- | --- | --- |
 | `/api/` | 10 requests/second | 40 requests |
-| Login, registration, verification and OAuth start/callback/link/exchange | 10 requests/minute | 10 requests |
+| `/api/v1/avatars/` (uploaded pictures) | 50 requests/second | 100 requests |
+| Login, registration, 2FA code, verification, password reset and OAuth start/callback/link/exchange (Google, GitHub, 42) | 10 requests/minute | 10 requests |
 
 The authentication budget is shared across those endpoints. Query strings,
 case variants and normalized paths do not create separate budgets. The key
@@ -48,7 +49,8 @@ paths, log paths, the security headers include and fixture upstream addresses
 substituted. Two Nginx workers and a local HTTP upstream exercise shared
 authentication quotas, general bursts, independent clients, forwarding-header
 spoofing, URI normalization, JSON errors, proxy path forwarding, recovery
-after the retry interval, the hidden metrics and the forwarded address.
+after the retry interval, the separate picture budget, the hidden metrics and
+the forwarded address.
 
 With `nginx`, `openssl`, and Python 3 available:
 

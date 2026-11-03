@@ -480,6 +480,15 @@ textarea:focus-visible {
   font-weight: 600;
   display: inline-block;
 }
+.auth-forgot {
+  margin: 12px 0 0;
+  text-align: right;
+  font-size: 14px;
+}
+.auth-forgot a {
+  text-decoration: none;
+  font-weight: 500;
+}
 .auth-footnote {
   display: none;
 }
