@@ -1,7 +1,9 @@
 #pragma once
 #include "bot/engine.hpp"
 
+#include <random>
 #include <unordered_map>
+#include <utility>
 
 namespace bot::detail {
 struct SearchAborted {};
@@ -16,7 +18,7 @@ struct TranspositionEntry {
 class Search {
 public:
 	Search(Limits limits, const std::vector<std::string> &history);
-	SearchResult run(const Position &position);
+	SearchResult run(const Position &position, const Style &style, std::mt19937_64 &random);
 
 private:
 	int quiescence(const chess::BoardState &board, std::vector<chess::Move> moves, bool inCheck,
@@ -33,6 +35,9 @@ private:
 		int beta, int ply, int quiescenceRemaining);
 	int negamax(const chess::BoardState &board, int depth, int alpha, int beta, int ply,
 		int quiescenceRemaining = 6);
+	// Picks among the root moves of the last completed iteration, following the style.
+	static chess::Move choose(const std::vector<std::pair<chess::Move, int>> &scored, int best,
+		const Style &style, std::mt19937_64 &random);
 
 	Limits limits_;
 	std::chrono::steady_clock::time_point started_ = std::chrono::steady_clock::now();

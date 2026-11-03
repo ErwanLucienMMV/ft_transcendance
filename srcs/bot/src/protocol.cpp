@@ -2,7 +2,9 @@
 
 #include "bot/engine.hpp"
 
+#include <cstdint>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <stdexcept>
 
 namespace bot {
@@ -47,7 +49,15 @@ std::string handleRequest(const std::string &text)
 			throw std::invalid_argument("FEN must not be empty");
 		}
 		auto p = position(request.value("fen", std::string{}), moves);
-		SearchEngine engine;
+		// An optional seed replays the same choices; production requests leave it out.
+		std::optional<std::uint64_t> seed;
+		if (request.contains("seed")) {
+			if (!request["seed"].is_number_unsigned()) {
+				throw std::invalid_argument("Seed must be a non-negative integer");
+			}
+			seed = request["seed"].get<std::uint64_t>();
+		}
+		SearchEngine engine = seed ? SearchEngine(*seed) : SearchEngine();
 		auto result = engine.bestMove(p, difficulty);
 		std::string status = p.board.checkmate() ? "checkmate"
 			: p.board.stalemate()				 ? "stalemate"
@@ -55,7 +65,7 @@ std::string handleRequest(const std::string &text)
 												 : "ongoing";
 		Json response{{"fen", p.board.fen()}, {"difficulty", difficultyName(difficulty)},
 			{"status", status}, {"scoreCp", result.score}, {"depth", result.depth},
-			{"nodes", result.nodes}, {"elapsedMs", result.elapsedMs}};
+			{"nodes", result.nodes}, {"elapsedMs", result.elapsedMs}, {"book", result.book}};
 		response["bestMove"] = result.move ? Json(result.move->uci()) : Json(nullptr);
 		response["fenAfter"] = result.move ? Json(p.board.play(*result.move).fen()) : Json(nullptr);
 		return Json{{"id", id}, {"ok", true}, {"result", response}}.dump();

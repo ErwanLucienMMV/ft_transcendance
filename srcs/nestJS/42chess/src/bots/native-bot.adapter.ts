@@ -94,6 +94,7 @@ export class NativeBotAdapter extends BotEngine {
             result.depth > 5 ||
             result.nodes < 0 ||
             result.elapsedMs < 0 ||
+            (result.book !== undefined && typeof result.book !== 'boolean') ||
             (result.bestMove !== null &&
               (typeof result.bestMove !== 'string' ||
                 !/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(result.bestMove))) ||

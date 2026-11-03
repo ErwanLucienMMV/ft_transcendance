@@ -143,15 +143,22 @@ function fixture() {
       scoreCp: 0,
     };
   });
+  // The think time is waited out with no transaction open.
+  const wait = vi.fn(async (_ms: number) => {
+    expect(busy).toBe(false);
+  });
   const service = new GamesService(
     store as never,
     rules as never,
     {} as never,
     clocks as never,
     { bestMove },
+    undefined,
+    { wait } as never,
   );
   return {
     service,
+    wait,
     human,
     gameId,
     store,
@@ -193,6 +200,14 @@ describe('Bot turns with short database leases', () => {
       'MEDIUM',
     );
     expect(f.clocks.move).toHaveBeenCalledTimes(2);
+    // One legal reply in this position: a quick answer, less the turn so far, before the save.
+    expect(f.wait).toHaveBeenCalledTimes(1);
+    expect(f.wait.mock.invocationCallOrder[0]).toBeLessThan(
+      f.clocks.move.mock.invocationCallOrder[1],
+    );
+    const [ms] = f.wait.mock.calls[0];
+    expect(ms).toBeGreaterThanOrEqual(350 * 0.6 - 50);
+    expect(ms).toBeLessThanOrEqual(350 * 1.4);
   });
   it.each([new GameError('BOT_UNAVAILABLE', 'Offline'), new Error('Timeout')])(
     'returns the accepted human move and pending bot state after %s',

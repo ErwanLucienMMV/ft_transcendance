@@ -213,7 +213,7 @@ describe('Game WS contract with real PostgreSQL and C++ engine (SCRUM-194/195)',
     expect(bot.data).toMatchObject({ move: { number: 2 }, turn: 'WHITE' });
     expect(bot.data.board.fen).toBe(snapshot.data.board.fen);
   }
-  it('announces the human move and the bot reply committed together, in order', async () => {
+  it('announces the human move at once, then the bot reply, in order', async () => {
     const { id, a } = await botGame();
     a.send('MAKE_MOVE', { gameId: id, from: 'e2', to: 'e4' });
     const human = await a.take('MOVE_PLAYED'),

@@ -59,17 +59,41 @@ Each request owns its search state; matches and clients do not share a board.
 
 | Difficulty | Maximum main depth | Node limit, including quiescence | Search time budget |
 | --- | ---: | ---: | ---: |
-| EASY | 1 ply | 1,500 | 100 ms |
-| MEDIUM | 3 plies | 16,000 | 700 ms |
+| EASY | 1 ply | 8,000 | 100 ms |
+| MEDIUM | 3 plies | 40,000 | 1,000 ms |
 | HARD | 5 plies | 100,000 | 2,200 ms |
 
 Quiescence extends tactical lines by up to six plies. These are ceilings, not
 promises to reach that depth. Time is checked at each search node and is a soft
 budget: legal-move generation, initial history replay and final response work
 can extend total request duration. Only completed iterations replace the chosen
-move. If a budget expires immediately, the result still contains a validated
-legal fallback (`depth:0`). There is no random illegal move or implicit queen
-promotion. Search is deterministic when the same iterations complete.
+move, except that a first iteration cut short plays the best move it did score
+rather than an unsearched one. If a budget expires immediately, the result still
+contains a validated legal fallback (`depth:0`). There is no random illegal move
+or implicit queen promotion.
+
+### Variety and mistakes
+
+Each level plays like a person of its strength instead of repeating the same
+game (see [docs/bot.md](../../docs/bot.md) for the reasoning):
+
+| Difficulty | Opening book | Moves it may play | Deliberate mistakes |
+| --- | --- | --- | --- |
+| EASY | yes | within 80 cp of its best, the closer the likelier | 15% of moves, up to 350 cp worse |
+| MEDIUM | yes | within 20 cp of its best, the closer the likelier | none |
+| HARD | yes | its best move; equal moves in random order | none |
+
+- The opening book holds the main lines of the usual openings a few plies deep,
+  weighted by popularity, and recognizes transpositions.
+- Root moves are scored exactly down to the widest margin the level may play,
+  so every candidate's score is known, not guessed.
+- A forced mate, for or against the bot, is always played exactly.
+- A deliberate mistake never drops more than the level's mistake margin: EASY
+  can miss a pawn or a minor piece, never a free queen.
+
+Every request draws a fresh seed. A request may pass `"seed"` (a non-negative
+integer) to replay the same choices; with the same seed, the same move is
+played whenever the same search iterations complete.
 
 HARD finds tested forcing mates in two and avoids elementary material losses;
 there is **no measured Elo rating** or claim of Stockfish strength. This is a
@@ -89,6 +113,8 @@ response. Connections can be reused; responses are ordered per connection.
 - `difficulty`: required for `best_move`; exactly `EASY`, `MEDIUM` or `HARD`.
 - `fen`: optional **initial** FEN; omitted means the normal starting position.
 - `moves`: optional ordered UCI moves to replay from that initial position.
+- `seed`: optional non-negative integer that makes the level's choices
+  reproducible (tests); omitted, each request is seeded by the system.
 
 Send either current FEN alone, or initial FEN plus its history. Do not send the
 current FEN plus the moves that already produced it. Full history is needed to
@@ -96,13 +122,14 @@ score repetition correctly. The protocol does not accept client search budgets
 or arbitrary unbounded depths. Move strings use lowercase UCI, e.g. `e2e4`,
 `e1g1` (castling), `e5d6` (en passant), or `a7a8n` (promotion).
 
-Example response (search statistics vary with hardware):
+Example response, out of the opening book (search statistics vary with hardware):
 
 ```json
-{"id":"game-42:8","ok":true,"result":{"bestMove":"b1c3","fen":"rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2","fenAfter":"rnbqkbnr/pppp1ppp/8/4p3/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 1 2","difficulty":"HARD","status":"ongoing","scoreCp":0,"depth":4,"nodes":100000,"elapsedMs":1200}}
+{"id":"game-42:12","ok":true,"result":{"bestMove":"e4e5","book":false,"depth":4,"difficulty":"HARD","elapsedMs":1794,"fen":"r1bqk2r/pppp1ppp/2n2n2/2b5/2BpP3/2P2N2/PP3PPP/RNBQK2R w KQkq - 0 6","fenAfter":"r1bqk2r/pppp1ppp/2n2n2/2b1P3/2Bp4/2P2N2/PP3PPP/RNBQK2R b KQkq - 0 6","nodes":100000,"scoreCp":-57,"status":"ongoing"}}
 ```
 
-`scoreCp` is relative to the side to move at the request position; positive
+`book` is true when the move comes from the opening book; `depth`, `nodes` and
+`elapsedMs` are then 0. `scoreCp` is relative to the side to move at the request position; positive
 means better for that side. Mate scores are near 30000 and favor faster mates.
 The `status` describes the input position. For checkmate, stalemate or detected
 insufficient material, `bestMove` and `fenAfter` are null; no move is fabricated.
@@ -194,10 +221,28 @@ Bot turns use three distinct phases:
    the bot turn with a random token and a **45-second lease**, then commit.
 2. **Without a transaction, game lock or pooled database connection**, replay and
    validate the position, ask the bot for a move, and verify that move and its
-   resulting FEN through the rules daemon.
+   resulting FEN through the rules daemon. The bot then waits out the rest of its
+   think time (below), still without a transaction.
 3. Reacquire the game lock and check token ownership, lease expiry, ACTIVE status,
    initial/current FEN, turn, move count/history and bot seat. If still current,
    settle the bot clock and save through the normal SAN/history/clock/result path.
+
+### Think time
+
+A bot that answers in 50 ms feels like a machine, so each move is played after a
+think time that grows with how busy the position is (its number of legal moves)
+and with the level, and varies by a quarter either way:
+
+| Difficulty | Quiet position | Busy position |
+| --- | ---: | ---: |
+| EASY | 0.5 s | 1.5 s |
+| MEDIUM | 0.7 s | 2.2 s |
+| HARD | 0.9 s | 3 s |
+
+Book moves and forced replies take about 0.35 s. The time spent searching is
+deducted, and the pause never exceeds a fortieth of the bot's remaining clock, so
+it cannot lose on time by pausing. `BOT_THINK_TIME=off` disables the pause (the
+HTTP test suite sets it).
 
 A changed/finished position discards the computed result. Resignation and clock
 settlement can complete while search is running. Duplicate bot requests observe
@@ -239,7 +284,10 @@ then use `npm run test:db`. Override `TEST_BOT_ENGINE_URL` and
 
 - C++ tests cover every difficulty, pins, check evasions, both colors, special
   moves, forced mates, hanging-queen capture, deterministic fixed-depth results,
-  legal fallback, search limits, invalid input and terminal positions.
+  legal fallback, search limits, invalid input and terminal positions. They also
+  check that EASY and MEDIUM vary their moves over seeds, that a seed replays the
+  same move, that variety never spoils a mate nor leaves a queen, and that the
+  opening book varies, follows transpositions and stays legal.
 - Python socket tests run both actual daemons and have the rules service
   independently confirm chosen moves and resulting FENs. They also cover
   fragmentation, malformed requests, concurrency, frame limits and shutdown.

@@ -186,38 +186,96 @@ int Search::negamax(
 	return best;
 }
 
-SearchResult Search::run(const Position &position)
+Move Search::choose(const std::vector<std::pair<Move, int>> &scored, int best, const Style &style,
+	std::mt19937_64 &random)
+{
+	std::vector<Move> moves;
+	std::vector<int> weights;
+	std::uniform_int_distribution<int> percent(0, 99);
+	if (style.mistakePercent > 0 && percent(random) < style.mistakePercent) {
+		// A deliberate mistake: any move clearly worse than the best, but not a collapse.
+		for (const auto &[move, score] : scored) {
+			if (score < best - style.margin && score >= best - style.mistakeMargin) {
+				moves.push_back(move);
+				weights.push_back(1);
+			}
+		}
+	}
+	if (moves.empty()) {
+		for (const auto &[move, score] : scored) {
+			if (score >= best - style.margin) {
+				moves.push_back(move);
+				weights.push_back(style.margin - (best - score) + 1);
+			}
+		}
+	}
+	std::discrete_distribution<std::size_t> pick(weights.begin(), weights.end());
+	return moves[pick(random)];
+}
+
+SearchResult Search::run(const Position &position, const Style &style, std::mt19937_64 &random)
 {
 	SearchResult result;
 	auto moves = position.board.legalMoves();
 	if (moves.empty() || position.board.insufficientMaterial()) {
 		return result;
 	}
+	if (style.varied) {
+		// Ordering is a stable sort, so moves of equal priority keep this random order and the
+		// first of several equally scored moves is no longer always the same one.
+		std::shuffle(moves.begin(), moves.end(), random);
+	}
 	// Always retain lhs validated legal fallback, even if the first iteration expires.
 	orderMoves(position.board, moves);
 	result.move = moves.front();
 	result.score = evaluate(position.board);
+	// Root moves need an exact score down to the widest margin the style may play. A move that
+	// fails low against `best - window - 1` is outside every margin, so its bound is enough.
+	int window = std::max(style.margin, style.mistakePercent > 0 ? style.mistakeMargin : 0);
+	std::vector<std::pair<Move, int>> scored;
 	for (int depth = 1; depth <= limits_.depth; ++depth) {
 		int best = -infinityScore;
 		std::optional<Move> selected;
+		std::vector<std::pair<Move, int>> current;
 		orderMoves(position.board, moves, result.move->uci());
 		try {
 			for (const auto &move : moves) {
 				visitNode();
-				int score = searchChild(position.board, move, depth - 1, best, infinityScore, 0, 6);
+				int alpha = window == 0 || best == -infinityScore ? best : best - window - 1;
+				int score =
+					searchChild(position.board, move, depth - 1, alpha, infinityScore, 0, 6);
+				current.emplace_back(move, score);
 				if (score > best) {
 					best = score;
 					selected = move;
 				}
 			}
 		} catch (const SearchAborted &) {
+			// The first iteration ran out of budget: the moves it did score still beat an
+			// unsearched one.
+			if (scored.empty() && selected) {
+				result.move = selected;
+				result.score = best;
+				scored = std::move(current);
+			}
 			break;
 		}
 		result.move = selected;
 		result.score = best;
 		result.depth = depth;
+		scored = std::move(current);
 		if (best >= mateScore - 128) {
 			break;
+		}
+	}
+	// A forced mate, for either side, is played exactly: variety must not spoil it.
+	if (window > 0 && !scored.empty() && std::abs(result.score) < mateScore - 128) {
+		result.move = choose(scored, result.score, style, random);
+		// The reported score is the one of the move played, not of the best one.
+		for (const auto &[move, score] : scored) {
+			if (move.uci() == result.move->uci()) {
+				result.score = score;
+			}
 		}
 	}
 	result.nodes = visitedNodes_;

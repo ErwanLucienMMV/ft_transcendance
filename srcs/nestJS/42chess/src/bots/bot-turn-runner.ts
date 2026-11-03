@@ -10,6 +10,7 @@ import { GameClocksService } from '../games/clock/game-clocks.service.js';
 import { GameError } from '../games/game-error.js';
 import { moveInput } from '../games/game-input.js';
 import { BotEngine } from './bot-engine.js';
+import { BotPacer, thinkTime } from './bot-think-time.js';
 
 interface ValidatedMove {
   before: ChessSnapshot;
@@ -34,6 +35,7 @@ export class BotTurnRunner {
     private readonly rules: GameRulesService,
     private readonly clocks: GameClocksService,
     private readonly bot?: BotEngine,
+    private readonly pacer?: BotPacer,
   ) {}
 
   async run(
@@ -99,6 +101,7 @@ export class BotTurnRunner {
     seat: GamePlayer,
   ): Promise<ValidatedMove & { uci: string }> {
     // All network/CPU work is outside any transaction or checked-out DB connection.
+    const startedAt = Date.now();
     const before = await this.rules.current(expected);
     if (!this.bot)
       throw new GameError('BOT_UNAVAILABLE', 'Bot adapter is not configured.');
@@ -126,6 +129,24 @@ export class BotTurnRunner {
         'INVALID_BOT_RESPONSE',
         'Bot and rules engine disagree on the resulting position.',
       );
+    // Still outside any transaction: the lease keeps the turn while the bot "thinks".
+    // The whole turn so far counts (rules calls, the bot's queue, the network), and
+    // the cap follows the bot's clock as it runs now, not as it was last saved.
+    const now = Date.now();
+    const clock = expected.game.clock;
+    const remainingMs = clock
+      ? (seat.color === 'WHITE' ? clock.white : clock.black) -
+        (clock.status === 'RUNNING' ? now - clock.updatedAt : 0)
+      : null;
+    await this.pacer?.wait(
+      thinkTime({
+        difficulty: seat.botDifficulty!,
+        legalMoves: before.legalMoves.length,
+        book: result.book === true,
+        remainingMs,
+      }) -
+        (now - startedAt),
+    );
     return { before, after, uci };
   }
 

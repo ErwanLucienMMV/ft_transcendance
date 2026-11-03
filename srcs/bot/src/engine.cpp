@@ -1,5 +1,7 @@
 #include "bot/engine.hpp"
 
+#include "bot/book.hpp"
+#include "bot/evaluation.hpp"
 #include "bot/search.hpp"
 
 #include <stdexcept>
@@ -38,11 +40,26 @@ Limits limitsFor(Difficulty difficulty)
 {
 	switch (difficulty) {
 	case Difficulty::Easy:
-		return {1, 1500, std::chrono::milliseconds(100)};
+		// One ply only; the budget lets that ply finish even with the root window of its style.
+		return {1, 8000, std::chrono::milliseconds(100)};
 	case Difficulty::Medium:
-		return {3, 16000, std::chrono::milliseconds(700)};
+		return {3, 40000, std::chrono::milliseconds(1000)};
 	case Difficulty::Hard:
 		return {5, 100000, std::chrono::milliseconds(2200)};
+	}
+	throw std::invalid_argument("Invalid difficulty");
+}
+
+Style styleFor(Difficulty difficulty)
+{
+	switch (difficulty) {
+	case Difficulty::Easy:
+		return {80, 15, 350, true, true};
+	case Difficulty::Medium:
+		return {20, 0, 0, true, true};
+	case Difficulty::Hard:
+		// A wider root window would cost HARD a ply; it varies through the book and ties only.
+		return {0, 0, 0, true, true};
 	}
 	throw std::invalid_argument("Invalid difficulty");
 }
@@ -62,19 +79,36 @@ Position position(const std::string &fen, const std::vector<std::string> &moves)
 	return position;
 }
 
-SearchResult SearchEngine::bestMove(const Position &position, Difficulty difficulty)
+SearchEngine::SearchEngine() : random_(std::random_device{}())
 {
-	return search(position, limitsFor(difficulty));
 }
 
-SearchResult SearchEngine::search(const Position &position, Limits limits)
+SearchEngine::SearchEngine(std::uint64_t seed) : random_(seed)
+{
+}
+
+SearchResult SearchEngine::bestMove(const Position &position, Difficulty difficulty)
+{
+	return search(position, limitsFor(difficulty), styleFor(difficulty));
+}
+
+SearchResult SearchEngine::search(const Position &position, Limits limits, Style style)
 {
 	if (limits.depth < 1 || limits.depth > 8 || limits.nodes < 1 || limits.time.count() < 1 ||
 		position.history.empty() || position.history.back() != position.board.repetitionKey()) {
 		throw std::invalid_argument("Invalid search limits or history");
 	}
 
-	return detail::Search(limits, position.history).run(position);
+	if (style.book) {
+		if (auto move = bookMove(position.board, random_)) {
+			SearchResult result;
+			result.move = move;
+			result.score = evaluate(position.board);
+			result.book = true;
+			return result;
+		}
+	}
+	return detail::Search(limits, position.history).run(position, style, random_);
 }
 
 } // namespace bot
