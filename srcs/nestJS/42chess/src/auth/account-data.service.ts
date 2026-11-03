@@ -181,7 +181,14 @@ export class AccountDataService {
   }
 
   private async anonymize(manager: EntityManager, user: User): Promise<void> {
-    // The account row is locked first, so a game cannot start while it is deleted.
+    // Open invitations from or to the account can no longer be played.
+    const waiting = `SELECT g.id FROM games g WHERE g.status = 'WAITING' AND (g."invitedOpponentId" = $1
+      OR EXISTS (SELECT 1 FROM game_players p WHERE p."gameId" = g.id AND p."userId" = $1))`;
+    // Locks in the order a join takes them, game then account, so the two never
+    // wait on each other: a join already running ends first, and its game counts
+    // as active below.
+    await manager.query(`${waiting} ORDER BY g.id FOR UPDATE OF g`, [user.id]);
+    // The account row is locked next, so a game cannot start while it is deleted.
     await manager.query(`SELECT id FROM users WHERE id = $1 FOR UPDATE`, [
       user.id,
     ]);
@@ -197,9 +204,6 @@ export class AccountDataService {
         message:
           'Finish or resign your current game before deleting the account.',
       });
-    // Open invitations from or to the account can no longer be played.
-    const waiting = `SELECT g.id FROM games g WHERE g.status = 'WAITING' AND (g."invitedOpponentId" = $1
-      OR EXISTS (SELECT 1 FROM game_players p WHERE p."gameId" = g.id AND p."userId" = $1))`;
     await manager.query(
       `DELETE FROM game_messages WHERE "gameId" IN (${waiting})`,
       [user.id],

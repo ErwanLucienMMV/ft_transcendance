@@ -15,7 +15,7 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
   let app: INestApplication, source: DataSource, sessions: SessionService;
   const owned = new Set<string>(),
     suffix = randomUUID().slice(0, 8);
-  let identity = {
+  let identity: { id: string; email: string; login?: string } = {
     id: `oauth_${suffix}`,
     email: `oauth_${suffix}@example.com`,
   };
@@ -39,7 +39,7 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
       JSON.stringify(
         url.includes('googleapis')
           ? { sub: identity.id, email: identity.email, email_verified: true }
-          : { id: identity.id },
+          : { id: identity.id, login: identity.login },
       ),
     );
   });
@@ -134,6 +134,18 @@ describe('OAuth routes and durable account ownership (SCRUM-81..88/93/94)', () =
       );
     },
   );
+  it('suggests a username from the provider login, accents dropped', async () => {
+    identity = {
+      id: `accent_${suffix}`,
+      email: `accent_${suffix}@example.com`,
+      login: `Renée${suffix}`,
+    };
+    const agent = request.agent(app.getHttpServer());
+    await callback(agent, 'github', await start(agent, 'github'));
+    const created = await exchange(agent).expect(200);
+    owned.add(created.body.user.id);
+    expect(created.body.user.username).toBe(`Renee${suffix}`);
+  });
   it('rejects callback CSRF and expired state before contacting the provider', async () => {
     const agent = request.agent(app.getHttpServer()),
       stranger = request.agent(app.getHttpServer());

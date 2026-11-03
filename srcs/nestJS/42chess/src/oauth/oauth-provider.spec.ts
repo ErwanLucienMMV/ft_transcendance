@@ -98,7 +98,7 @@ describe('Google, GitHub and 42 provider protocol', () => {
       'Bearer vendor-token',
     );
   });
-  it('does not trust an unverified Google email', async () => {
+  it('does not trust an unverified Google email, nor use any email for the username', async () => {
     http
       .mockResolvedValueOnce(json({ access_token: 'vendor-token' }))
       .mockResolvedValueOnce(
@@ -113,7 +113,7 @@ describe('Google, GitHub and 42 provider protocol', () => {
     ).resolves.toEqual({
       id: 'google-user',
       email: null,
-      username: 'alice',
+      username: null,
       avatarUrl: null,
     });
   });

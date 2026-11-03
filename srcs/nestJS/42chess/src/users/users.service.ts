@@ -99,23 +99,26 @@ export class UsersService {
     id: string,
     reference: string | null,
   ): Promise<{ user: User; previous: string | null }> {
-    const rows: unknown = await this.users.query(
-      `UPDATE "users" AS next SET "avatarUrl" = $2, "updatedAt" = now()
-         FROM "users" AS previous
-        WHERE next."id" = $1 AND previous."id" = next."id"
-        RETURNING previous."avatarUrl" AS "previous"`,
-      [id, reference],
-    );
-    const [updated] = (
-      Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows
-    ) as { previous: string | null }[];
-    if (!updated)
-      throw new NotFoundException({
-        statusCode: 404,
-        code: 'USER_NOT_FOUND',
-        message: 'User not found.',
-      });
-    return { user: await this.requireById(id), previous: updated.previous };
+    // The row lock makes a concurrent upload wait, then read the avatar this one
+    // wrote: each replaced file is reported, and removed, exactly once.
+    const previous = await this.users.manager.transaction(async (manager) => {
+      const [row] = (await manager.query(
+        `SELECT "avatarUrl" FROM "users" WHERE "id" = $1 FOR UPDATE`,
+        [id],
+      )) as { avatarUrl: string | null }[];
+      if (!row)
+        throw new NotFoundException({
+          statusCode: 404,
+          code: 'USER_NOT_FOUND',
+          message: 'User not found.',
+        });
+      await manager.query(
+        `UPDATE "users" SET "avatarUrl" = $2, "updatedAt" = now() WHERE "id" = $1`,
+        [id, reference],
+      );
+      return row.avatarUrl;
+    });
+    return { user: await this.requireById(id), previous };
   }
 
   async updateProfile(
@@ -347,14 +350,6 @@ export class UsersService {
 
   async setRecoveryCodes(id: string, hashes: string[]): Promise<void> {
     await this.users.update(id, { twoFactorRecoveryCodes: hashes });
-  }
-
-  /** Recovery codes still unused, or null without 2FA. */
-  async recoveryCodesLeft(id: string): Promise<number | null> {
-    const user = await this.findWithSecrets(id);
-    return user?.twoFactorEnabledAt
-      ? (user.twoFactorRecoveryCodes?.length ?? 0)
-      : null;
   }
 
   /** A new password also burns any pending reset link. */

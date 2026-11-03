@@ -389,7 +389,8 @@ export class SecuritySettings {
     link.href = url;
     link.download = '42chess-recovery-codes.txt';
     link.click();
-    URL.revokeObjectURL(url);
+    // Some browsers start the download after click() returns.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   private checkedCode(): string | null {

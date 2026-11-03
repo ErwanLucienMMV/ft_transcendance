@@ -161,7 +161,8 @@ export class DataSettings {
             '42chess-data.json',
           );
           link.click();
-          URL.revokeObjectURL(url);
+          // Some browsers start the download after click() returns.
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
           this.exportMessage.set({ ok: true, text: 'Your data was downloaded.' });
         },
         error: (error: unknown) =>

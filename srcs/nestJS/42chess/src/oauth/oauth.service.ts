@@ -41,6 +41,7 @@ async function freeUsername(
 ): Promise<string> {
   const base = (suggestion ?? '')
     .normalize('NFKD')
+    .replace(/\p{M}+/gu, '')
     .replace(/[^A-Za-z0-9_]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 27);

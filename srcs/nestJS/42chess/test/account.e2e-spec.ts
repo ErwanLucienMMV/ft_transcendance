@@ -20,7 +20,13 @@ class FakeMailClient {
     this.sent.push({ kind: 'email-verification', to, token });
     return Promise.resolve();
   }
+  /** Makes the next reset email fail, as when forgemail is down. */
+  failNext = false;
   sendPasswordReset(to: string, _username: string, token: string) {
+    if (this.failNext) {
+      this.failNext = false;
+      return Promise.reject(new Error('forgemail is down'));
+    }
     this.sent.push({ kind: 'password-reset', to, token });
     return Promise.resolve();
   }
@@ -293,6 +299,15 @@ describe('Account self-service (e2e)', () => {
         .post('/v1/auth/login')
         .send({ login: dave.username, password: 'another long one' })
         .expect(200);
+    });
+
+    it('answers a reset request the same way while the mail service is down', async () => {
+      const gus = await account();
+      mail.failNext = true;
+      await http()
+        .post('/v1/auth/forgot-password')
+        .send({ email: gus.email })
+        .expect(202);
     });
 
     it('resets a forgotten password with a single-use emailed link', async () => {

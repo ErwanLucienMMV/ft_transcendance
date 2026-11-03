@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { generateSecret, generateURI } from 'otplib';
@@ -41,6 +42,8 @@ export interface TwoFactorSetup {
  */
 @Injectable()
 export class AccountSecurityService {
+  private readonly logger = new Logger(AccountSecurityService.name);
+
   constructor(
     private readonly users: UsersService,
     private readonly auth: AuthService,
@@ -152,14 +155,12 @@ export class AccountSecurityService {
       hashVerificationToken(token),
       new Date(Date.now() + PASSWORD_RESET_TTL_MS),
     );
-    try {
-      await this.mail.sendPasswordReset(user.email, user.username, token);
-    } catch (error: unknown) {
-      throw toHttpError(
-        error,
-        'The email could not be sent, try again in a moment.',
+    // Not awaited: a mail outage or a slow server must not tell this account apart.
+    void this.mail
+      .sendPasswordReset(user.email, user.username, token)
+      .catch(() =>
+        this.logger.warn('A password reset email could not be sent.'),
       );
-    }
   }
 
   /** A used link is burnt, and every session of the account is signed out. */

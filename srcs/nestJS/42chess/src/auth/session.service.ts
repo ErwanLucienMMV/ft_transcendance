@@ -234,9 +234,16 @@ export class SessionService {
    * Open sockets of those sessions close at once.
    */
   async revokeAll(userId: string, keep?: string): Promise<void> {
-    const live = await this.sessions.findBy({ userId, revokedAt: IsNull() });
-    for (const session of live)
-      if (session.id !== keep) await this.revoke(session.id, userId);
+    // One statement, so a session opened meanwhile cannot slip between a read
+    // and the updates; open sockets of each revoked session close at once.
+    const query = this.sessions
+      .createQueryBuilder()
+      .update()
+      .set({ revokedAt: () => 'CURRENT_TIMESTAMP' })
+      .where('"userId" = :userId AND "revokedAt" IS NULL', { userId });
+    if (keep) query.andWhere('id <> :keep', { keep });
+    const { raw } = await query.returning('id').execute();
+    for (const { id } of raw as { id: string }[]) this.revoked(id);
   }
 
   /**

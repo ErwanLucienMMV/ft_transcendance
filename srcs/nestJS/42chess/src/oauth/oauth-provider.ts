@@ -269,11 +269,8 @@ export class OAuthProviders implements OnApplicationBootstrap {
           typeof email === 'string' && email.length <= 254 && isEmail(email)
             ? email.toLowerCase()
             : null,
-        username: text(
-          name === 'google'
-            ? (profile.given_name ?? String(profile.email ?? '').split('@')[0])
-            : profile.login,
-        ),
+        // Never derived from the email address, which stays private.
+        username: text(name === 'google' ? profile.given_name : profile.login),
         avatarUrl: httpsUrl(
           name === 'google'
             ? profile.picture

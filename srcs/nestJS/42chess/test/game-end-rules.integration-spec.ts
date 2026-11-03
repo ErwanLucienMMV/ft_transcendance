@@ -253,6 +253,22 @@ describe('Game end rules, rated games and invitations', () => {
       });
     });
 
+    it('does not start a game with an account deleted meanwhile', async () => {
+      const invitation = await f.service.create(f.outsider, {
+        initialTime: 300000,
+      });
+      await f.source.query(
+        `UPDATE users SET "deletedAt" = now() WHERE id = $1`,
+        [f.outsider],
+      );
+      await expect(
+        f.service.join(f.black, invitation.game.id),
+      ).rejects.toMatchObject({ code: 'USER_NOT_FOUND' });
+      await expect(
+        f.service.create(f.outsider, { initialTime: 300000 }),
+      ).rejects.toMatchObject({ code: 'USER_NOT_FOUND' });
+    });
+
     it('refuses to start a second game for a player who is already playing', async () => {
       await f.active();
       const invitation = await f.service.create(f.outsider, {
