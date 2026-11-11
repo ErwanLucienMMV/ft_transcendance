@@ -16,7 +16,7 @@ Tickets: SCRUM-303, SCRUM-304, SCRUM-305, SCRUM-306, SCRUM-309, SCRUM-310, SCRUM
 - CLI import loads all 128 starter puzzles; a second import skips all 128.
 - `make test-puzzles` runs focused tests in the existing Docker stack. `make test`/`npm run test:all` discover the new suites automatically. CI also triggers on pushes to `feat/puzzle`.
 
-Tests were executed locally with PostgreSQL 15 and real C++ daemons. Docker is unavailable in the implementation environment; container execution and GitHub Actions results remain to be confirmed after pushing. See `docs/puzzles/VALIDATION.md`.
+Tests were executed locally with PostgreSQL 15 and real C++ daemons. Docker was unavailable during that validation run; container execution and GitHub Actions results were still pending at the time of this report. See `docs/puzzles/VALIDATION.md`.
 
 ## Deployment
 

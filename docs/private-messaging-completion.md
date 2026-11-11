@@ -65,7 +65,7 @@ The recipient-race regression was run before the correction and reproduced
 regression failed for the same missing translation. The existing database
 foreign key prevented an orphan row throughout.
 
-Socket checks require local network access: the initial sandboxed gateway run
-failed with `listen EPERM`; rerunning with socket access passed. Vite emits a
-non-failing notice about native TypeScript path resolution; configuration and
-test coverage are preserved.
+Socket checks require local network access: the initial gateway run lacked
+socket permissions and failed with `listen EPERM`; rerunning with socket access
+passed. Vite emits a non-failing notice about native TypeScript path resolution;
+configuration and test coverage are preserved.

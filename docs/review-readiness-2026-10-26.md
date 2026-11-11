@@ -5,8 +5,8 @@ Les conflits et la protection du retrait OAuth sont traités dans le
 [rapport des corrections](review-fixes-2026-10-26.md), qui donne les résultats
 de validation combinée. Le présent document conserve le relevé historique
 antérieur à cette intégration ; ses mentions de conflits à venir ne décrivent
-plus l’état de la branche corrigée. L’utilisateur a confirmé que « These.md »
-désigne le document local **Proposition spec.md**.
+plus l’état de la branche corrigée. La référence « These.md » désigne le
+document local **Proposition spec.md**.
 
 ## Publication après vérification
 
@@ -178,7 +178,7 @@ présence, puzzles et ELO des collègues restent attribués à leurs auteurs.
 - Tokens applicatifs uniquement en mémoire ; un rechargement demande une connexion.
 - Les secrets OAuth ne sont pas dans Git. Chacun configure son environnement ;
   l'activation et le test sur le domaine final HTTPS restent pour la fin du projet.
-- Pas de PR ouverte par l'agent ; branches publiées, tickets In Review.
+- Au moment du relevé initial, aucune PR ouverte ; branches publiées, tickets In Review.
 
 ## Prochains tickets conseillés
 

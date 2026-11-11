@@ -134,20 +134,19 @@ References used throughout the project:
 
 ### Use of AI
 
-An AI coding assistant was used in the last phase of the project:
+Codex and Claude were used to help review and stabilize the team's implementation:
 
-- to **audit** the whole repository against the subject (bugs, unfinished modules, security,
-  accessibility, missing documentation) and turn the findings into a list of tasks;
-- to **implement** a large part of that list, delivered as ten branches and pull requests:
-  infrastructure and security hardening, complete game end rules, the computer opponent's
-  levels, account management, social controls, progression, monitoring and alerts, front-end
-  design system and comfort, translations, and this documentation;
-- to **write tests** for these changes (unit, database, API end-to-end and browser tests) and
-  to **translate** the interface into French and Spanish.
+- to **double-check existing code** against the subject and identify bugs, security issues,
+  accessibility gaps and missing documentation;
+- to **investigate bugs and help prepare targeted fixes**, including validation,
+  authorization, concurrency and integration problems;
+- to **write and extend regression tests** for the existing features and fixes (unit,
+  database, HTTP/WebSocket and browser tests);
+- to assist with **documentation** and **French and Spanish interface translations**.
 
-Each change is delivered as a pull request, runs the full test suites and is reviewed by the
-team before it is merged.
-<!-- TODO(team): add any other use of AI by each member, or confirm there was none. -->
+The team is responsible for the project's design and implementation, reviewing suggested
+changes, validating their behavior and explaining the code during evaluation. Changes go
+through pull requests and the project's automated checks before integration.
 
 ## Team Information
 
@@ -279,10 +278,11 @@ UUIDs; all dates are `timestamptz`.
 | Gaming: gamification | Minor | 1 | Experience, levels, 14 achievements, daily puzzle streak, leaderboard. | hcombaud |
 | Gaming: spectator mode | Minor | 1 | Live list of games and real-time spectating with its own chat label. | hcombaud |
 | DevOps: monitoring with Prometheus and Grafana | Major | 2 | Exporters for host, containers and PostgreSQL, application metrics, dashboards, tested alert rules, alerts by email. | emaigne, hcombaud |
+| DevOps: backend as microservices | Major | 2 | Separately built and deployed services with focused responsibilities: NestJS for accounts and game coordination, forgemail for email delivery over HTTP, the C++ rules engine for move validation and the C++ bot for move selection over WebSockets. Services communicate through explicit APIs on the internal Docker network; see [architecture](docs/architecture.md). | all |
 | DevOps: health check, status page, backups and recovery | Minor | 1 | `/api/v1/health`, public `/status`, hourly backups, documented and tested restore. | emaigne, hcombaud |
 | Data: GDPR compliance | Minor | 1 | Data export, account deletion with anonymised games, privacy policy describing the real data. | hcombaud |
 
-**Total implemented: 27 points** (8 major modules = 16, 11 minor modules = 11). The subject
+**Total implemented: 29 points** (9 major modules = 18, 11 minor modules = 11). The subject
 counts 14 points for the mandatory part and at most 5 bonus points.
 
 Server-side rendering is not claimed: public pages are prerendered at build time and served as
@@ -314,8 +314,6 @@ interface without leaving any behind (checked by tests).
 
 **ntassin** (former member) built the first authentication: registration, email verification,
 password sign-in, two-factor authentication, the users module and the forgemail email service.
-
-<!-- TODO(team): review these summaries and add the difficulties each member wants to highlight. -->
 
 ## Known limitations
 

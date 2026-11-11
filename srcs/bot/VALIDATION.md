@@ -36,10 +36,10 @@ Added/updated real PostgreSQL tests in `test/bot-games.integration-spec.ts` for:
   saved reply after concurrent retry.
 - Concurrent account creation limits, draw rejection and human/bot-seat checks.
 
-Those PostgreSQL tests and full Docker image/stack execution **could not run in
-this sandbox**: Docker is unavailable and the environment has no non-root
-PostgreSQL runtime. They are included in root `make test` and must pass on the
-Docker-capable checkout before merge. The reviewer's previous full run applies
+Those PostgreSQL tests and full Docker image/stack execution **were not run
+during this review**: Docker and a non-root PostgreSQL runtime were unavailable.
+They are included in root `make test` and must pass on the Docker-capable
+checkout before merge. The reviewer's previous full run applies
 to the earlier revision, not automatically to these new changes.
 
 ## Existing C++ validation

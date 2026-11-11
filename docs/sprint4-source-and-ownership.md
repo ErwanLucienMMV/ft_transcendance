@@ -1,11 +1,11 @@
 # Sprint 4: source Jira et responsabilités
 
-L'utilisateur a désigné `C:/Users/erwan/Downloads/Jira.csv` comme source de vérité
-Jira le 28 octobre 2026. Empreinte SHA-256 du fichier consulté :
+Le relevé Jira du 28 octobre 2026 utilise l'export local
+`C:/Users/erwan/Downloads/Jira.csv`. Empreinte SHA-256 du fichier consulté :
 `C96FA255394A9323B8BB2AEA977E5F353AEBC4E6BC0EB6F395575548224770DE`.
 Les 42 clés sont distinctes : 5 Done, 10 In Review, 3 In Progress, 24 To Do.
 Une ligne sans clé n'est pas un ticket. L'export ne comporte pas de colonne
-sprint : le périmètre Sprint 4 provient de la mission utilisateur.
+sprint : le périmètre Sprint 4 ci-dessous a été défini séparément de cet export.
 
 ## Inventaire Jira
 

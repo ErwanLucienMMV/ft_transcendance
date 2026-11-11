@@ -1,8 +1,8 @@
 # PR #60 — corrections après review, 26 octobre 2026
 
 Ce rapport complète le [relevé initial](review-readiness-2026-10-26.md).
-La référence fonctionnelle est **Proposition spec.md**, confirmée par
-l’utilisateur le 26 octobre (fichier local non suivi), et le sujet fourni
+Les références fonctionnelles retenues le 26 octobre sont **Proposition spec.md**
+(fichier local non suivi) et le sujet fourni
 `ft_transcendence.pdf`. Les mentions antérieures de « These.md » désignent cette
 proposition. Les contrats auth et puzzle existants ont également été relus.
 

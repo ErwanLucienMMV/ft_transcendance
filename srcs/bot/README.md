@@ -305,7 +305,7 @@ then use `npm run test:db`. Override `TEST_BOT_ENGINE_URL` and
 - `test:all` (hence root `make test`) includes `nest_adapter_test.mjs`. In Docker
   it targets the bot/rules services; standalone it launches both local daemons.
 
-See `VALIDATION.md` for what was executed in the implementation environment.
+See `VALIDATION.md` for the recorded checks and their execution limits.
 
 ## Ticket mapping
 

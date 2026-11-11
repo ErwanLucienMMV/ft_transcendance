@@ -31,7 +31,7 @@ An initial local run against PostgreSQL 16 failed the existing test that explici
 
 ## Docker and GitHub Actions
 
-Docker is not installed in this implementation environment, so no container build/run or remote GitHub Actions execution is claimed. The tests are wired into the existing Docker test image and Vitest discovery. Run these from the repository root:
+Docker was unavailable during this local validation run. Container builds, container execution and remote GitHub Actions results were not verified in that run. The tests are wired into the existing Docker test image and Vitest discovery. Run these from the repository root:
 
 ```sh
 make test-puzzles
