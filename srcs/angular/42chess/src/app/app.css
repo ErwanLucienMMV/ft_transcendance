@@ -238,6 +238,16 @@ main {
 .site-header:is([data-layout='stacked'], [data-layout='narrow']) .nav-register {
   padding-inline: 10px;
 }
+/* The narrowest phones: tighter account buttons, so that they stay beside the logo. */
+.site-header[data-layout='narrow'] .header-inner {
+  column-gap: 8px;
+}
+.site-header[data-layout='narrow'] .account {
+  gap: 4px;
+}
+.site-header[data-layout='narrow'] .account :is(.nav-login, .nav-register, .nav-signout) {
+  padding-inline: 8px;
+}
 /* Small screens get the two rows before the header is measured, as on a prerendered page. */
 @media (max-width: 760px) {
   .site-header:not([data-layout]) .header-inner {
