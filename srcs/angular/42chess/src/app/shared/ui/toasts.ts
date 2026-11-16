@@ -114,7 +114,7 @@ export class Toasts {
   styles: `
     .toasts {
       position: fixed;
-      top: calc(var(--header-height) + 12px);
+      top: calc(var(--header-offset, var(--header-height)) + 12px);
       right: 16px;
       z-index: 60;
       display: grid;

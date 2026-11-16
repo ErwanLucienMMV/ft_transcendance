@@ -6,6 +6,7 @@ import { SessionLifecycle } from './core/auth/session-lifecycle';
 import { AuthSession } from './core/auth/auth-session';
 import { SocialNotices } from './core/notifications/social-notices';
 import { UnreadMessages } from './core/notifications/unread-messages';
+import { HeaderLayoutDirective } from './header-layout';
 import { Preferences, themeOptions } from './core/preferences/preferences';
 import { RealtimeService } from './core/realtime/realtime.service';
 import { Badge } from './shared/ui/badge';
@@ -22,6 +23,7 @@ import { UserAvatar } from './shared/user-avatar';
     SocialNotices,
     UserAvatar,
     Badge,
+    HeaderLayoutDirective,
     LanguageSelect,
     Segmented,
     ToastHost,
