@@ -1,6 +1,6 @@
 <ng-container *transloco="let t">
   <a class="skip-link" href="#main-content">{{ t('app.skip') }}</a>
-  <header class="site-header">
+  <header class="site-header" appHeaderLayout>
     <div class="header-inner">
       <a class="brand" routerLink="/" [attr.aria-label]="t('app.home')">
         <span class="brand-mark" aria-hidden="true"

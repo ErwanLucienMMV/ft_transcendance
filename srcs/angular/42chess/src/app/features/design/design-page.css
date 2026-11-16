@@ -14,7 +14,7 @@
 section.card {
   display: grid;
   gap: 14px;
-  scroll-margin-top: calc(var(--header-height) + 16px);
+  scroll-margin-top: calc(var(--header-offset, var(--header-height)) + 16px);
 }
 h2,
 h3 {

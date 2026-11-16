@@ -61,6 +61,10 @@
   gap: 2px;
   flex: 1;
   min-width: 0;
+  scrollbar-width: none;
+}
+.main-nav::-webkit-scrollbar {
+  display: none;
 }
 .main-nav a {
   padding: 7px 12px;
@@ -84,6 +88,7 @@
   align-items: center;
   gap: 6px;
   flex: none;
+  margin-left: auto;
 }
 .account-link {
   display: inline-flex;
@@ -203,39 +208,62 @@ main {
 .skip-link:focus {
   top: 12px;
 }
-@media (max-width: 1000px) {
-  .account-name,
-  .account-elo {
-    display: none;
-  }
-  .account-link {
-    padding: 3px;
-  }
+/* HeaderLayout picks the roomiest layout that fits, as the header gets wider with the
+   language, the player's name and the unread count: first the name and Elo go, then the
+   sections move to a second row, then the site name goes and only its logo stays. */
+.site-header:not([data-layout='wide']) :is(.account-name, .account-elo) {
+  display: none;
 }
-/* Small screens: brand and account on one row, the sections in a scrollable strip below. */
+.site-header:not([data-layout='wide']) .account-link {
+  padding: 3px;
+}
+.site-header[data-layout='narrow'] .brand-name {
+  display: none;
+}
+/* Two rows: brand and account on one row, the sections in a scrollable strip below. */
+.site-header:is([data-layout='stacked'], [data-layout='narrow']) .header-inner {
+  flex-wrap: wrap;
+  gap: 0 12px;
+  padding-top: 10px;
+}
+.site-header:is([data-layout='stacked'], [data-layout='narrow']) .main-nav {
+  order: 3;
+  flex-basis: 100%;
+  margin: 8px calc(-1 * var(--gutter)) 0;
+  padding: 0 var(--gutter) 8px;
+  overflow-x: auto;
+  /* Fades the last link so the strip reads as scrollable. */
+  mask-image: linear-gradient(to right, #000 85%, transparent);
+}
+.site-header:is([data-layout='stacked'], [data-layout='narrow']) .nav-register {
+  padding-inline: 10px;
+}
+/* The narrowest phones: tighter account buttons, so that they stay beside the logo. */
+.site-header[data-layout='narrow'] .header-inner {
+  column-gap: 8px;
+}
+.site-header[data-layout='narrow'] .account {
+  gap: 4px;
+}
+.site-header[data-layout='narrow'] .account :is(.nav-login, .nav-register, .nav-signout) {
+  padding-inline: 8px;
+}
+/* Small screens get the two rows before the header is measured, as on a prerendered page. */
 @media (max-width: 760px) {
-  .header-inner {
+  .site-header:not([data-layout]) .header-inner {
     flex-wrap: wrap;
     gap: 0 12px;
     padding-top: 10px;
   }
-  .brand {
-    flex: 1;
-  }
-  .main-nav {
+  .site-header:not([data-layout]) .main-nav {
     order: 3;
     flex-basis: 100%;
     margin: 8px calc(-1 * var(--gutter)) 0;
     padding: 0 var(--gutter) 8px;
     overflow-x: auto;
-    scrollbar-width: none;
-    /* Fades the last link so the strip reads as scrollable. */
     mask-image: linear-gradient(to right, #000 85%, transparent);
   }
-  .main-nav::-webkit-scrollbar {
-    display: none;
-  }
-  .nav-register {
+  .site-header:not([data-layout]) .nav-register {
     padding-inline: 10px;
   }
 }
